@@ -14,18 +14,70 @@
   <header class="app-header" role="banner">
     <div class="header-inner">
       <div class="app-logo">Matika <span>přijímačky</span></div>
-      <button id="btn-dark-mode" class="btn-icon" aria-label="Přepnout tmavý/světlý režim" title="Tmavý/světlý režim">🌙</button>
+      <div class="header-akce">
+        <button id="btn-zmenit-klic" class="btn-icon" title="Nastavit OpenAI API klíč" aria-label="Nastavit API klíč">🔑</button>
+        <button id="btn-dark-mode"   class="btn-icon" title="Tmavý/světlý režim" aria-label="Přepnout tmavý/světlý režim">🌙</button>
+      </div>
     </div>
   </header>
 
-  <!-- ══════════════════════════════════════════════════════
-       OBRAZOVKA 1 — Domovská (výběr tématu)
-  ═══════════════════════════════════════════════════════ -->
   <main>
-    <div id="screen-home" class="screen">
+
+    <!-- ══════════════════════════════════════════════════════
+         OBRAZOVKA 0 — API klíč
+    ═══════════════════════════════════════════════════════ -->
+    <div id="screen-apikey" class="screen hidden">
+      <div class="app-container apikey-container">
+        <div class="apikey-card">
+          <div class="apikey-ikona">🔑</div>
+          <h1 class="screen-title">Připoj AI asistenta</h1>
+          <p class="screen-subtitle">
+            Pro sokratovský dialog s AI zadej svůj OpenAI API klíč.<br>
+            Nebo appku spusť bez AI — nápovědy budou statické.
+          </p>
+
+          <div class="apikey-pole-wrap">
+            <label for="apikey-input" class="apikey-label">OpenAI API klíč</label>
+            <input
+              id="apikey-input"
+              type="password"
+              class="apikey-input"
+              placeholder="sk-..."
+              autocomplete="off"
+              spellcheck="false"
+              aria-describedby="apikey-bezpecnost"
+            >
+            <p id="apikey-bezpecnost" class="apikey-bezpecnost">
+              🔒 Klíč se ukládá pouze ve tvém prohlížeči a nikam se neodesílá kromě přímých volání na api.openai.com.
+            </p>
+            <p id="apikey-chyba" class="apikey-chyba hidden" role="alert"></p>
+          </div>
+
+          <div class="apikey-akce">
+            <button id="btn-apikey-uloz" class="btn-primary">Uložit a spustit</button>
+            <button id="btn-apikey-preskocit" class="btn-secondary">Pokračovat bez AI</button>
+            <button id="btn-apikey-zpet" class="btn-secondary hidden">← Zpět</button>
+          </div>
+
+          <div class="apikey-footer">
+            <button id="btn-apikey-smazat" class="btn-link" aria-label="Smazat uložený klíč">Smazat uložený klíč</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         OBRAZOVKA 1 — Domovská (výběr tématu)
+    ═══════════════════════════════════════════════════════ -->
+    <div id="screen-home" class="screen hidden">
       <div class="app-container">
-        <h1 class="screen-title">Vyber si téma</h1>
-        <p class="screen-subtitle">Procvič si látku sokratovským dialogem — appka tě povede krok za krokem.</p>
+        <div class="home-header">
+          <div>
+            <h1 class="screen-title">Vyber si téma</h1>
+            <p class="screen-subtitle">Procvič si látku sokratovským dialogem — appka tě povede krok za krokem.</p>
+          </div>
+          <div id="ai-stav" class="ai-stav ai-off" aria-live="polite">📖 Statický mód</div>
+        </div>
         <div id="temata-grid" class="temata-grid" role="list" aria-label="Témata">
           <!-- Karty se vygenerují přes JS -->
         </div>
@@ -106,9 +158,11 @@
         </div>
       </div>
     </div>
+
   </main>
 
-  <!-- Skripty -->
+  <!-- Skripty — pořadí je důležité -->
+  <script src="js/config.js"></script>
   <script src="js/ulohy.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/app.js"></script>

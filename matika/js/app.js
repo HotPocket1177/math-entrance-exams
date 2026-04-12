@@ -4,14 +4,14 @@ const App = (() => {
   // ─── Stav aplikace ───────────────────────────────────────────
   let aktualniTema = null;
   let aktualniUlohaIndex = 0;
-  let skore = { spravne: 0, celkem: 0, temy: {} };
+  let skore = { spravne: 0, celkem: 0 };
   let dialogLog = [];
+  let cekaNaApi = false;
 
-  // Progress v localStorage
+  // ─── localStorage helpers ────────────────────────────────────
   function nactiProgress() {
-    try {
-      return JSON.parse(localStorage.getItem('matika_progress') || '{}');
-    } catch { return {}; }
+    try { return JSON.parse(localStorage.getItem('matika_progress') || '{}'); }
+    catch { return {}; }
   }
 
   function ulozProgress(temaId, ulohaId, uspech) {
@@ -27,24 +27,44 @@ const App = (() => {
     return Object.values(p[temaId]).filter(v => v === 'spravne').length;
   }
 
-  // ─── Obrazovky ───────────────────────────────────────────────
+  function maApiKlic() {
+    return !!localStorage.getItem(CONFIG.apiKeyStorageKey);
+  }
+
+  // ─── Správa obrazovek ─────────────────────────────────────────
+  const SCREENS = ['screen-home', 'screen-apikey', 'screen-uloha', 'screen-vysledky'];
+
+  function zobrazScreen(id) {
+    SCREENS.forEach(s => {
+      document.getElementById(s).classList.toggle('hidden', s !== id);
+    });
+  }
+
   function zobrazDomovskou() {
-    document.getElementById('screen-home').classList.remove('hidden');
-    document.getElementById('screen-uloha').classList.add('hidden');
-    document.getElementById('screen-vysledky').classList.add('hidden');
+    zobrazScreen('screen-home');
     renderTemata();
   }
 
-  function zobrazUlohu() {
-    document.getElementById('screen-home').classList.add('hidden');
-    document.getElementById('screen-uloha').classList.remove('hidden');
-    document.getElementById('screen-vysledky').classList.add('hidden');
+  function zobrazApiKlic(callbackPoCancelaci) {
+    zobrazScreen('screen-apikey');
+    document.getElementById('apikey-input').value =
+      localStorage.getItem(CONFIG.apiKeyStorageKey) || '';
+    document.getElementById('apikey-input').focus();
+
+    // Tlačítko Zpět/Přeskočit — skryj pokud je to první spuštění (žádný klíč)
+    const btnZpet = document.getElementById('btn-apikey-zpet');
+    if (callbackPoCancelaci) {
+      btnZpet.classList.remove('hidden');
+      btnZpet.onclick = callbackPoCancelaci;
+    } else {
+      btnZpet.classList.add('hidden');
+    }
   }
 
+  function zobrazUlohu() { zobrazScreen('screen-uloha'); }
+
   function zobrazVysledky() {
-    document.getElementById('screen-home').classList.add('hidden');
-    document.getElementById('screen-uloha').classList.add('hidden');
-    document.getElementById('screen-vysledky').classList.remove('hidden');
+    zobrazScreen('screen-vysledky');
     renderVysledky();
   }
 
@@ -52,6 +72,14 @@ const App = (() => {
   function renderTemata() {
     const grid = document.getElementById('temata-grid');
     grid.innerHTML = '';
+
+    // Indikátor AI módu
+    const aiStav = document.getElementById('ai-stav');
+    if (aiStav) {
+      aiStav.textContent = maApiKlic() ? '🤖 AI mód aktivní' : '📖 Statický mód';
+      aiStav.className = maApiKlic() ? 'ai-stav ai-on' : 'ai-stav ai-off';
+    }
+
     TEMATA.forEach(tema => {
       const celkem = tema.ulohy.length;
       const hotovo = pocetDokoncenychUloh(tema.id);
@@ -75,7 +103,9 @@ const App = (() => {
         </div>
       `;
       karta.addEventListener('click', () => spustTema(tema));
-      karta.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); spustTema(tema); } });
+      karta.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); spustTema(tema); }
+      });
       grid.appendChild(karta);
     });
   }
@@ -84,19 +114,15 @@ const App = (() => {
   function spustTema(tema) {
     aktualniTema = tema;
     aktualniUlohaIndex = 0;
-    skore = { spravne: 0, celkem: tema.ulohy.length, temy: {} };
+    skore = { spravne: 0, celkem: tema.ulohy.length };
     dialogLog = [];
     zobrazUlohu();
-    renderHlavickaUlohy();
+    document.getElementById('uloha-tema-nazev').textContent = tema.nazev;
     nactiUlohu(0);
   }
 
-  function renderHlavickaUlohy() {
-    document.getElementById('uloha-tema-nazev').textContent = aktualniTema.nazev;
-  }
-
-  // ─── Načtení úlohy ────────────────────────────────────────────
-  function nactiUlohu(index) {
+  // ─── Načtení úlohy (async — čeká na úvodní otázku z API) ─────
+  async function nactiUlohu(index) {
     if (index >= aktualniTema.ulohy.length) {
       zobrazVysledky();
       return;
@@ -105,28 +131,70 @@ const App = (() => {
     const uloha = aktualniTema.ulohy[index];
     dialogLog = [];
 
-    // Progress bar nahoře
+    // Progress bar
     const procent = Math.round((index / aktualniTema.ulohy.length) * 100);
     document.getElementById('uloha-progress-fill').style.width = procent + '%';
-    document.getElementById('uloha-progress-text').textContent = `Úloha ${index + 1} z ${aktualniTema.ulohy.length}`;
+    document.getElementById('uloha-progress-text').textContent =
+      `Úloha ${index + 1} z ${aktualniTema.ulohy.length}`;
 
     // Inicializace enginu
     const uvod = Engine.inicializuj(uloha);
 
     // Vyčisti dialog
-    const logEl = document.getElementById('dialog-log');
-    logEl.innerHTML = '';
+    document.getElementById('dialog-log').innerHTML = '';
 
-    // Zobraz zadání + první otázku
+    // Zobraz zadání
     pridejZpravu('system', uvod.text);
-    pridejZpravu('hint', uvod.otazka);
 
-    // Vstupní pole
-    document.getElementById('vstup-pole').value = '';
-    document.getElementById('vstup-pole').disabled = false;
-    document.getElementById('btn-odeslat').disabled = false;
+    // Vstupní pole — zamknout dokud nedostaneme první otázku
+    setVstupDisabled(true);
     document.getElementById('btn-dalsi').classList.add('hidden');
+
+    // Zobraz loading a získej úvodní otázku (AI nebo statická)
+    pokazLoadingIndikator();
+    const uvodniOtazka = await Engine.getUvodniOtazka();
+    skrejLoadingIndikator();
+
+    if (uvodniOtazka.error && !uvodniOtazka.fallback) {
+      zobrazApiChybu(uvodniOtazka.error);
+    }
+    pridejZpravu('hint', uvodniOtazka.text);
+
+    // Odemknout vstup
+    setVstupDisabled(false);
+    document.getElementById('vstup-pole').value = '';
     document.getElementById('vstup-pole').focus();
+  }
+
+  // ─── Loading indikátor ────────────────────────────────────────
+  function pokazLoadingIndikator() {
+    cekaNaApi = true;
+    setVstupDisabled(true);
+    const logEl = document.getElementById('dialog-log');
+    const el = document.createElement('div');
+    el.id = 'loading-msg';
+    el.className = 'msg msg-loading msg-visible';
+    el.setAttribute('aria-label', 'Přemýšlím…');
+    el.innerHTML = `
+      <span class="msg-ikona" aria-hidden="true">🤔</span>
+      <div class="msg-obsah">
+        <span class="msg-label">Přemýšlím…</span>
+        <div class="loading-dots"><span></span><span></span><span></span></div>
+      </div>
+    `;
+    logEl.appendChild(el);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function skrejLoadingIndikator() {
+    cekaNaApi = false;
+    const el = document.getElementById('loading-msg');
+    if (el) el.remove();
+  }
+
+  function setVstupDisabled(disabled) {
+    document.getElementById('vstup-pole').disabled = disabled;
+    document.getElementById('btn-odeslat').disabled = disabled;
   }
 
   // ─── Dialog ──────────────────────────────────────────────────
@@ -136,8 +204,8 @@ const App = (() => {
     const msg = document.createElement('div');
     msg.className = `msg msg-${typ}`;
 
-    const ikona = { system: '📋', student: '✏️', hint: '💡', uspech: '✅', reseni: '📖', chyba: '⚠️', info: 'ℹ️' };
-    const label = { system: 'Zadání', student: 'Ty', hint: 'Nápověda', uspech: 'Správně', reseni: 'Řešení', chyba: 'Upozornění', info: 'Info' };
+    const ikona  = { system: '📋', student: '✏️', hint: '💡', uspech: '✅', reseni: '📖', chyba: '⚠️', info: 'ℹ️', apierror: '🔌' };
+    const label  = { system: 'Zadání', student: 'Ty', hint: 'Nápověda', uspech: 'Správně', reseni: 'Řešení', chyba: 'Upozornění', info: 'Info', apierror: 'Chyba API' };
 
     msg.innerHTML = `
       <span class="msg-ikona" aria-hidden="true">${ikona[typ] || '•'}</span>
@@ -147,12 +215,12 @@ const App = (() => {
       </div>
     `;
     logEl.appendChild(msg);
-
-    // Animace
     requestAnimationFrame(() => msg.classList.add('msg-visible'));
-
-    // Scroll na konec
     logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function zobrazApiChybu(chyba) {
+    pridejZpravu('apierror', `Nepodařilo se připojit k AI (${chyba}). Pokračuji se statickými nápovědami.`);
   }
 
   function escapujHtml(text) {
@@ -163,8 +231,10 @@ const App = (() => {
       .replace(/\n/g, '<br>');
   }
 
-  // ─── Odeslání odpovědi ────────────────────────────────────────
-  function odeslat() {
+  // ─── Odeslání odpovědi (async) ────────────────────────────────
+  async function odeslat() {
+    if (cekaNaApi) return;
+
     const vstupEl = document.getElementById('vstup-pole');
     const vstup = vstupEl.value.trim();
     if (!vstup) {
@@ -173,21 +243,33 @@ const App = (() => {
       return;
     }
 
-    // Zobraz studentovu odpověď
     pridejZpravu('student', vstup);
     vstupEl.value = '';
 
-    // Vyhodnoť
-    const vysledek = Engine.vyhodnotVstup(vstup);
+    // Spusť loading
+    pokazLoadingIndikator();
+
+    const vysledek = await Engine.vyhodnotVstup(vstup);
+
+    skrejLoadingIndikator();
+
     if (!vysledek) return;
 
     if (vysledek.typ === 'chyba') {
       pridejZpravu('chyba', vysledek.text);
+      setVstupDisabled(false);
       return;
     }
 
+    // Upozornění na fallback (API chyba)
+    if (vysledek.fallback && vysledek.error) {
+      zobrazApiChybu(vysledek.error);
+    }
+
     if (vysledek.typ === 'napoveda') {
-      pridejZpravu('hint', vysledek.napoveda);
+      pridejZpravu('hint', vysledek.text);
+      setVstupDisabled(false);
+      vstupEl.focus();
     } else if (vysledek.typ === 'uspech') {
       pridejZpravu('uspech', vysledek.text);
       ulozProgress(aktualniTema.id, aktualniTema.ulohy[aktualniUlohaIndex].id, true);
@@ -199,15 +281,14 @@ const App = (() => {
       dokoncUlohu();
     } else if (vysledek.typ === 'info') {
       pridejZpravu('info', vysledek.text);
+      setVstupDisabled(false);
     }
   }
 
   function dokoncUlohu() {
-    document.getElementById('vstup-pole').disabled = true;
-    document.getElementById('btn-odeslat').disabled = true;
+    setVstupDisabled(true);
     const btnDalsi = document.getElementById('btn-dalsi');
     btnDalsi.classList.remove('hidden');
-
     const jePosledni = aktualniUlohaIndex >= aktualniTema.ulohy.length - 1;
     btnDalsi.textContent = jePosledni ? 'Zobrazit výsledky' : 'Další úloha →';
     btnDalsi.focus();
@@ -220,26 +301,51 @@ const App = (() => {
     document.getElementById('vysledky-popis').textContent =
       procent >= 80 ? 'Výborně! Zvládáš to skvěle.' :
       procent >= 60 ? 'Dobrá práce! Ještě trochu procvičit.' :
-      'Nevzdávej to — opakování je matka moudrosti.';
-
+                      'Nevzdávej to — opakování je matka moudrosti.';
     document.getElementById('vysledky-spravne').textContent = `${skore.spravne} / ${skore.celkem}`;
+    document.getElementById('vysledky-breakdown').innerHTML =
+      `<p>Téma: <strong>${aktualniTema.nazev}</strong> — ${skore.spravne}/${skore.celkem} správně</p>`;
+  }
 
-    // Breakdown
-    const breakdown = document.getElementById('vysledky-breakdown');
-    breakdown.innerHTML = `<p>Téma: <strong>${aktualniTema.nazev}</strong> — ${skore.spravne}/${skore.celkem} správně</p>`;
+  // ─── API klíč ─────────────────────────────────────────────────
+  function ulozApiKlic() {
+    const vstup = document.getElementById('apikey-input').value.trim();
+    const chybaEl = document.getElementById('apikey-chyba');
+
+    if (!vstup) {
+      chybaEl.textContent = 'Klíč nesmí být prázdný.';
+      chybaEl.classList.remove('hidden');
+      return;
+    }
+    if (!vstup.startsWith('sk-')) {
+      chybaEl.textContent = 'OpenAI klíč by měl začínat na "sk-".';
+      chybaEl.classList.remove('hidden');
+      return;
+    }
+
+    chybaEl.classList.add('hidden');
+    localStorage.setItem(CONFIG.apiKeyStorageKey, vstup);
+    zobrazDomovskou();
+  }
+
+  function smazApiKlic() {
+    if (confirm('Opravdu chceš smazat API klíč? Appka přejde do statického módu.')) {
+      localStorage.removeItem(CONFIG.apiKeyStorageKey);
+      zobrazDomovskou();
+    }
   }
 
   // ─── Dark mode ────────────────────────────────────────────────
   function initDarkMode() {
     const btn = document.getElementById('btn-dark-mode');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const ulozene = localStorage.getItem('matika_darkmode');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const dark = ulozene !== null ? ulozene === '1' : prefersDark;
-
     if (dark) document.documentElement.setAttribute('data-theme', 'dark');
 
     btn.addEventListener('click', () => {
       const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      document.documentElement.toggleAttribute('data-theme');
       if (isDark) {
         document.documentElement.removeAttribute('data-theme');
         localStorage.setItem('matika_darkmode', '0');
@@ -252,29 +358,40 @@ const App = (() => {
 
   // ─── Event listenery ──────────────────────────────────────────
   function initEventy() {
+    // Zadání odpovědi
     document.getElementById('btn-odeslat').addEventListener('click', odeslat);
-
     document.getElementById('vstup-pole').addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        odeslat();
-      }
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); odeslat(); }
     });
 
+    // Navigace úlohami
     document.getElementById('btn-dalsi').addEventListener('click', () => {
       nactiUlohu(aktualniUlohaIndex + 1);
     });
-
-    document.getElementById('btn-zpet-z-ulohy').addEventListener('click', () => {
-      zobrazDomovskou();
-    });
-
-    document.getElementById('btn-zpet-z-vysledku').addEventListener('click', () => {
-      zobrazDomovskou();
-    });
-
+    document.getElementById('btn-zpet-z-ulohy').addEventListener('click', zobrazDomovskou);
+    document.getElementById('btn-zpet-z-vysledku').addEventListener('click', zobrazDomovskou);
     document.getElementById('btn-znovu').addEventListener('click', () => {
       if (aktualniTema) spustTema(aktualniTema);
+    });
+
+    // API klíč — uložení
+    document.getElementById('btn-apikey-uloz').addEventListener('click', ulozApiKlic);
+    document.getElementById('apikey-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') ulozApiKlic();
+    });
+
+    // API klíč — změna z hlavičky
+    document.getElementById('btn-zmenit-klic').addEventListener('click', () => {
+      zobrazApiKlic(() => zobrazDomovskou());
+    });
+
+    // API klíč — smazání
+    document.getElementById('btn-apikey-smazat').addEventListener('click', smazApiKlic);
+
+    // Přeskočit bez AI
+    document.getElementById('btn-apikey-preskocit').addEventListener('click', () => {
+      localStorage.removeItem(CONFIG.apiKeyStorageKey);
+      zobrazDomovskou();
     });
   }
 
@@ -282,7 +399,13 @@ const App = (() => {
   function init() {
     initDarkMode();
     initEventy();
-    zobrazDomovskou();
+
+    // Při prvním spuštění bez klíče → zobraz obrazovku pro zadání klíče
+    if (!maApiKlic()) {
+      zobrazApiKlic(null); // null = bez tlačítka Zpět
+    } else {
+      zobrazDomovskou();
+    }
   }
 
   return { init };
