@@ -1,13 +1,6 @@
 // supabase/functions/chat/index.ts
 // Deno Edge Function: ověří JWT → přepošle na OpenAI → vrátí odpověď
-// Nasazení: supabase functions deploy chat
-// Secrets:  supabase secrets set OPENAI_API_KEY=sk-...
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-// ── CORS hlavičky ─────────────────────────────────────────────
-// V produkci nahraď "*" svojí doménou přes env proměnnou ALLOWED_ORIGIN
 const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "*";
 
 const CORS_HEADERS: Record<string, string> = {
@@ -24,9 +17,7 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-// ── Hlavní handler ────────────────────────────────────────────
-serve(async (req: Request) => {
-  // Preflight OPTIONS request
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
@@ -35,24 +26,19 @@ serve(async (req: Request) => {
     return jsonResponse({ error: { message: "Method not allowed" } }, 405);
   }
 
-  // ── Ověření JWT ───────────────────────────────────────────────
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     return jsonResponse({ error: { message: "Chybí autorizační hlavička" } }, 401);
   }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: authHeader } } }
-  );
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  // Ověření JWT přes Supabase
+  const verifyRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/auth/v1/user`, {
+    headers: { Authorization: authHeader, apikey: Deno.env.get("SUPABASE_ANON_KEY")! },
+  });
+  if (!verifyRes.ok) {
     return jsonResponse({ error: { message: "Neplatný nebo expirovaný token" } }, 401);
   }
 
-  // ── Parsování těla požadavku ──────────────────────────────────
   let body: {
     messages: Array<{ role: string; content: string }>;
     model?: string;
@@ -70,7 +56,6 @@ serve(async (req: Request) => {
     return jsonResponse({ error: { message: "Pole messages nesmí být prázdné" } }, 400);
   }
 
-  // ── Proxy na OpenAI ───────────────────────────────────────────
   const openaiKey = Deno.env.get("OPENAI_API_KEY");
   if (!openaiKey) {
     return jsonResponse({ error: { message: "OpenAI klíč není nakonfigurován" } }, 500);
@@ -91,6 +76,5 @@ serve(async (req: Request) => {
   });
 
   const responseData = await openaiRes.json();
-
   return jsonResponse(responseData, openaiRes.status);
 });
