@@ -63,12 +63,12 @@ const Auth = (() => {
       .from('profiles')
       .select('trida')
       .eq('id', _session.user.id)
-      .single();
+      .maybeSingle();
     if (error) {
       console.warn('Nepodařilo se načíst profil:', error.message);
       return null;
     }
-    return data; // { trida: 8 }
+    return data ?? null; // { trida: 8 } nebo null pokud profil neexistuje
   }
 
   // ── Gettery ───────────────────────────────────────────────────
