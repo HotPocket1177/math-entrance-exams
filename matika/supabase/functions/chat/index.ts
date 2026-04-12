@@ -7,7 +7,7 @@ const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "*";
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin":  allowedOrigin,
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type, apikey",
   "Access-Control-Max-Age":       "86400",
 };
 
