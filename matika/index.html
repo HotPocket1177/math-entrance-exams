@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Příprava na přijímací zkoušky z matematiky (CERMAT, 4leté obory) — sokratovský dialog engine">
+  <title>Matika — přijímačky</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📐</text></svg>">
+</head>
+<body>
+
+  <!-- ── Hlavička ── -->
+  <header class="app-header" role="banner">
+    <div class="header-inner">
+      <div class="app-logo">Matika <span>přijímačky</span></div>
+      <button id="btn-dark-mode" class="btn-icon" aria-label="Přepnout tmavý/světlý režim" title="Tmavý/světlý režim">🌙</button>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════
+       OBRAZOVKA 1 — Domovská (výběr tématu)
+  ═══════════════════════════════════════════════════════ -->
+  <main>
+    <div id="screen-home" class="screen">
+      <div class="app-container">
+        <h1 class="screen-title">Vyber si téma</h1>
+        <p class="screen-subtitle">Procvič si látku sokratovským dialogem — appka tě povede krok za krokem.</p>
+        <div id="temata-grid" class="temata-grid" role="list" aria-label="Témata">
+          <!-- Karty se vygenerují přes JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         OBRAZOVKA 2 — Úloha (dialog)
+    ═══════════════════════════════════════════════════════ -->
+    <div id="screen-uloha" class="screen hidden">
+      <div class="app-container">
+
+        <!-- Hlavička úlohy -->
+        <div class="uloha-header">
+          <button id="btn-zpet-z-ulohy" class="btn-back" aria-label="Zpět na výběr tématu">← Zpět</button>
+          <span id="uloha-tema-nazev" class="uloha-tema-nazev"></span>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="uloha-progress-wrap" role="group" aria-label="Postup v tématu">
+          <div class="uloha-progress-meta">
+            <span id="uloha-progress-text" aria-live="polite">Úloha 1 z 5</span>
+          </div>
+          <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+            <div id="uloha-progress-fill" class="progress-fill" style="width:0%"></div>
+          </div>
+        </div>
+
+        <!-- Dialog log -->
+        <div id="dialog-log"
+             class="dialog-log"
+             role="log"
+             aria-live="polite"
+             aria-label="Dialog s Matikáčem"
+             tabindex="0">
+        </div>
+
+        <!-- Vstup -->
+        <div class="vstup-area">
+          <textarea
+            id="vstup-pole"
+            class="vstup-pole"
+            placeholder="Napiš svou odpověď… (Enter = odeslat)"
+            rows="2"
+            aria-label="Tvoje odpověď"
+          ></textarea>
+          <button id="btn-odeslat" class="btn-primary" aria-label="Odeslat odpověď">Odeslat</button>
+        </div>
+
+        <!-- Tlačítko Další úloha (skryté dokud se nedokončí) -->
+        <button id="btn-dalsi" class="btn-primary btn-dalsi hidden" aria-live="polite">
+          Další úloha →
+        </button>
+
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         OBRAZOVKA 3 — Výsledky
+    ═══════════════════════════════════════════════════════ -->
+    <div id="screen-vysledky" class="screen hidden">
+      <div class="app-container">
+        <h2 class="screen-title">Výsledky</h2>
+
+        <div class="vysledky-hero" role="region" aria-label="Výsledek cvičení">
+          <div id="vysledky-procent" class="vysledky-procent" aria-live="polite">—</div>
+          <p id="vysledky-popis" class="vysledky-popis"></p>
+          <p>Správně: <strong id="vysledky-spravne">—</strong></p>
+        </div>
+
+        <div id="vysledky-breakdown" class="vysledky-breakdown" aria-label="Přehled témat">
+          <!-- vygeneruje JS -->
+        </div>
+
+        <div class="vysledky-akce">
+          <button id="btn-znovu" class="btn-primary">Zkusit znovu</button>
+          <button id="btn-zpet-z-vysledku" class="btn-secondary">← Výběr tématu</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Skripty -->
+  <script src="js/ulohy.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
