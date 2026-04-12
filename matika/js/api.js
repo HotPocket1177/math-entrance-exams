@@ -12,7 +12,8 @@ const Api = (() => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${jwt}`
+          'Authorization': `Bearer ${jwt}`,
+          'apikey': CONFIG.supabaseAnonKey
         },
         body: JSON.stringify({
           messages,
