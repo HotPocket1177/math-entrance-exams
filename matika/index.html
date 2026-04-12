@@ -5,7 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Příprava na přijímací zkoušky z matematiky (CERMAT, 4leté obory) — sokratovský dialog engine">
   <title>Matika — přijímačky</title>
+
+  <!-- Styly -->
   <link rel="stylesheet" href="css/style.css">
+  <!-- KaTeX CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" crossorigin="anonymous">
+
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📐</text></svg>">
 </head>
 <body>
@@ -15,8 +20,9 @@
     <div class="header-inner">
       <div class="app-logo">Matika <span>přijímačky</span></div>
       <div class="header-akce">
-        <button id="btn-zmenit-klic" class="btn-icon" title="Nastavit OpenAI API klíč" aria-label="Nastavit API klíč">🔑</button>
-        <button id="btn-dark-mode"   class="btn-icon" title="Tmavý/světlý režim" aria-label="Přepnout tmavý/světlý režim">🌙</button>
+        <button id="btn-logout"      class="btn-icon hidden" title="Odhlásit se"            aria-label="Odhlásit se">👤</button>
+        <button id="btn-zmenit-klic" class="btn-icon"        title="Nastavit OpenAI API klíč" aria-label="Nastavit API klíč">🔑</button>
+        <button id="btn-dark-mode"   class="btn-icon"        title="Tmavý/světlý režim"     aria-label="Přepnout tmavý/světlý režim">🌙</button>
       </div>
     </div>
   </header>
@@ -24,7 +30,65 @@
   <main>
 
     <!-- ══════════════════════════════════════════════════════
-         OBRAZOVKA 0 — API klíč
+         OBRAZOVKA 0 — Přihlášení / Registrace
+    ═══════════════════════════════════════════════════════ -->
+    <div id="screen-auth" class="screen hidden">
+      <div class="app-container apikey-container">
+        <div class="apikey-card">
+          <div class="apikey-ikona">🎓</div>
+          <h1 class="screen-title">Vítej v Matice</h1>
+          <p class="screen-subtitle">Přihlas se nebo si vytvoř účet a začni procvičovat.</p>
+
+          <!-- Taby -->
+          <div class="auth-tabs" role="tablist">
+            <button class="auth-tab auth-tab-active" data-tab="login"    role="tab" aria-selected="true">Přihlásit se</button>
+            <button class="auth-tab"                 data-tab="register" role="tab" aria-selected="false">Registrace</button>
+          </div>
+
+          <!-- Login formulář -->
+          <div id="auth-login" class="auth-form" role="tabpanel">
+            <label class="apikey-label" for="auth-email">E-mail</label>
+            <input id="auth-email"    type="email"    class="apikey-input" placeholder="vas@email.cz" autocomplete="email">
+
+            <label class="apikey-label" for="auth-password">Heslo</label>
+            <input id="auth-password" type="password" class="apikey-input" placeholder="••••••••"     autocomplete="current-password">
+
+            <p id="auth-chyba" class="apikey-chyba hidden" role="alert"></p>
+
+            <div class="apikey-akce">
+              <button id="btn-prihlasit" class="btn-primary">Přihlásit se</button>
+            </div>
+          </div>
+
+          <!-- Registrační formulář -->
+          <div id="auth-register" class="auth-form hidden" role="tabpanel">
+            <label class="apikey-label" for="reg-email">E-mail</label>
+            <input id="reg-email"    type="email"    class="apikey-input" placeholder="vas@email.cz" autocomplete="email">
+
+            <label class="apikey-label" for="reg-password">Heslo</label>
+            <input id="reg-password" type="password" class="apikey-input" placeholder="Min. 8 znaků"  autocomplete="new-password">
+
+            <label class="apikey-label" for="reg-trida">Třída</label>
+            <select id="reg-trida" class="apikey-input">
+              <option value="6">6. třída</option>
+              <option value="7">7. třída</option>
+              <option value="8" selected>8. třída</option>
+              <option value="9">9. třída</option>
+            </select>
+
+            <p id="reg-chyba" class="apikey-chyba hidden" role="alert"></p>
+
+            <div class="apikey-akce">
+              <button id="btn-registrovat" class="btn-primary">Vytvořit účet</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         OBRAZOVKA 0b — API klíč (legacy / bez auth)
     ═══════════════════════════════════════════════════════ -->
     <div id="screen-apikey" class="screen hidden">
       <div class="app-container apikey-container">
@@ -54,9 +118,9 @@
           </div>
 
           <div class="apikey-akce">
-            <button id="btn-apikey-uloz" class="btn-primary">Uložit a spustit</button>
-            <button id="btn-apikey-preskocit" class="btn-secondary">Pokračovat bez AI</button>
-            <button id="btn-apikey-zpet" class="btn-secondary hidden">← Zpět</button>
+            <button id="btn-apikey-uloz"       class="btn-primary">Uložit a spustit</button>
+            <button id="btn-apikey-preskocit"  class="btn-secondary">Pokračovat bez AI</button>
+            <button id="btn-apikey-zpet"       class="btn-secondary hidden">← Zpět</button>
           </div>
 
           <div class="apikey-footer">
@@ -74,21 +138,30 @@
         <div class="home-header">
           <div>
             <h1 class="screen-title">Vyber si téma</h1>
-            <p class="screen-subtitle">Procvič si látku sokratovským dialogem — appka tě povede krok za krokem.</p>
+            <p class="screen-subtitle" id="home-uvitani">Procvič si látku sokratovským dialogem — appka tě povede krok za krokem.</p>
           </div>
           <div id="ai-stav" class="ai-stav ai-off" aria-live="polite">📖 Statický mód</div>
         </div>
+
+        <!-- Denní sada úloh -->
+        <div id="denni-sada-sekce" class="denni-sada-sekce hidden" aria-label="Dnešní sada úloh">
+          <h2 class="sekce-nadpis">📅 Dnešní sada úloh</h2>
+          <p class="sekce-popis">5 příkladů vybraných speciálně pro tebe na dnes</p>
+          <button id="btn-spustit-denni" class="btn-primary">Spustit dnešní sadu →</button>
+        </div>
+
+        <!-- Mřížka témat -->
         <div id="temata-grid" class="temata-grid" role="list" aria-label="Témata">
-          <!-- Karty se vygenerují přes JS -->
+          <!-- Generuje JS -->
         </div>
       </div>
     </div>
 
     <!-- ══════════════════════════════════════════════════════
-         OBRAZOVKA 2 — Úloha (dialog)
+         OBRAZOVKA 2 — Úloha (dvoupanelový dialog)
     ═══════════════════════════════════════════════════════ -->
     <div id="screen-uloha" class="screen hidden">
-      <div class="app-container">
+      <div class="app-container app-container--wide">
 
         <!-- Hlavička úlohy -->
         <div class="uloha-header">
@@ -106,31 +179,46 @@
           </div>
         </div>
 
-        <!-- Dialog log -->
-        <div id="dialog-log"
-             class="dialog-log"
-             role="log"
-             aria-live="polite"
-             aria-label="Dialog s Matikáčem"
-             tabindex="0">
-        </div>
+        <!-- Dvoupanelové rozvržení -->
+        <div class="uloha-dual-panel">
 
-        <!-- Vstup -->
-        <div class="vstup-area">
-          <textarea
-            id="vstup-pole"
-            class="vstup-pole"
-            placeholder="Napiš svou odpověď… (Enter = odeslat)"
-            rows="2"
-            aria-label="Tvoje odpověď"
-          ></textarea>
-          <button id="btn-odeslat" class="btn-primary" aria-label="Odeslat odpověď">Odeslat</button>
-        </div>
+          <!-- LEVÝ PANEL: Dialog -->
+          <div class="uloha-panel uloha-panel--dialog">
+            <div
+              id="dialog-log"
+              class="dialog-log"
+              role="log"
+              aria-live="polite"
+              aria-label="Dialog s Matikáčem"
+              tabindex="0"
+            ></div>
 
-        <!-- Tlačítko Další úloha (skryté dokud se nedokončí) -->
-        <button id="btn-dalsi" class="btn-primary btn-dalsi hidden" aria-live="polite">
-          Další úloha →
-        </button>
+            <div class="vstup-area">
+              <textarea
+                id="vstup-pole"
+                class="vstup-pole"
+                placeholder="Napiš svou odpověď… (Enter = odeslat)"
+                rows="2"
+                aria-label="Tvoje odpověď"
+              ></textarea>
+              <button id="btn-odeslat" class="btn-primary" aria-label="Odeslat odpověď">Odeslat</button>
+            </div>
+
+            <button id="btn-dalsi" class="btn-primary btn-dalsi hidden" aria-live="polite">
+              Další úloha →
+            </button>
+          </div>
+
+          <!-- PRAVÝ PANEL: Výpočetní kroky -->
+          <div class="uloha-panel uloha-panel--vypocet" aria-label="Postup řešení">
+            <div class="vypocet-header">
+              <span class="vypocet-nadpis">🧮 Postup řešení</span>
+              <button id="btn-vypocet-smazat" class="btn-link" title="Smazat postup" aria-label="Smazat postup řešení">Smazat</button>
+            </div>
+            <div id="vypocet-log" class="vypocet-log" aria-live="polite"></div>
+          </div>
+
+        </div><!-- /.uloha-dual-panel -->
 
       </div>
     </div>
@@ -149,21 +237,41 @@
         </div>
 
         <div id="vysledky-breakdown" class="vysledky-breakdown" aria-label="Přehled témat">
-          <!-- vygeneruje JS -->
+          <!-- Generuje JS -->
         </div>
 
         <div class="vysledky-akce">
-          <button id="btn-znovu" class="btn-primary">Zkusit znovu</button>
-          <button id="btn-zpet-z-vysledku" class="btn-secondary">← Výběr tématu</button>
+          <button id="btn-znovu"            class="btn-primary">Zkusit znovu</button>
+          <button id="btn-zpet-z-vysledku"  class="btn-secondary">← Výběr tématu</button>
         </div>
       </div>
     </div>
 
   </main>
 
-  <!-- Skripty — pořadí je důležité -->
+  <!-- ═══ Skripty — POŘADÍ JE KRITICKÉ ═══════════════════════
+       1. Supabase SDK (definuje window.supabase)
+       2. KaTeX JS + auto-render
+       3. config.js (CONFIG objekt)
+       4. ulohy.js (TEMATA pole)
+       5. syllabus.js (závisí na TEMATA ids)
+       6. math-render.js (závisí na KaTeX)
+       7. auth.js (závisí na CONFIG + supabase SDK)
+       8. api.js (závisí na AUTH + CONFIG)
+       9. daily.js (závisí na TEMATA + Syllabus)
+      10. engine.js (závisí na Api)
+      11. app.js (závisí na všem výše)
+  ══════════════════════════════════════════════════════════ -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"                    crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"      crossorigin="anonymous"></script>
   <script src="js/config.js"></script>
   <script src="js/ulohy.js"></script>
+  <script src="js/syllabus.js"></script>
+  <script src="js/math-render.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/daily.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/app.js"></script>
 </body>

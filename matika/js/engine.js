@@ -1,6 +1,8 @@
-// engine.js — Sokratovský dialog engine s OpenAI API + statickým fallbackem
+// engine.js — Sokratovský dialog engine s OpenAI (přes api.js) + statickým fallbackem
 
-const SYSTEM_PROMPT = `Jsi přátelský matematik, který pomáhá žákovi 8.–9. třídy připravit se na přijímací zkoušky. Vedeš sokratovský dialog — NIKDY nedáváš rovnou správnou odpověď. Místo toho kladeš návodné otázky, které žáka dovedou k řešení vlastním myšlením.
+// ── System prompt ─────────────────────────────────────────────
+function buildSystemPrompt(kontextZaka) {
+  const zaklad = `Jsi přátelský matematik, který pomáhá žákovi 8.–9. třídy připravit se na přijímací zkoušky. Vedeš sokratovský dialog — NIKDY nedáváš rovnou správnou odpověď. Místo toho kladeš návodné otázky, které žáka dovedou k řešení vlastním myšlením.
 Pravidla:
 - Vždy reaguj česky, přátelsky, stručně (2–4 věty max)
 - Nikdy neřekni přímo výsledek, dokud žák sám nedojde k správné odpovědi
@@ -9,40 +11,46 @@ Pravidla:
 - První otázka u slovní úlohy musí být vždy: "Co v zadání nevíš? Zkus to pojmenovat — zapiš jako x."
 - Pokud žák odpoví 3× špatně za sebou, dej konkrétnější nápovědu, ale stále ne celé řešení`;
 
+  if (!kontextZaka) return zaklad;
+
+  return zaklad + `\n\nKontext žáka: Je ve ${kontextZaka.trida}. třídě. Aktuální týden školního roku: ${kontextZaka.tydenvRoce}. Témata, která již probral: ${kontextZaka.odemcenaTemata.join(', ')}. Pokud úloha vyžaduje znalost, která je nad jeho ročník, upozorni ho přátelsky a zjednodušeně vysvětli potřebný koncept, než ho povedeš k řešení.`;
+}
+
 const Engine = (() => {
+  // Stav aktuální úlohy
   let stav = {
     uloha: null,
-    krok: 0,             // index pro statický fallback
+    krok: 0,              // index pro statický fallback
     dokonceno: false,
     pocetPokusu: 0,
     zobrazenaOdpoved: false,
-    messages: []         // konverzační historie pro OpenAI
+    messages: []          // konverzační historie pro OpenAI
   };
 
   // ── Inicializace nové úlohy (synchronní) ──────────────────────
-  function inicializuj(uloha) {
+  // kontextZaka: { trida, tydenvRoce, odemcenaTemata } nebo null
+  function inicializuj(uloha, kontextZaka = null) {
     stav = {
-      uloha: uloha,
+      uloha,
       krok: 0,
       dokonceno: false,
       pocetPokusu: 0,
       zobrazenaOdpoved: false,
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: buildSystemPrompt(kontextZaka) },
         { role: 'user',   content: `Zadání úlohy: ${uloha.zadani}` }
       ]
     };
     return { text: uloha.zadani };
   }
 
-  // ── Získání úvodní sokratovské otázky (async) ─────────────────
+  // ── Úvodní sokratovská otázka (async) ─────────────────────────
   async function getUvodniOtazka() {
-    const apiKey = localStorage.getItem(CONFIG.apiKeyStorageKey);
-    if (!apiKey) {
+    if (!Api.jeAiDostupne()) {
       return { typ: 'hint', text: stav.uloha.kroky[0], fallback: true };
     }
     try {
-      const text = await volajApi(stav.messages);
+      const text = await Api.chat(stav.messages);
       stav.messages.push({ role: 'assistant', content: text });
       return { typ: 'hint', text };
     } catch (e) {
@@ -60,20 +68,19 @@ const Engine = (() => {
 
     stav.pocetPokusu++;
 
-    // Správnost vždy lokálně přes kontrola()
+    // Správnost vždy lokálně přes kontrola() — spolehlivější než AI
     const spravne = stav.uloha.kontrola(vstup);
-    const apiKey  = localStorage.getItem(CONFIG.apiKeyStorageKey);
 
     if (spravne) {
       stav.dokonceno = true;
-      if (apiKey) {
+      if (Api.jeAiDostupne()) {
         try {
           stav.messages.push({ role: 'user', content: `Žák odpověděl správně: ${vstup}` });
-          const pochvala = await volajApi(stav.messages);
+          const pochvala = await Api.chat(stav.messages);
           stav.messages.push({ role: 'assistant', content: pochvala });
           return { typ: 'uspech', text: pochvala, hotovo: true };
-        } catch (e) {
-          // Fallback pochvala
+        } catch {
+          // Fallback pochvala pokud API selže
           return { typ: 'uspech', text: `Výborně! Správná odpověď je: ${stav.uloha.odpoved}`, hotovo: true };
         }
       }
@@ -81,10 +88,10 @@ const Engine = (() => {
     }
 
     // Špatná odpověď → AI nápověda nebo statický fallback
-    if (apiKey) {
+    if (Api.jeAiDostupne()) {
       try {
         stav.messages.push({ role: 'user', content: vstup });
-        const napoveda = await volajApi(stav.messages);
+        const napoveda = await Api.chat(stav.messages);
         stav.messages.push({ role: 'assistant', content: napoveda });
         return { typ: 'napoveda', text: napoveda };
       } catch (e) {
@@ -118,32 +125,6 @@ const Engine = (() => {
       };
     }
     return { typ: 'info', text: 'Tato úloha je vyřešena. Přejdi na další.', hotovo: true };
-  }
-
-  // ── Volání OpenAI API ─────────────────────────────────────────
-  async function volajApi(messages) {
-    const apiKey = localStorage.getItem(CONFIG.apiKeyStorageKey);
-    const response = await fetch(CONFIG.apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: CONFIG.model,
-        messages,
-        max_tokens: 200,
-        temperature: 0.7
-      })
-    });
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.error?.message || `HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.choices[0].message.content.trim();
   }
 
   function getStav()      { return { ...stav }; }

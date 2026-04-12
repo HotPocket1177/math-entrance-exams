@@ -593,11 +593,221 @@ a { color: var(--color-primary); text-decoration: none; }
 .dialog-log::-webkit-scrollbar-track { background: transparent; }
 .dialog-log::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 999px; }
 
-/* ── Responsive ── */
+/* ══════════════════════════════════════════════════════════════
+   NOVÉ KOMPONENTY (produkční rozšíření)
+══════════════════════════════════════════════════════════════ */
+
+/* ── Auth tabs (přihlášení / registrace) ── */
+.auth-tabs {
+  display: flex;
+  gap: .5rem;
+  margin-bottom: 1.5rem;
+}
+
+.auth-tab {
+  flex: 1;
+  padding: .55rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: .85rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+
+.auth-tab.auth-tab-active {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+
+.auth-tab:hover:not(.auth-tab-active) {
+  background: var(--color-surface2);
+  color: var(--color-text);
+}
+
+/* Select ve stylu apikey-input */
+select.apikey-input {
+  appearance: auto;
+  cursor: pointer;
+}
+
+/* ── Dvoupanelové rozvržení úlohy ── */
+.app-container--wide {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.uloha-dual-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.uloha-panel { min-width: 0; }
+
+/* Pravý panel — výpočetní kroky */
+.uloha-panel--vypocet {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  position: sticky;
+  top: calc(56px + 1rem); /* výška app-header + mezera */
+  max-height: calc(100dvh - 90px);
+  overflow-y: auto;
+}
+
+.vypocet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: .75rem;
+  padding-bottom: .5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.vypocet-nadpis {
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.vypocet-log {
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+}
+
+/* Krok výpočtu */
+.vypocet-krok {
+  padding: .45rem .7rem;
+  border-radius: var(--radius-sm);
+  font-size: .88rem;
+  border-left: 3px solid var(--color-border);
+  background: var(--color-surface2);
+  color: var(--color-text-muted);
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.vypocet-krok--spravne {
+  background: #f0fdf4;
+  border-left-color: var(--color-success);
+  color: #15803d;
+}
+
+.vypocet-krok--spatne {
+  background: #fef2f2;
+  border-left-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+[data-theme="dark"] .vypocet-krok--spravne {
+  background: rgba(20, 83, 45, .25);
+  color: #4ade80;
+}
+
+[data-theme="dark"] .vypocet-krok--spatne {
+  background: rgba(127, 29, 29, .25);
+  color: #f87171;
+}
+
+/* KaTeX scrollbar ve výpočetním panelu */
+.uloha-panel--vypocet::-webkit-scrollbar { width: 5px; }
+.uloha-panel--vypocet::-webkit-scrollbar-track { background: transparent; }
+.uloha-panel--vypocet::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 999px; }
+
+/* ── Zamčené téma ── */
+.tema-karta--zamcena {
+  opacity: .5;
+  cursor: not-allowed;
+  position: relative;
+}
+
+.tema-karta--zamcena:hover,
+.tema-karta--zamcena:focus-visible {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--color-border);
+}
+
+.tema-zamek {
+  position: absolute;
+  top: .75rem;
+  right: .75rem;
+  font-size: 1rem;
+}
+
+.tema-zamceno-text {
+  font-size: .75rem;
+  color: var(--color-text-muted);
+  margin-top: .4rem;
+  font-style: italic;
+}
+
+/* ── Denní sada (hero sekce na home screen) ── */
+.denni-sada-sekce {
+  background: linear-gradient(135deg, var(--color-primary) 0%, #7c3aed 100%);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem 1.75rem;
+  margin-bottom: 1.75rem;
+  color: #fff;
+}
+
+.denni-sada-sekce .sekce-nadpis {
+  font-family: var(--font-head);
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: .3rem;
+  color: #fff;
+}
+
+.denni-sada-sekce .sekce-popis {
+  font-size: .85rem;
+  opacity: .85;
+  margin-bottom: 1rem;
+}
+
+.denni-sada-sekce .btn-primary {
+  background: rgba(255, 255, 255, .2);
+  border: 1.5px solid rgba(255, 255, 255, .4);
+  color: #fff;
+  backdrop-filter: blur(4px);
+}
+
+.denni-sada-sekce .btn-primary:hover {
+  background: rgba(255, 255, 255, .32);
+  transform: translateY(-1px);
+}
+
+/* ── Responsive — nové komponenty ── */
+@media (max-width: 768px) {
+  .uloha-dual-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .uloha-panel--vypocet {
+    position: static;
+    max-height: 260px;
+    order: -1; /* výpočetní panel jde nad dialog na mobilu */
+  }
+
+  .app-container--wide { padding: 0 1rem; }
+}
+
 @media (max-width: 520px) {
   .screen-title { font-size: 1.5rem; }
   .temata-grid  { grid-template-columns: 1fr; }
   .vstup-area   { flex-direction: column; }
   .vstup-area .btn-primary { width: 100%; }
   .vysledky-procent { font-size: 3rem; }
+  .denni-sada-sekce { padding: 1.25rem; }
 }

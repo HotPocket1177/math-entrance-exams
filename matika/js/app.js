@@ -1,12 +1,68 @@
-// app.js — routing mezi obrazovkami, UI logika
+// app.js — routing mezi obrazovkami, UI logika, auth gate
 
 const App = (() => {
   // ─── Stav aplikace ───────────────────────────────────────────
-  let aktualniTema = null;
+  let aktualniTema       = null;
   let aktualniUlohaIndex = 0;
-  let skore = { spravne: 0, celkem: 0 };
-  let dialogLog = [];
-  let cekaNaApi = false;
+  let skore              = { spravne: 0, celkem: 0 };
+  let dialogLog          = [];
+  let cekaNaApi          = false;
+
+  // Stav žáka (vyplní se po přihlášení)
+  let profil           = null;   // { trida: 8 }
+  let tydenvRoce       = null;
+  let odemcenaTemata   = null;   // string[] nebo null (= vše odemčeno)
+  let jeDenniRezim     = false;
+
+  // ─── Správa obrazovek ─────────────────────────────────────────
+  const SCREENS = ['screen-auth', 'screen-home', 'screen-apikey', 'screen-uloha', 'screen-vysledky'];
+
+  function zobrazScreen(id) {
+    SCREENS.forEach(s => {
+      document.getElementById(s).classList.toggle('hidden', s !== id);
+    });
+  }
+
+  function zobrazDomovskou()  { zobrazScreen('screen-home');    renderTemata(); }
+  function zobrazUlohu()      { zobrazScreen('screen-uloha'); }
+  function zobrazVysledky()   { zobrazScreen('screen-vysledky'); renderVysledky(); }
+  function zobrazAuthScreen() { zobrazScreen('screen-auth'); }
+
+  function zobrazApiKlic(callbackPoCancelaci) {
+    zobrazScreen('screen-apikey');
+    document.getElementById('apikey-input').value =
+      localStorage.getItem(CONFIG.apiKeyStorageKey) || '';
+    document.getElementById('apikey-input').focus();
+    const btnZpet = document.getElementById('btn-apikey-zpet');
+    if (callbackPoCancelaci) {
+      btnZpet.classList.remove('hidden');
+      btnZpet.onclick = callbackPoCancelaci;
+    } else {
+      btnZpet.classList.add('hidden');
+    }
+  }
+
+  // ─── Po úspěšném přihlášení ───────────────────────────────────
+  async function pokracujPoLoginu(session) {
+    profil       = await Auth.getProfil();
+    tydenvRoce   = Syllabus.getTydenvRoce();
+    odemcenaTemata = Syllabus.getOdemcenaTemata(profil?.trida || 9, tydenvRoce);
+
+    // Hlavička — zobraz odhlásit, skryj API klíč
+    document.getElementById('btn-logout').classList.remove('hidden');
+    document.getElementById('btn-zmenit-klic').classList.add('hidden');
+
+    // Uvítání
+    if (profil?.trida) {
+      document.getElementById('home-uvitani').textContent =
+        `${profil.trida}. třída · Týden ${tydenvRoce} · ${odemcenaTemata.length} témat odemčeno`;
+    }
+
+    // Zobraz sekci denních příkladů
+    document.getElementById('denni-sada-sekce').classList.remove('hidden');
+
+    zobrazDomovskou();
+  }
 
   // ─── localStorage helpers ────────────────────────────────────
   function nactiProgress() {
@@ -15,10 +71,27 @@ const App = (() => {
   }
 
   function ulozProgress(temaId, ulohaId, uspech) {
+    // Lokální cache
     const p = nactiProgress();
     if (!p[temaId]) p[temaId] = {};
     p[temaId][ulohaId] = uspech ? 'spravne' : (p[temaId][ulohaId] || 'pokus');
     localStorage.setItem('matika_progress', JSON.stringify(p));
+
+    // Supabase sync (fire-and-forget, neblokuje UI)
+    if (Auth.jeAuthenticated()) {
+      Auth.getSupabase()
+        .from('progress')
+        .upsert({
+          user_id:    Auth.getSession().user.id,
+          tema_id:    temaId,
+          uloha_id:   ulohaId,
+          uspech:     uspech,
+          updated_at: new Date().toISOString()
+        })
+        .then(({ error }) => {
+          if (error) console.warn('Progress sync selhal:', error.message);
+        });
+    }
   }
 
   function pocetDokoncenychUloh(temaId) {
@@ -31,65 +104,33 @@ const App = (() => {
     return !!localStorage.getItem(CONFIG.apiKeyStorageKey);
   }
 
-  // ─── Správa obrazovek ─────────────────────────────────────────
-  const SCREENS = ['screen-home', 'screen-apikey', 'screen-uloha', 'screen-vysledky'];
-
-  function zobrazScreen(id) {
-    SCREENS.forEach(s => {
-      document.getElementById(s).classList.toggle('hidden', s !== id);
-    });
-  }
-
-  function zobrazDomovskou() {
-    zobrazScreen('screen-home');
-    renderTemata();
-  }
-
-  function zobrazApiKlic(callbackPoCancelaci) {
-    zobrazScreen('screen-apikey');
-    document.getElementById('apikey-input').value =
-      localStorage.getItem(CONFIG.apiKeyStorageKey) || '';
-    document.getElementById('apikey-input').focus();
-
-    // Tlačítko Zpět/Přeskočit — skryj pokud je to první spuštění (žádný klíč)
-    const btnZpet = document.getElementById('btn-apikey-zpet');
-    if (callbackPoCancelaci) {
-      btnZpet.classList.remove('hidden');
-      btnZpet.onclick = callbackPoCancelaci;
-    } else {
-      btnZpet.classList.add('hidden');
-    }
-  }
-
-  function zobrazUlohu() { zobrazScreen('screen-uloha'); }
-
-  function zobrazVysledky() {
-    zobrazScreen('screen-vysledky');
-    renderVysledky();
-  }
-
   // ─── Domovská obrazovka ───────────────────────────────────────
   function renderTemata() {
+    // AI status badge
+    const aiStav = document.getElementById('ai-stav');
+    if (aiStav) {
+      const aiOn = Auth.jeAuthenticated() || maApiKlic();
+      aiStav.textContent = aiOn ? '🤖 AI mód aktivní' : '📖 Statický mód';
+      aiStav.className   = aiOn ? 'ai-stav ai-on' : 'ai-stav ai-off';
+    }
+
     const grid = document.getElementById('temata-grid');
     grid.innerHTML = '';
 
-    // Indikátor AI módu
-    const aiStav = document.getElementById('ai-stav');
-    if (aiStav) {
-      aiStav.textContent = maApiKlic() ? '🤖 AI mód aktivní' : '📖 Statický mód';
-      aiStav.className = maApiKlic() ? 'ai-stav ai-on' : 'ai-stav ai-off';
-    }
-
     TEMATA.forEach(tema => {
-      const celkem = tema.ulohy.length;
-      const hotovo = pocetDokoncenychUloh(tema.id);
-      const procent = celkem > 0 ? Math.round((hotovo / celkem) * 100) : 0;
+      const celkem    = tema.ulohy.length;
+      const hotovo    = pocetDokoncenychUloh(tema.id);
+      const procent   = celkem > 0 ? Math.round((hotovo / celkem) * 100) : 0;
+      const jeOdemceno = !odemcenaTemata || odemcenaTemata.includes(tema.id);
+      const minTyden  = odemcenaTemata && !jeOdemceno
+        ? Syllabus.getMinTyden(profil?.trida || 9, tema.id) : null;
 
       const karta = document.createElement('div');
-      karta.className = 'tema-karta';
-      karta.setAttribute('role', 'button');
-      karta.setAttribute('tabindex', '0');
-      karta.setAttribute('aria-label', `Téma: ${tema.nazev}`);
+      karta.className = `tema-karta${jeOdemceno ? '' : ' tema-karta--zamcena'}`;
+      karta.setAttribute('role', jeOdemceno ? 'button' : 'article');
+      if (jeOdemceno) karta.setAttribute('tabindex', '0');
+      karta.setAttribute('aria-label', `Téma: ${tema.nazev}${jeOdemceno ? '' : ' (zamčeno)'}`);
+
       karta.innerHTML = `
         <div class="tema-ikona">${tema.ikona}</div>
         <h3 class="tema-nazev">${tema.nazev}</h3>
@@ -101,35 +142,59 @@ const App = (() => {
         <div class="progress-bar" role="progressbar" aria-valuenow="${procent}" aria-valuemin="0" aria-valuemax="100">
           <div class="progress-fill" style="width:${procent}%"></div>
         </div>
+        ${jeOdemceno ? '' : `<span class="tema-zamek" aria-hidden="true">🔒</span>`}
+        ${jeOdemceno ? '' : `<p class="tema-zamceno-text">Probereš v týdnu ${minTyden}</p>`}
       `;
-      karta.addEventListener('click', () => spustTema(tema));
-      karta.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); spustTema(tema); }
-      });
+
+      if (jeOdemceno) {
+        karta.addEventListener('click', () => spustTema(tema));
+        karta.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); spustTema(tema); }
+        });
+      }
+
       grid.appendChild(karta);
     });
   }
 
   // ─── Spuštění tématu ──────────────────────────────────────────
   function spustTema(tema) {
-    aktualniTema = tema;
+    aktualniTema       = tema;
     aktualniUlohaIndex = 0;
-    skore = { spravne: 0, celkem: tema.ulohy.length };
-    dialogLog = [];
+    skore              = { spravne: 0, celkem: tema.ulohy.length };
+    dialogLog          = [];
     zobrazUlohu();
     document.getElementById('uloha-tema-nazev').textContent = tema.nazev;
     nactiUlohu(0);
   }
 
-  // ─── Načtení úlohy (async — čeká na úvodní otázku z API) ─────
+  function spustDenniSadu() {
+    if (!profil) return;
+    const seed = Daily.getDailySeed();
+    const sada = Daily.generateDailySet(profil.trida, tydenvRoce, seed);
+    if (!sada.length) {
+      alert('Žádné úlohy k dispozici. Zkontroluj nastavení třídy a týdne.');
+      return;
+    }
+    jeDenniRezim = true;
+    const denniTema = {
+      id:    `denni_${seed}`,
+      nazev: '📅 Dnešní sada',
+      ulohy: sada
+    };
+    spustTema(denniTema);
+  }
+
+  // ─── Načtení úlohy (async) ────────────────────────────────────
   async function nactiUlohu(index) {
     if (index >= aktualniTema.ulohy.length) {
+      jeDenniRezim = false;
       zobrazVysledky();
       return;
     }
     aktualniUlohaIndex = index;
     const uloha = aktualniTema.ulohy[index];
-    dialogLog = [];
+    dialogLog   = [];
 
     // Progress bar
     const procent = Math.round((index / aktualniTema.ulohy.length) * 100);
@@ -137,30 +202,32 @@ const App = (() => {
     document.getElementById('uloha-progress-text').textContent =
       `Úloha ${index + 1} z ${aktualniTema.ulohy.length}`;
 
-    // Inicializace enginu
-    const uvod = Engine.inicializuj(uloha);
+    // Kontext žáka pro engine
+    const kontextZaka = profil ? {
+      trida: profil.trida,
+      tydenvRoce,
+      odemcenaTemata: odemcenaTemata || TEMATA.map(t => t.id)
+    } : null;
 
-    // Vyčisti dialog
-    document.getElementById('dialog-log').innerHTML = '';
+    const uvod = Engine.inicializuj(uloha, kontextZaka);
 
-    // Zobraz zadání
+    // Vyčisti dialog i výpočetní panel
+    document.getElementById('dialog-log').innerHTML  = '';
+    document.getElementById('vypocet-log').innerHTML = '';
+
     pridejZpravu('system', uvod.text);
 
-    // Vstupní pole — zamknout dokud nedostaneme první otázku
     setVstupDisabled(true);
     document.getElementById('btn-dalsi').classList.add('hidden');
 
-    // Zobraz loading a získej úvodní otázku (AI nebo statická)
+    // Načti úvodní otázku (AI nebo statická)
     pokazLoadingIndikator();
     const uvodniOtazka = await Engine.getUvodniOtazka();
     skrejLoadingIndikator();
 
-    if (uvodniOtazka.error && !uvodniOtazka.fallback) {
-      zobrazApiChybu(uvodniOtazka.error);
-    }
+    if (uvodniOtazka.error) zobrazApiChybu(uvodniOtazka.error);
     pridejZpravu('hint', uvodniOtazka.text);
 
-    // Odemknout vstup
     setVstupDisabled(false);
     document.getElementById('vstup-pole').value = '';
     document.getElementById('vstup-pole').focus();
@@ -171,8 +238,8 @@ const App = (() => {
     cekaNaApi = true;
     setVstupDisabled(true);
     const logEl = document.getElementById('dialog-log');
-    const el = document.createElement('div');
-    el.id = 'loading-msg';
+    const el    = document.createElement('div');
+    el.id        = 'loading-msg';
     el.className = 'msg msg-loading msg-visible';
     el.setAttribute('aria-label', 'Přemýšlím…');
     el.innerHTML = `
@@ -193,29 +260,32 @@ const App = (() => {
   }
 
   function setVstupDisabled(disabled) {
-    document.getElementById('vstup-pole').disabled = disabled;
-    document.getElementById('btn-odeslat').disabled = disabled;
+    document.getElementById('vstup-pole').disabled   = disabled;
+    document.getElementById('btn-odeslat').disabled  = disabled;
   }
 
   // ─── Dialog ──────────────────────────────────────────────────
   function pridejZpravu(typ, text) {
     dialogLog.push({ typ, text });
     const logEl = document.getElementById('dialog-log');
-    const msg = document.createElement('div');
+    const msg   = document.createElement('div');
     msg.className = `msg msg-${typ}`;
 
-    const ikona  = { system: '📋', student: '✏️', hint: '💡', uspech: '✅', reseni: '📖', chyba: '⚠️', info: 'ℹ️', apierror: '🔌' };
-    const label  = { system: 'Zadání', student: 'Ty', hint: 'Nápověda', uspech: 'Správně', reseni: 'Řešení', chyba: 'Upozornění', info: 'Info', apierror: 'Chyba API' };
+    const ikona = { system: '📋', student: '✏️', hint: '💡', uspech: '✅', reseni: '📖', chyba: '⚠️', info: 'ℹ️', apierror: '🔌' };
+    const label = { system: 'Zadání', student: 'Ty', hint: 'Nápověda', uspech: 'Správně', reseni: 'Řešení', chyba: 'Upozornění', info: 'Info', apierror: 'Chyba API' };
 
     msg.innerHTML = `
       <span class="msg-ikona" aria-hidden="true">${ikona[typ] || '•'}</span>
       <div class="msg-obsah">
         <span class="msg-label">${label[typ] || typ}</span>
-        <p class="msg-text">${escapujHtml(text)}</p>
+        <p class="msg-text math-text">${escapujHtml(text)}</p>
       </div>
     `;
     logEl.appendChild(msg);
-    requestAnimationFrame(() => msg.classList.add('msg-visible'));
+    requestAnimationFrame(() => {
+      msg.classList.add('msg-visible');
+      MathRender.renderMath(msg); // KaTeX rendering
+    });
     logEl.scrollTop = logEl.scrollHeight;
   }
 
@@ -231,12 +301,21 @@ const App = (() => {
       .replace(/\n/g, '<br>');
   }
 
+  // ─── Výpočetní panel ─────────────────────────────────────────
+  function pridejKrokDoVypoctu(text, typ) {
+    const log  = document.getElementById('vypocet-log');
+    const krok = document.createElement('div');
+    krok.className = `vypocet-krok${typ ? ` vypocet-krok--${typ}` : ''}`;
+    krok.innerHTML = MathRender.renderStep(escapujHtml(text));
+    log.appendChild(krok);
+    log.scrollTop = log.scrollHeight;
+  }
+
   // ─── Odeslání odpovědi (async) ────────────────────────────────
   async function odeslat() {
     if (cekaNaApi) return;
-
     const vstupEl = document.getElementById('vstup-pole');
-    const vstup = vstupEl.value.trim();
+    const vstup   = vstupEl.value.trim();
     if (!vstup) {
       vstupEl.classList.add('shake');
       setTimeout(() => vstupEl.classList.remove('shake'), 400);
@@ -246,11 +325,8 @@ const App = (() => {
     pridejZpravu('student', vstup);
     vstupEl.value = '';
 
-    // Spusť loading
     pokazLoadingIndikator();
-
     const vysledek = await Engine.vyhodnotVstup(vstup);
-
     skrejLoadingIndikator();
 
     if (!vysledek) return;
@@ -261,23 +337,31 @@ const App = (() => {
       return;
     }
 
-    // Upozornění na fallback (API chyba)
-    if (vysledek.fallback && vysledek.error) {
-      zobrazApiChybu(vysledek.error);
-    }
+    if (vysledek.fallback && vysledek.error) zobrazApiChybu(vysledek.error);
 
     if (vysledek.typ === 'napoveda') {
       pridejZpravu('hint', vysledek.text);
+      pridejKrokDoVypoctu(vstup, 'spatne');
       setVstupDisabled(false);
-      vstupEl.focus();
+      document.getElementById('vstup-pole').focus();
     } else if (vysledek.typ === 'uspech') {
       pridejZpravu('uspech', vysledek.text);
-      ulozProgress(aktualniTema.id, aktualniTema.ulohy[aktualniUlohaIndex].id, true);
+      pridejKrokDoVypoctu(vstup, 'spravne');
+      ulozProgress(
+        aktualniTema._temaId || aktualniTema.id,
+        aktualniTema.ulohy[aktualniUlohaIndex].id,
+        true
+      );
       skore.spravne++;
       dokoncUlohu();
     } else if (vysledek.typ === 'reseni') {
       pridejZpravu('reseni', vysledek.text);
-      ulozProgress(aktualniTema.id, aktualniTema.ulohy[aktualniUlohaIndex].id, false);
+      pridejKrokDoVypoctu(vstup, 'spatne');
+      ulozProgress(
+        aktualniTema._temaId || aktualniTema.id,
+        aktualniTema.ulohy[aktualniUlohaIndex].id,
+        false
+      );
       dokoncUlohu();
     } else if (vysledek.typ === 'info') {
       pridejZpravu('info', vysledek.text);
@@ -287,7 +371,7 @@ const App = (() => {
 
   function dokoncUlohu() {
     setVstupDisabled(true);
-    const btnDalsi = document.getElementById('btn-dalsi');
+    const btnDalsi  = document.getElementById('btn-dalsi');
     btnDalsi.classList.remove('hidden');
     const jePosledni = aktualniUlohaIndex >= aktualniTema.ulohy.length - 1;
     btnDalsi.textContent = jePosledni ? 'Zobrazit výsledky' : 'Další úloha →';
@@ -307,11 +391,10 @@ const App = (() => {
       `<p>Téma: <strong>${aktualniTema.nazev}</strong> — ${skore.spravne}/${skore.celkem} správně</p>`;
   }
 
-  // ─── API klíč ─────────────────────────────────────────────────
+  // ─── API klíč (legacy mód) ────────────────────────────────────
   function ulozApiKlic() {
-    const vstup = document.getElementById('apikey-input').value.trim();
+    const vstup   = document.getElementById('apikey-input').value.trim();
     const chybaEl = document.getElementById('apikey-chyba');
-
     if (!vstup) {
       chybaEl.textContent = 'Klíč nesmí být prázdný.';
       chybaEl.classList.remove('hidden');
@@ -322,7 +405,6 @@ const App = (() => {
       chybaEl.classList.remove('hidden');
       return;
     }
-
     chybaEl.classList.add('hidden');
     localStorage.setItem(CONFIG.apiKeyStorageKey, vstup);
     zobrazDomovskou();
@@ -337,15 +419,14 @@ const App = (() => {
 
   // ─── Dark mode ────────────────────────────────────────────────
   function initDarkMode() {
-    const btn = document.getElementById('btn-dark-mode');
-    const ulozene = localStorage.getItem('matika_darkmode');
+    const btn       = document.getElementById('btn-dark-mode');
+    const ulozene   = localStorage.getItem('matika_darkmode');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const dark = ulozene !== null ? ulozene === '1' : prefersDark;
+    const dark      = ulozene !== null ? ulozene === '1' : prefersDark;
     if (dark) document.documentElement.setAttribute('data-theme', 'dark');
 
     btn.addEventListener('click', () => {
       const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      document.documentElement.toggleAttribute('data-theme');
       if (isDark) {
         document.documentElement.removeAttribute('data-theme');
         localStorage.setItem('matika_darkmode', '0');
@@ -356,55 +437,138 @@ const App = (() => {
     });
   }
 
-  // ─── Event listenery ──────────────────────────────────────────
+  // ─── Auth event listenery ─────────────────────────────────────
+  function initAuthEventy() {
+    // Přepínání tabs login/registrace
+    document.querySelectorAll('.auth-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('auth-tab-active'));
+        tab.classList.add('auth-tab-active');
+        document.getElementById('auth-login').classList.toggle('hidden',    tab.dataset.tab !== 'login');
+        document.getElementById('auth-register').classList.toggle('hidden', tab.dataset.tab !== 'register');
+      });
+    });
+
+    // Přihlášení
+    document.getElementById('btn-prihlasit').addEventListener('click', async () => {
+      const email    = document.getElementById('auth-email').value.trim();
+      const password = document.getElementById('auth-password').value;
+      const chybaEl  = document.getElementById('auth-chyba');
+      chybaEl.classList.add('hidden');
+      try {
+        await Auth.prihlasuj(email, password);
+        // onAuthStateChange SIGNED_IN → pokracujPoLoginu() volá se přes callback
+      } catch (e) {
+        chybaEl.textContent = e.message;
+        chybaEl.classList.remove('hidden');
+      }
+    });
+
+    // Enter v login formuláři
+    ['auth-email', 'auth-password'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', e => {
+        if (e.key === 'Enter') document.getElementById('btn-prihlasit').click();
+      });
+    });
+
+    // Registrace
+    document.getElementById('btn-registrovat').addEventListener('click', async () => {
+      const email    = document.getElementById('reg-email').value.trim();
+      const password = document.getElementById('reg-password').value;
+      const trida    = document.getElementById('reg-trida').value;
+      const chybaEl  = document.getElementById('reg-chyba');
+      chybaEl.classList.add('hidden');
+      try {
+        await Auth.registruj(email, password, trida);
+        // Supabase pošle potvrzovací e-mail
+        chybaEl.style.color = 'var(--color-success)';
+        chybaEl.textContent = '✅ Účet vytvořen! Zkontroluj e-mail a klikni na potvrzovací odkaz.';
+        chybaEl.classList.remove('hidden');
+      } catch (e) {
+        chybaEl.style.color = '';
+        chybaEl.textContent = e.message;
+        chybaEl.classList.remove('hidden');
+      }
+    });
+
+    // Odhlášení
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+      await Auth.odhlas();
+      profil         = null;
+      odemcenaTemata = null;
+      document.getElementById('btn-logout').classList.add('hidden');
+      document.getElementById('btn-zmenit-klic').classList.remove('hidden');
+      document.getElementById('denni-sada-sekce').classList.add('hidden');
+      // onAuthStateChange SIGNED_OUT → zobrazAuthScreen()
+    });
+  }
+
+  // ─── Ostatní event listenery ──────────────────────────────────
   function initEventy() {
-    // Zadání odpovědi
     document.getElementById('btn-odeslat').addEventListener('click', odeslat);
     document.getElementById('vstup-pole').addEventListener('keydown', e => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); odeslat(); }
     });
 
-    // Navigace úlohami
     document.getElementById('btn-dalsi').addEventListener('click', () => {
       nactiUlohu(aktualniUlohaIndex + 1);
     });
-    document.getElementById('btn-zpet-z-ulohy').addEventListener('click', zobrazDomovskou);
+
+    document.getElementById('btn-zpet-z-ulohy').addEventListener('click', () => {
+      jeDenniRezim = false;
+      zobrazDomovskou();
+    });
     document.getElementById('btn-zpet-z-vysledku').addEventListener('click', zobrazDomovskou);
     document.getElementById('btn-znovu').addEventListener('click', () => {
       if (aktualniTema) spustTema(aktualniTema);
     });
 
-    // API klíč — uložení
-    document.getElementById('btn-apikey-uloz').addEventListener('click', ulozApiKlic);
-    document.getElementById('apikey-input').addEventListener('keydown', e => {
-      if (e.key === 'Enter') ulozApiKlic();
+    // Denní sada
+    document.getElementById('btn-spustit-denni').addEventListener('click', spustDenniSadu);
+
+    // Výpočetní panel — smazat
+    document.getElementById('btn-vypocet-smazat').addEventListener('click', () => {
+      document.getElementById('vypocet-log').innerHTML = '';
     });
 
-    // API klíč — změna z hlavičky
+    // API klíč (legacy)
+    document.getElementById('btn-odeslat-apikey')?.addEventListener('click', ulozApiKlic);
+    document.getElementById('apikey-input')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') ulozApiKlic();
+    });
     document.getElementById('btn-zmenit-klic').addEventListener('click', () => {
       zobrazApiKlic(() => zobrazDomovskou());
     });
-
-    // API klíč — smazání
-    document.getElementById('btn-apikey-smazat').addEventListener('click', smazApiKlic);
-
-    // Přeskočit bez AI
-    document.getElementById('btn-apikey-preskocit').addEventListener('click', () => {
+    document.getElementById('btn-apikey-uloz')?.addEventListener('click', ulozApiKlic);
+    document.getElementById('btn-apikey-smazat')?.addEventListener('click', smazApiKlic);
+    document.getElementById('btn-apikey-preskocit')?.addEventListener('click', () => {
       localStorage.removeItem(CONFIG.apiKeyStorageKey);
       zobrazDomovskou();
     });
   }
 
   // ─── Inicializace ─────────────────────────────────────────────
-  function init() {
+  async function init() {
     initDarkMode();
+
+    // Zaregistruj callback PŘED Auth.init() (race condition prevence)
+    Auth.onSessionChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        zobrazAuthScreen();
+      } else if (event === 'SIGNED_IN' && session) {
+        await pokracujPoLoginu(session);
+      }
+    });
+
+    const session = await Auth.init();
+
+    initAuthEventy();
     initEventy();
 
-    // Při prvním spuštění bez klíče → zobraz obrazovku pro zadání klíče
-    if (!maApiKlic()) {
-      zobrazApiKlic(null); // null = bez tlačítka Zpět
+    if (session) {
+      await pokracujPoLoginu(session);
     } else {
-      zobrazDomovskou();
+      zobrazAuthScreen();
     }
   }
 
