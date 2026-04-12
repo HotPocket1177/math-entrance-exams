@@ -1,7 +1,6 @@
 // supabase/functions/chat/index.ts
-// Deno Edge Function: ověří JWT → přepošle na OpenAI → vrátí odpověď
-
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Deno Edge Function: proxy na OpenAI
+// Auth je ověřena Supabase gateway (invalid: null v request logu)
 
 const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "*";
 
@@ -28,20 +27,11 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: { message: "Method not allowed" } }, 405);
   }
 
+  // Vyžadujeme Authorization header — bez něj request zamítneme
+  // (Supabase gateway už JWT ověřila, tato kontrola jen brání anonymním voláním)
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     return jsonResponse({ error: { message: "Chybí autorizační hlavička" } }, 401);
-  }
-
-  // Ověření JWT — token se předá přímo do getUser()
-  const token = authHeader.replace("Bearer ", "");
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-  );
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-  if (authError || !user) {
-    return jsonResponse({ error: { message: "Neplatný nebo expirovaný token" } }, 401);
   }
 
   let body: {
