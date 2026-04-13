@@ -1,6 +1,42 @@
-// syllabus.js — ŠVP mapa: třída → týden školního roku → odemčená témata
+// syllabus.js — ŠVP mapa: třída → odemčená témata + filtrace úloh
 
 const Syllabus = (() => {
+
+  // Která témata a podtypy jsou dostupné pro danou třídu
+  const TRIDA_TEMATA = {
+    6: {
+      slovni:    { odemceno: true,  podtypy: ['zakladni'] },
+      zlomky:    { odemceno: true,  podtypy: ['zakladni'] },
+      procenta:  { odemceno: false },
+      rovnice:   { odemceno: false },
+      geometrie: { odemceno: true,  podtypy: ['obvod', 'obsah_zakladni'] },
+      grafy:     { odemceno: false }
+    },
+    7: {
+      slovni:    { odemceno: true,  podtypy: ['zakladni', 'pomer'] },
+      zlomky:    { odemceno: true,  podtypy: ['zakladni', 'operace'] },
+      procenta:  { odemceno: true,  podtypy: ['zakladni', 'zpetny'] },
+      rovnice:   { odemceno: true,  podtypy: ['linearni'] },
+      geometrie: { odemceno: true,  podtypy: ['obvod', 'obsah_zakladni'] },
+      grafy:     { odemceno: false }
+    },
+    8: {
+      slovni:    { odemceno: true,  podtypy: ['zakladni', 'soustava'] },
+      zlomky:    { odemceno: true,  podtypy: ['vse'] },
+      procenta:  { odemceno: true,  podtypy: ['vse'] },
+      rovnice:   { odemceno: true,  podtypy: ['linearni', 'soustava', 'absolutni'] },
+      geometrie: { odemceno: true,  podtypy: ['vse'] },
+      grafy:     { odemceno: true,  podtypy: ['cteni_dat', 'prumery'] }
+    },
+    9: {
+      slovni:    { odemceno: true,  podtypy: ['vse'] },
+      zlomky:    { odemceno: true,  podtypy: ['vse'] },
+      procenta:  { odemceno: true,  podtypy: ['vse'] },
+      rovnice:   { odemceno: true,  podtypy: ['vse'] },
+      geometrie: { odemceno: true,  podtypy: ['vse'] },
+      grafy:     { odemceno: true,  podtypy: ['vse'] }
+    }
+  };
 
   // SVP_MAP[trida][temaId] = minimální týden školního roku pro odemčení
   // Školní rok začíná 1. září (týden 1) a má ~40 výukových týdnů.
@@ -66,5 +102,37 @@ const Syllabus = (() => {
     return (SVP_MAP[trida] || SVP_MAP[9])[temaId] ?? 1;
   }
 
-  return { getOdemcenaTemata, getTydenvRoce, getMinTyden, SVP_MAP };
+  // Vrátí pole odemčených tema_id pro danou třídu (bez ohledu na týden)
+  function getOdemcenaTemataPoTridu(trida) {
+    const map = TRIDA_TEMATA[trida] || {};
+    return Object.entries(map)
+      .filter(([, info]) => info.odemceno)
+      .map(([temaId]) => temaId);
+  }
+
+  // Vrátí filtrované ulohy[] pro dané téma a třídu (dle tridy + podtypu)
+  function getUlohyProTridu(temaId, trida) {
+    const tema = TEMATA.find(t => t.id === temaId);
+    if (!tema) return [];
+    const info = TRIDA_TEMATA[trida]?.[temaId];
+    if (!info || !info.odemceno) return [];
+    const podtypy = info.podtypy || [];
+    const jeVse   = podtypy.includes('vse');
+    return tema.ulohy.filter(u =>
+      u.tridy?.includes(trida) && (jeVse || podtypy.includes(u.podtyp))
+    );
+  }
+
+  // Vrátí nejnižší třídu, ve které je téma odemčeno (pro "Dostupné od X. třídy")
+  function getMinTrida(temaId) {
+    for (const t of [6, 7, 8, 9]) {
+      if (TRIDA_TEMATA[t]?.[temaId]?.odemceno) return t;
+    }
+    return null;
+  }
+
+  return {
+    getOdemcenaTemata, getTydenvRoce, getMinTyden, SVP_MAP,
+    TRIDA_TEMATA, getOdemcenaTemataPoTridu, getUlohyProTridu, getMinTrida
+  };
 })();

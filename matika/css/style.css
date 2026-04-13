@@ -444,6 +444,106 @@ a { color: var(--color-primary); text-decoration: none; }
   align-items: center;
 }
 
+/* ── User dropdown ── */
+.user-dropdown-wrap {
+  position: relative;
+}
+
+.btn-avatar {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  background: var(--color-surface2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: .3rem .55rem;
+  cursor: pointer;
+  color: var(--color-text);
+  transition: background .15s;
+}
+.btn-avatar:hover { background: var(--color-border); }
+
+.avatar-inicialy {
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .72rem;
+  font-weight: 700;
+}
+
+.avatar-chevron {
+  font-size: .7rem;
+  color: var(--color-text-muted);
+}
+
+.user-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + .4rem);
+  min-width: 200px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  z-index: 200;
+  padding: .4rem 0;
+}
+
+.dropdown-email {
+  padding: .45rem 1rem;
+  font-size: .82rem;
+  color: var(--color-text-muted);
+  word-break: break-all;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: .3rem 0;
+}
+
+.dropdown-label {
+  padding: .3rem 1rem .1rem;
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.dropdown-tridy { padding: .1rem 0; }
+
+.dropdown-trida-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .38rem 1rem;
+  font-size: .88rem;
+  cursor: pointer;
+  color: var(--color-text);
+  transition: background .1s;
+}
+.dropdown-trida-item:hover { background: var(--color-surface2); }
+.dropdown-trida-item.aktivni { color: var(--color-primary); font-weight: 600; }
+
+.dropdown-odhlasit {
+  width: 100%;
+  text-align: left;
+  padding: .38rem 1rem;
+  font-size: .88rem;
+  color: var(--color-danger);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background .1s;
+}
+.dropdown-odhlasit:hover { background: var(--color-surface2); }
+
 /* ── Home header ── */
 .home-header {
   display: flex;

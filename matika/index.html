@@ -20,8 +20,21 @@
     <div class="header-inner">
       <div class="app-logo">Matika <span>přijímačky</span></div>
       <div class="header-akce">
-        <button id="btn-logout"    class="btn-icon hidden" title="Odhlásit se"        aria-label="Odhlásit se">👤</button>
-        <button id="btn-dark-mode" class="btn-icon"        title="Tmavý/světlý režim" aria-label="Přepnout tmavý/světlý režim">🌙</button>
+        <div id="user-dropdown-wrap" class="user-dropdown-wrap hidden">
+          <button id="btn-user-avatar" class="btn-avatar" aria-haspopup="true" aria-expanded="false" title="Nastavení účtu">
+            <span id="avatar-inicialy" class="avatar-inicialy">?</span>
+            <span class="avatar-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div id="user-dropdown" class="user-dropdown hidden" role="menu">
+            <div id="dropdown-email" class="dropdown-email"></div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-label">Třída</div>
+            <div id="dropdown-tridy" class="dropdown-tridy"></div>
+            <div class="dropdown-divider"></div>
+            <button id="btn-logout" class="dropdown-odhlasit" role="menuitem">Odhlásit</button>
+          </div>
+        </div>
+        <button id="btn-dark-mode" class="btn-icon" title="Tmavý/světlý režim" aria-label="Přepnout tmavý/světlý režim">🌙</button>
       </div>
     </div>
   </header>
@@ -71,14 +84,6 @@
 
             <label class="apikey-label" for="reg-password">Heslo</label>
             <input id="reg-password" type="password" class="apikey-input" placeholder="Min. 8 znaků"  autocomplete="new-password">
-
-            <label class="apikey-label" for="reg-trida">Třída</label>
-            <select id="reg-trida" class="apikey-input">
-              <option value="6">6. třída</option>
-              <option value="7">7. třída</option>
-              <option value="8" selected>8. třída</option>
-              <option value="9">9. třída</option>
-            </select>
 
             <p id="reg-chyba" class="apikey-chyba hidden" role="alert"></p>
 

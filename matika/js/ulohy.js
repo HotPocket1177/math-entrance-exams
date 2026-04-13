@@ -28,7 +28,7 @@ const TEMATA = [
     popis: 'Pojmenování neznámé, sestavení rovnic ze zadání, soustavy',
     ulohy: [
       {
-        id: 's1',
+        id: 's1', tridy: [6,7,8,9], podtyp: 'zakladni',
         zadani: 'Petr má o 15 více knížek než Jana. Dohromady mají 63 knížek. Kolik knížek má každý z nich?',
         kroky: [
           'Co v zadání nevíš? Pojmenuj to — zapiš jako $x$. (Nápověda: Kolik knížek má Jana?)',
@@ -50,7 +50,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 's2',
+        id: 's2', tridy: [6,7,8,9], podtyp: 'zakladni',
         zadani: 'Vlak ujede za 3 hodiny stejnou vzdálenost jako autobus za 4 hodiny. Autobus jede rychlostí 90 km/h. Jakou rychlostí jede vlak?',
         kroky: [
           'Co v zadání nevíš? Pojmenuj to — zapiš jako $x$. (Rychlost vlaku $= x$ km/h.)',
@@ -68,7 +68,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 's3',
+        id: 's3', tridy: [6,7,8,9], podtyp: 'zakladni',
         zadani: 'Zahrada má tvar obdélníku. Její délka je o 8 m větší než šířka. Obvod zahrady je 56 m. Jaké jsou rozměry zahrady?',
         kroky: [
           'Co v zadání nevíš? Pojmenuj to — zapiš jako $x$. (Šířka $= x$ m, délka $= ?$)',
@@ -91,7 +91,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 's4',
+        id: 's4', tridy: [6,7,8,9], podtyp: 'zakladni',
         zadani: 'Ve třídě je 30 žáků. Chlapců je o 4 více než dívek. Kolik je ve třídě chlapců a kolik dívek?',
         kroky: [
           'Co v zadání nevíš? Pojmenuj to — zapiš jako $x$. (Počet dívek $= x$.)',
@@ -113,7 +113,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 's5',
+        id: 's5', tridy: [7,8,9], podtyp: 'zakladni',
         zadani: 'Dva dělníci spolu opraví střechu za 6 dní. Pracují-li samostatně, první ji opraví za 10 dní. Za kolik dní ji opraví druhý dělník sám?',
         kroky: [
           'Co v zadání nevíš? Pojmenuj to — zapiš jako $x$. (Druhý dělník opraví střechu za $x$ dní.)',
@@ -144,7 +144,7 @@ const TEMATA = [
     popis: 'Zpětný výpočet, složené změny, jednoduché úročení',
     ulohy: [
       {
-        id: 'p1',
+        id: 'p1', tridy: [7,8,9], podtyp: 'zpetny',
         zadani: 'Po slevě 20 % stál svetr 480 Kč. Jaká byla původní cena svetru?',
         kroky: [
           'Co v zadání nevíš? Pojmenuj to — zapiš jako $x$. (Původní cena $= x$ Kč.)',
@@ -162,7 +162,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 'p2',
+        id: 'p2', tridy: [7,8,9], podtyp: 'zpetny',
         zadani: 'Cena benzínu vzrostla o 10 % a pak ještě o dalších 10 %. O kolik procent celkem vzrostla cena oproti původní ceně?',
         kroky: [
           'Začneme s cenou 100 Kč. Po prvním zdražení o 10 % je nová cena kolik?',
@@ -180,7 +180,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 'p3',
+        id: 'p3', tridy: [7,8,9], podtyp: 'zakladni',
         zadani: 'Ve třídě je 24 žáků. 25 % z nich jsou vyznamenanci. Kolik žáků dostane vyznamenání?',
         kroky: [
           '25 % lze zapsat jako zlomek. Jaký zlomek to je?',
@@ -195,7 +195,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 'p4',
+        id: 'p4', tridy: [8,9], podtyp: 'zakladni',
         zadani: 'Banka nabízí roční úrokovou sazbu 3 %. Kolik korun vydělá 5 000 Kč za 2 roky (jednoduché úročení)?',
         kroky: [
           'Jednoduché úročení: úrok za rok $=$ jistina $\\cdot$ úroková sazba. Kolik vydělá 5 000 Kč za 1 rok?',
@@ -215,7 +215,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 'p5',
+        id: 'p5', tridy: [7,8,9], podtyp: 'zpetny',
         zadani: 'Výrobek zdražel o 15 % na cenu 1 150 Kč. Jaká byla původní cena?',
         kroky: [
           'Co v zadání nevíš? Pojmenuj to — zapiš jako $x$. (Původní cena $= x$ Kč.)',
@@ -245,7 +245,7 @@ const TEMATA = [
     popis: 'Operace se zlomky, základní tvar, kombinované výrazy',
     ulohy: [
       {
-        id: 'z1',
+        id: 'z1', tridy: [6,7,8,9], podtyp: 'zakladni',
         zadani: 'Vypočítej: $\\frac{3}{4} + \\frac{2}{3}$',
         kroky: [
           'Pro sčítání zlomků potřebuješ společného jmenovatele. Jaký je nejmenší společný násobek čísel 4 a 3?',
@@ -265,7 +265,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 'z2',
+        id: 'z2', tridy: [6,7,8,9], podtyp: 'zakladni',
         zadani: 'Zjednoduš zlomek $\\frac{36}{48}$ na základní tvar.',
         kroky: [
           'Najdi největšího společného dělitele (NSD) čísel 36 a 48. Jaká čísla dělí beze zbytku obě čísla?',
@@ -284,7 +284,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 'z3',
+        id: 'z3', tridy: [7,8,9], podtyp: 'operace',
         zadani: 'Vypočítej: $\\frac{2}{5} \\cdot \\frac{15}{8}$',
         kroky: [
           'Zlomky násobíme čitatel krát čitatel a jmenovatel krát jmenovatel. Zapíšeme: $\\frac{2 \\cdot 15}{5 \\cdot 8} = ?$',
@@ -304,7 +304,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 'z4',
+        id: 'z4', tridy: [6,7,8,9], podtyp: 'zakladni',
         zadani: 'Vypočítej: $\\frac{5}{6} - \\frac{1}{4}$',
         kroky: [
           'Najdi nejmenší společný násobek čísel 6 a 4.',
@@ -324,7 +324,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 'z5',
+        id: 'z5', tridy: [7,8,9], podtyp: 'operace',
         zadani: 'Vypočítej: $\\frac{3}{4} \\div \\frac{9}{16}$',
         kroky: [
           'Dělení zlomků: místo dělení násobíme převrácenou hodnotou. Jaká je převrácená hodnota zlomku $\\frac{9}{16}$?',
@@ -356,7 +356,7 @@ const TEMATA = [
     popis: 'Lineární rovnice, soustavy, rozklad, absolutní hodnota',
     ulohy: [
       {
-        id: 'r1',
+        id: 'r1', tridy: [7,8,9], podtyp: 'linearni',
         zadani: 'Vyřeš rovnici: $3(x - 4) = 2x + 1$',
         kroky: [
           'Rozbal závorku na levé straně: $3(x - 4) = ?$',
@@ -372,7 +372,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 'r2',
+        id: 'r2', tridy: [8,9], podtyp: 'soustava',
         zadani: 'Vyřeš soustavu rovnic:\n$2x + y = 7$\n$x - y = 2$',
         kroky: [
           'Použijeme metodu sčítání. Co se stane, když sečteme obě rovnice? $(2x + y) + (x - y) = 7 + 2$',
@@ -393,7 +393,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 'r3',
+        id: 'r3', tridy: [8,9], podtyp: 'linearni',
         zadani: 'Rozlož na součin: $x^2 - 9$',
         kroky: [
           'Výraz $x^2 - 9$ je rozdíl čtverců. Platí vzorec: $a^2 - b^2 = (a + b)(a - b)$. Jaké je $a$ a jaké je $b$ v tomto výrazu?',
@@ -413,7 +413,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 'r4',
+        id: 'r4', tridy: [7,8,9], podtyp: 'linearni',
         zadani: 'Vyřeš nerovnici: $2x - 3 > 5$',
         kroky: [
           'Přičti 3 k oběma stranám nerovnice. Co dostaneš?',
@@ -432,7 +432,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 'r5',
+        id: 'r5', tridy: [8,9], podtyp: 'absolutni',
         zadani: 'Vyřeš rovnici s absolutní hodnotou: $|2x - 4| = 6$',
         kroky: [
           'Absolutní hodnota výrazu může být kladná nebo záporná. Rovnice $|A| = 6$ má dvě řešení: $A = 6$ nebo $A = -6$. Zapiš obě rovnice pro výraz $2x - 4$.',
@@ -465,7 +465,7 @@ const TEMATA = [
     popis: 'Pythagorova věta, obsah, obvod, složené útvary',
     ulohy: [
       {
-        id: 'g1',
+        id: 'g1', tridy: [8,9], podtyp: 'obsah_zakladni',
         zadani: 'Pravoúhlý trojúhelník má odvěsny délky 6 cm a 8 cm. Jaká je délka přepony?',
         kroky: [
           'Zapiš Pythagorovu větu: $c^2 = a^2 + b^2$, kde $c$ je přepona a $a$, $b$ jsou odvěsny.',
@@ -482,7 +482,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 'g2',
+        id: 'g2', tridy: [6,7,8,9], podtyp: 'obvod',
         zadani: 'Čtverec má obsah $64\\text{ cm}^2$. Jaký je jeho obvod?',
         kroky: [
           'Obsah čtverce $S = a^2$. Víme, že $a^2 = 64$. Jaká je délka strany $a$?',
@@ -497,7 +497,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 'g3',
+        id: 'g3', tridy: [6,7,8,9], podtyp: 'obvod',
         zadani: 'Kruh má poloměr 5 cm. Vypočítej jeho obvod (používej $\\pi \\approx 3{,}14$).',
         kroky: [
           'Vzorec pro obvod kruhu: $O = 2 \\cdot \\pi \\cdot r$. Jaký je poloměr $r$?',
@@ -512,7 +512,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 'g4',
+        id: 'g4', tridy: [6,7,8,9], podtyp: 'obsah_zakladni',
         zadani: 'Složený útvar se skládá z obdélníku $10 \\times 6$ cm, na jehož kratší straně sedí trojúhelník s výškou 4 cm. Jaký je celkový obsah útvaru?',
         kroky: [
           'Rozděl útvar na obdélník a trojúhelník. Jaký je obsah obdélníku $(10 \\times 6\\text{ cm})$?',
@@ -541,7 +541,7 @@ const TEMATA = [
     popis: 'Čtení dat, průměry, procentní změny z grafů',
     ulohy: [
       {
-        id: 'gr1',
+        id: 'gr1', tridy: [8,9], podtyp: 'prumery',
         zadani: 'Tabulka uvádí teploty (°C) naměřené v pondělí až pátek: 12, 15, 11, 17, 10. Jaký je průměr teplot za tyto dny?',
         kroky: [
           'Průměr $=$ součet hodnot $\\div$ počet hodnot. Nejdřív spočítej součet: $12 + 15 + 11 + 17 + 10 = ?$',
@@ -556,7 +556,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 'gr2',
+        id: 'gr2', tridy: [8,9], podtyp: 'cteni_dat',
         zadani: 'Graf ukazuje, že loni bylo prodáno 400 kusů výrobku a letos 520 kusů. O kolik procent vzrostl prodej?',
         kroky: [
           'Procentní změna $= \\frac{\\text{nová} - \\text{původní}}{\\text{původní}} \\cdot 100\\,\\%$. Zapiš hodnoty.',
@@ -572,7 +572,7 @@ const TEMATA = [
         ]
       },
       {
-        id: 'gr3',
+        id: 'gr3', tridy: [8,9], podtyp: 'cteni_dat',
         zadani: 'Koláčový graf zobrazuje strukturu výdajů domácnosti. Potraviny tvoří 35 %, nájem 40 %, ostatní 25 %. Celkové výdaje jsou 20 000 Kč. Kolik korun tvoří výdaje za nájem?',
         kroky: [
           'Nájem tvoří 40 % z celkových výdajů. Zapiš jako výpočet: $?\\,\\%$ z $20\\,000$ Kč.',

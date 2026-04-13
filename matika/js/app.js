@@ -45,20 +45,62 @@ const App = (() => {
 
   // ─── Po úspěšném přihlášení ───────────────────────────────────
   async function pokracujPoLoginu(session) {
-    profil       = await Auth.getProfil();
-    tydenvRoce   = Syllabus.getTydenvRoce();
-    odemcenaTemata = Syllabus.getOdemcenaTemata(profil?.trida || 9, tydenvRoce);
+    profil         = await Auth.getProfil();
+    odemcenaTemata = Syllabus.getOdemcenaTemataPoTridu(profil?.trida || 8);
 
-    // Hlavička — zobraz odhlásit
-    document.getElementById('btn-logout').classList.remove('hidden');
+    // Hlavička — zobraz avatar dropdown
+    const email = session?.user?.email || Auth.getSession()?.user?.email || '';
+    document.getElementById('avatar-inicialy').textContent = email.charAt(0).toUpperCase() || '?';
+    document.getElementById('dropdown-email').textContent  = email;
+    document.getElementById('user-dropdown-wrap').classList.remove('hidden');
+    renderDropdownTridy();
 
     // Uvítání
-    if (profil?.trida) {
-      document.getElementById('home-uvitani').textContent =
-        `${profil.trida}. třída · Týden ${tydenvRoce} · ${odemcenaTemata.length} témat odemčeno`;
-    }
+    const trida = profil?.trida || 8;
+    document.getElementById('home-uvitani').textContent =
+      `${trida}. třída — ${odemcenaTemata.length} témat odemčeno`;
 
     zobrazDomovskou();
+  }
+
+  // ─── Dropdown: výběr třídy ────────────────────────────────────
+  function renderDropdownTridy() {
+    const wrap = document.getElementById('dropdown-tridy');
+    wrap.innerHTML = '';
+    const aktualniTrida = profil?.trida || 8;
+    [6, 7, 8, 9].forEach(t => {
+      const item = document.createElement('div');
+      item.className = `dropdown-trida-item${t === aktualniTrida ? ' aktivni' : ''}`;
+      item.setAttribute('role', 'menuitemradio');
+      item.setAttribute('aria-checked', t === aktualniTrida ? 'true' : 'false');
+      item.innerHTML = `<span>${t}. třída</span>${t === aktualniTrida ? '<span aria-hidden="true">✓</span>' : ''}`;
+      item.addEventListener('click', () => zmenTridu(t));
+      wrap.appendChild(item);
+    });
+  }
+
+  async function zmenTridu(novaTrida) {
+    if (!Auth.jeAuthenticated() || novaTrida === profil?.trida) {
+      zavriDropdown(); return;
+    }
+    const { error } = await Auth.getSupabase()
+      .from('profiles')
+      .update({ trida: novaTrida })
+      .eq('id', Auth.getSession().user.id);
+    if (error) { console.warn('Chyba update třídy:', error.message); return; }
+
+    profil         = { ...profil, trida: novaTrida };
+    odemcenaTemata = Syllabus.getOdemcenaTemataPoTridu(novaTrida);
+    document.getElementById('home-uvitani').textContent =
+      `${novaTrida}. třída — ${odemcenaTemata.length} témat odemčeno`;
+    renderDropdownTridy();
+    zavriDropdown();
+    renderTemata();
+  }
+
+  function zavriDropdown() {
+    document.getElementById('user-dropdown').classList.add('hidden');
+    document.getElementById('btn-user-avatar').setAttribute('aria-expanded', 'false');
   }
 
   // ─── localStorage helpers ────────────────────────────────────
@@ -115,12 +157,13 @@ const App = (() => {
     grid.innerHTML = '';
 
     TEMATA.forEach(tema => {
-      const celkem    = tema.ulohy.length;
-      const hotovo    = pocetDokoncenychUloh(tema.id);
-      const procent   = celkem > 0 ? Math.round((hotovo / celkem) * 100) : 0;
-      const jeOdemceno = !odemcenaTemata || odemcenaTemata.includes(tema.id);
-      const minTyden  = odemcenaTemata && !jeOdemceno
-        ? Syllabus.getMinTyden(profil?.trida || 9, tema.id) : null;
+      const trida         = profil?.trida || 8;
+      const ulohyProTridu = Syllabus.getUlohyProTridu(tema.id, trida);
+      const jeOdemceno    = ulohyProTridu.length > 0;
+      const celkem        = ulohyProTridu.length;
+      const hotovo        = pocetDokoncenychUloh(tema.id);
+      const procent       = celkem > 0 ? Math.round((hotovo / celkem) * 100) : 0;
+      const minTrida      = !jeOdemceno ? Syllabus.getMinTrida(tema.id) : null;
 
       const karta = document.createElement('div');
       karta.className = `tema-karta${jeOdemceno ? '' : ' tema-karta--zamcena'}`;
@@ -140,7 +183,7 @@ const App = (() => {
           <div class="progress-fill" style="width:${procent}%"></div>
         </div>
         ${jeOdemceno ? '' : `<span class="tema-zamek" aria-hidden="true">🔒</span>`}
-        ${jeOdemceno ? '' : `<p class="tema-zamceno-text">Probereš v týdnu ${minTyden}</p>`}
+        ${jeOdemceno ? '' : `<p class="tema-zamceno-text">Dostupné od ${minTrida}. třídy</p>`}
       `;
 
       if (jeOdemceno) {
@@ -156,9 +199,13 @@ const App = (() => {
 
   // ─── Spuštění tématu ──────────────────────────────────────────
   function spustTema(tema) {
-    aktualniTema       = tema;
+    const trida = profil?.trida || 8;
+    const filtrovaneUlohy = Syllabus.getUlohyProTridu(tema.id, trida);
+    aktualniTema       = filtrovaneUlohy.length > 0
+      ? { ...tema, ulohy: filtrovaneUlohy }
+      : tema;
     aktualniUlohaIndex = 0;
-    skore              = { spravne: 0, celkem: tema.ulohy.length };
+    skore              = { spravne: 0, celkem: aktualniTema.ulohy.length };
     dialogLog          = [];
     zobrazUlohu();
     document.getElementById('uloha-tema-nazev').textContent = tema.nazev;
@@ -495,11 +542,10 @@ const App = (() => {
     document.getElementById('btn-registrovat').addEventListener('click', async () => {
       const email    = document.getElementById('reg-email').value.trim();
       const password = document.getElementById('reg-password').value;
-      const trida    = document.getElementById('reg-trida').value;
       const chybaEl  = document.getElementById('reg-chyba');
       chybaEl.classList.add('hidden');
       try {
-        await Auth.registruj(email, password, trida);
+        await Auth.registruj(email, password);
         // Supabase pošle potvrzovací e-mail
         chybaEl.style.color = 'var(--color-success)';
         chybaEl.textContent = '✅ Účet vytvořen! Zkontroluj e-mail a klikni na potvrzovací odkaz.';
@@ -513,10 +559,11 @@ const App = (() => {
 
     // Odhlášení
     document.getElementById('btn-logout').addEventListener('click', async () => {
+      zavriDropdown();
       await Auth.odhlas();
       profil         = null;
       odemcenaTemata = null;
-      document.getElementById('btn-logout').classList.add('hidden');
+      document.getElementById('user-dropdown-wrap').classList.add('hidden');
       // onAuthStateChange SIGNED_OUT → zobrazAuthScreen()
     });
   }
@@ -540,6 +587,21 @@ const App = (() => {
     document.getElementById('btn-znovu').addEventListener('click', () => {
       if (aktualniTema) spustTema(aktualniTema);
     });
+
+    // Avatar dropdown
+    document.getElementById('btn-user-avatar').addEventListener('click', e => {
+      e.stopPropagation();
+      const dropdown = document.getElementById('user-dropdown');
+      const isOpen   = !dropdown.classList.contains('hidden');
+      dropdown.classList.toggle('hidden');
+      e.currentTarget.setAttribute('aria-expanded', String(!isOpen));
+    });
+    document.addEventListener('click', () => {
+      if (!document.getElementById('user-dropdown')?.classList.contains('hidden')) {
+        zavriDropdown();
+      }
+    });
+    document.getElementById('user-dropdown').addEventListener('click', e => e.stopPropagation());
 
     // Výpočetní panel — smazat
     document.getElementById('btn-vypocet-smazat').addEventListener('click', () => {

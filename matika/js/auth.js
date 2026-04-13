@@ -28,15 +28,15 @@ const Auth = (() => {
   }
 
   // ── Registrace ────────────────────────────────────────────────
-  async function registruj(email, password, trida) {
+  async function registruj(email, password) {
     const { data, error } = await _supabase.auth.signUp({ email, password });
     if (error) throw error;
 
-    // Vytvoř profil ihned po registraci (i před potvrzením e-mailu)
+    // Vytvoř profil ihned po registraci s výchozí třídou 8
     if (data.user) {
       const { error: profError } = await _supabase
         .from('profiles')
-        .upsert({ id: data.user.id, trida: parseInt(trida, 10) });
+        .upsert({ id: data.user.id, trida: 8 });
       if (profError) console.warn('Nepodařilo se uložit profil:', profError.message);
     }
     return data;
