@@ -478,7 +478,8 @@ const App = (() => {
       const chybaEl  = document.getElementById('auth-chyba');
       chybaEl.classList.add('hidden');
       try {
-        await Auth.prihlasuj(email, password);
+        const zapamatovat = document.getElementById('auth-zapamatovat').checked;
+        await Auth.prihlasuj(email, password, zapamatovat);
         // onAuthStateChange SIGNED_IN → pokracujPoLoginu() volá se přes callback
       } catch (e) {
         chybaEl.textContent = e.message;

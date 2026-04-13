@@ -43,8 +43,13 @@ const Auth = (() => {
   }
 
   // ── Přihlášení ────────────────────────────────────────────────
-  async function prihlasuj(email, password) {
-    const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+  // persistSession: true = session přežije zavření tabu (výchozí Supabase chování)
+  //                 false = session zanikne při zavření tabu/prohlížeče
+  async function prihlasuj(email, password, persistSession = true) {
+    const { data, error } = await _supabase.auth.signInWithPassword(
+      { email, password },
+      persistSession ? undefined : { persistSession: false }
+    );
     if (error) throw error;
     return data;
   }

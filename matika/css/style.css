@@ -629,6 +629,24 @@ a { color: var(--color-primary); text-decoration: none; }
   color: var(--color-text);
 }
 
+/* Checkbox "Zůstat přihlášen" */
+.auth-zapamatovat {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  font-size: .88rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  margin-bottom: .25rem;
+  user-select: none;
+}
+.auth-zapamatovat input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
 /* Select ve stylu apikey-input */
 select.apikey-input {
   appearance: auto;
