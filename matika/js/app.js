@@ -55,11 +55,6 @@ const App = (() => {
     document.getElementById('user-dropdown-wrap').classList.remove('hidden');
     renderDropdownTridy();
 
-    // Uvítání
-    const trida = profil?.trida || 8;
-    document.getElementById('home-uvitani').textContent =
-      `${trida}. třída — ${odemcenaTemata.length} témat odemčeno`;
-
     zobrazDomovskou();
   }
 
@@ -91,8 +86,6 @@ const App = (() => {
 
     profil         = { ...profil, trida: novaTrida };
     odemcenaTemata = Syllabus.getOdemcenaTemataPoTridu(novaTrida);
-    document.getElementById('home-uvitani').textContent =
-      `${novaTrida}. třída — ${odemcenaTemata.length} témat odemčeno`;
     renderDropdownTridy();
     zavriDropdown();
     renderTemata();
