@@ -710,6 +710,19 @@ select.apikey-input {
   color: var(--color-danger);
 }
 
+.vypocet-krok--napoveda {
+  background: #fff7ed;
+  border-left-color: #f97316;
+  color: #c2410c;
+}
+
+.vypocet-krok--vysledek {
+  background: #f0fdf4;
+  border-left-color: var(--color-success);
+  color: #15803d;
+  font-weight: 700;
+}
+
 [data-theme="dark"] .vypocet-krok--spravne {
   background: rgba(20, 83, 45, .25);
   color: #4ade80;
@@ -718,6 +731,17 @@ select.apikey-input {
 [data-theme="dark"] .vypocet-krok--spatne {
   background: rgba(127, 29, 29, .25);
   color: #f87171;
+}
+
+[data-theme="dark"] .vypocet-krok--napoveda {
+  background: rgba(124, 45, 18, .25);
+  color: #fb923c;
+}
+
+[data-theme="dark"] .vypocet-krok--vysledek {
+  background: rgba(20, 83, 45, .25);
+  color: #4ade80;
+  font-weight: 700;
 }
 
 /* KaTeX scrollbar ve výpočetním panelu */

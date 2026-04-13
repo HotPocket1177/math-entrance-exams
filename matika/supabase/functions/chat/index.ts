@@ -1,3 +1,4 @@
+// @ts-nocheck
 // supabase/functions/chat/index.ts
 // Deno Edge Function: proxy na OpenAI
 // Auth je ověřena Supabase gateway (invalid: null v request logu)

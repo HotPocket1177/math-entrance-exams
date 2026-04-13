@@ -7,6 +7,7 @@ const App = (() => {
   let skore              = { spravne: 0, celkem: 0 };
   let dialogLog          = [];
   let cekaNaApi          = false;
+  let postupIndex        = -1;  // index posledního odhaleného kroku z postup[]
 
   // Stav žáka (vyplní se po přihlášení)
   let profil           = null;   // { trida: 8 }
@@ -48,9 +49,8 @@ const App = (() => {
     tydenvRoce   = Syllabus.getTydenvRoce();
     odemcenaTemata = Syllabus.getOdemcenaTemata(profil?.trida || 9, tydenvRoce);
 
-    // Hlavička — zobraz odhlásit, skryj API klíč
+    // Hlavička — zobraz odhlásit
     document.getElementById('btn-logout').classList.remove('hidden');
-    document.getElementById('btn-zmenit-klic').classList.add('hidden');
 
     // Uvítání
     if (profil?.trida) {
@@ -194,7 +194,8 @@ const App = (() => {
     }
     aktualniUlohaIndex = index;
     const uloha = aktualniTema.ulohy[index];
-    dialogLog   = [];
+    dialogLog    = [];
+    postupIndex  = -1;
 
     // Progress bar
     const procent = Math.round((index / aktualniTema.ulohy.length) * 100);
@@ -302,13 +303,34 @@ const App = (() => {
   }
 
   // ─── Výpočetní panel ─────────────────────────────────────────
-  function pridejKrokDoVypoctu(text, typ) {
-    const log  = document.getElementById('vypocet-log');
-    const krok = document.createElement('div');
-    krok.className = `vypocet-krok${typ ? ` vypocet-krok--${typ}` : ''}`;
-    krok.innerHTML = MathRender.renderStep(escapujHtml(text));
-    log.appendChild(krok);
+  // krok = { latex, stav } z postup[] dané úlohy
+  // tipTyp = 'spravne' | 'napoveda' (barva; přebito na 'vysledek' pokud krok.stav === 'vysledek')
+  function pridejKrokDoVypoctu(krok, tipTyp) {
+    const log = document.getElementById('vypocet-log');
+    const el  = document.createElement('div');
+    const cssTyp = krok.stav === 'vysledek' ? 'vysledek' : tipTyp;
+    el.className = `vypocet-krok vypocet-krok--${cssTyp}`;
+    el.innerHTML = MathRender.renderStep(`$${krok.latex}$`);
+    log.appendChild(el);
     log.scrollTop = log.scrollHeight;
+  }
+
+  // Odhal další krok z postup[] aktuální úlohy
+  function odhalKrok(tipTyp) {
+    const uloha = aktualniTema.ulohy[aktualniUlohaIndex];
+    if (!uloha?.postup) return;
+    postupIndex++;
+    if (postupIndex >= uloha.postup.length) return;
+    pridejKrokDoVypoctu(uloha.postup[postupIndex], tipTyp);
+  }
+
+  // Odhal všechny zbývající kroky najednou (po zobrazení řešení)
+  function odhalZbytek() {
+    const uloha = aktualniTema.ulohy[aktualniUlohaIndex];
+    if (!uloha?.postup) return;
+    while (postupIndex + 1 < uloha.postup.length) {
+      odhalKrok('napoveda');
+    }
   }
 
   // ─── Odeslání odpovědi (async) ────────────────────────────────
@@ -341,12 +363,12 @@ const App = (() => {
 
     if (vysledek.typ === 'napoveda') {
       pridejZpravu('hint', vysledek.text);
-      pridejKrokDoVypoctu(vstup, 'spatne');
+      odhalKrok('napoveda');
       setVstupDisabled(false);
       document.getElementById('vstup-pole').focus();
     } else if (vysledek.typ === 'uspech') {
       pridejZpravu('uspech', vysledek.text);
-      pridejKrokDoVypoctu(vstup, 'spravne');
+      odhalKrok('spravne');
       ulozProgress(
         aktualniTema._temaId || aktualniTema.id,
         aktualniTema.ulohy[aktualniUlohaIndex].id,
@@ -356,7 +378,7 @@ const App = (() => {
       dokoncUlohu();
     } else if (vysledek.typ === 'reseni') {
       pridejZpravu('reseni', vysledek.text);
-      pridejKrokDoVypoctu(vstup, 'spatne');
+      odhalZbytek();
       ulozProgress(
         aktualniTema._temaId || aktualniTema.id,
         aktualniTema.ulohy[aktualniUlohaIndex].id,
@@ -497,7 +519,6 @@ const App = (() => {
       profil         = null;
       odemcenaTemata = null;
       document.getElementById('btn-logout').classList.add('hidden');
-      document.getElementById('btn-zmenit-klic').classList.remove('hidden');
       document.getElementById('denni-sada-sekce').classList.add('hidden');
       // onAuthStateChange SIGNED_OUT → zobrazAuthScreen()
     });
@@ -535,9 +556,6 @@ const App = (() => {
     document.getElementById('btn-odeslat-apikey')?.addEventListener('click', ulozApiKlic);
     document.getElementById('apikey-input')?.addEventListener('keydown', e => {
       if (e.key === 'Enter') ulozApiKlic();
-    });
-    document.getElementById('btn-zmenit-klic').addEventListener('click', () => {
-      zobrazApiKlic(() => zobrazDomovskou());
     });
     document.getElementById('btn-apikey-uloz')?.addEventListener('click', ulozApiKlic);
     document.getElementById('btn-apikey-smazat')?.addEventListener('click', smazApiKlic);

@@ -14,13 +14,12 @@ const Daily = (() => {
   }
 
   // ── Seed pro dnešní den ───────────────────────────────────────
-  // Vrátí integer ve formátu YYYYMMDD (např. 20260412).
-  // Všichni žáci stejného dne dostanou stejný seed → stejnou sadu.
-  function getDailySeed(datum = new Date()) {
-    const y = datum.getFullYear();
-    const m = String(datum.getMonth() + 1).padStart(2, '0');
-    const d = String(datum.getDate()).padStart(2, '0');
-    return parseInt(`${y}${m}${d}`, 10);
+  // Vrátí integer ve formátu YYYYMMDD podle časové zóny Europe/Prague.
+  // Reset probíhá přesně o půlnoci českého času pro všechny žáky.
+  function getDailySeed() {
+    const dnes = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Prague' });
+    // dnes = "2026-04-13"
+    return parseInt(dnes.replace(/-/g, ''), 10); // 20260413
   }
 
   // ── Denní sada 5 úloh ─────────────────────────────────────────

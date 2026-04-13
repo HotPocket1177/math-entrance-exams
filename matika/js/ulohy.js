@@ -41,7 +41,13 @@ const TEMATA = [
         kontrola: (vstup) => {
           const n = normalizuj(vstup);
           return (n.includes('24') && n.includes('39')) || blizko(vstup, 24);
-        }
+        },
+        postup: [
+          { latex: 'x = \\text{počet knížek Jany}', stav: 'krok' },
+          { latex: 'x + 15 = \\text{počet knížek Petra}', stav: 'krok' },
+          { latex: 'x + (x + 15) = 63 \\Rightarrow 2x = 48', stav: 'krok' },
+          { latex: '\\text{Jana: } 24,\\quad \\text{Petr: } 39', stav: 'vysledek' }
+        ]
       },
       {
         id: 's2',
@@ -54,7 +60,12 @@ const TEMATA = [
         ],
         odpoved: '120 km/h',
         jednotka: 'km/h',
-        kontrola: (vstup) => blizko(vstup, 120, 0.01)
+        kontrola: (vstup) => blizko(vstup, 120, 0.01),
+        postup: [
+          { latex: 'x = \\text{rychlost vlaku [km/h]}', stav: 'krok' },
+          { latex: '3x = 4 \\cdot 90 = 360', stav: 'krok' },
+          { latex: 'x = 120 \\text{ km/h}', stav: 'vysledek' }
+        ]
       },
       {
         id: 's3',
@@ -71,7 +82,13 @@ const TEMATA = [
         kontrola: (vstup) => {
           const n = normalizuj(vstup);
           return (n.includes('10') && n.includes('18')) || blizko(vstup, 10) || blizko(vstup, 18);
-        }
+        },
+        postup: [
+          { latex: 'x = \\text{šířka [m]},\\quad x + 8 = \\text{délka}', stav: 'krok' },
+          { latex: '2(x + x + 8) = 56 \\Rightarrow 4x + 16 = 56', stav: 'krok' },
+          { latex: '4x = 40 \\Rightarrow x = 10', stav: 'krok' },
+          { latex: '\\text{Šířka: } 10 \\text{ m},\\quad \\text{délka: } 18 \\text{ m}', stav: 'vysledek' }
+        ]
       },
       {
         id: 's4',
@@ -88,7 +105,12 @@ const TEMATA = [
         kontrola: (vstup) => {
           const n = normalizuj(vstup);
           return (n.includes('13') && n.includes('17')) || blizko(vstup, 13) || blizko(vstup, 17);
-        }
+        },
+        postup: [
+          { latex: 'x = \\text{počet dívek}', stav: 'krok' },
+          { latex: 'x + (x + 4) = 30 \\Rightarrow 2x = 26', stav: 'krok' },
+          { latex: '\\text{Dívky: } 13,\\quad \\text{chlapci: } 17', stav: 'vysledek' }
+        ]
       },
       {
         id: 's5',
@@ -102,7 +124,12 @@ const TEMATA = [
         ],
         odpoved: '15 dní',
         jednotka: 'dní',
-        kontrola: (vstup) => blizko(vstup, 15, 0.01)
+        kontrola: (vstup) => blizko(vstup, 15, 0.01),
+        postup: [
+          { latex: 'x = \\text{počet dní pro 2. dělníka}', stav: 'krok' },
+          { latex: '\\frac{1}{10} + \\frac{1}{x} = \\frac{1}{6}', stav: 'krok' },
+          { latex: '\\frac{6}{x} = \\frac{2}{5} \\Rightarrow x = 15 \\text{ dní}', stav: 'vysledek' }
+        ]
       }
     ]
   },
@@ -127,7 +154,12 @@ const TEMATA = [
         ],
         odpoved: '600 Kč',
         jednotka: 'Kč',
-        kontrola: (vstup) => blizko(vstup, 600, 0.01)
+        kontrola: (vstup) => blizko(vstup, 600, 0.01),
+        postup: [
+          { latex: 'x = \\text{původní cena [Kč]}', stav: 'krok' },
+          { latex: '0{,}8 \\cdot x = 480', stav: 'krok' },
+          { latex: 'x = \\frac{480}{0{,}8} = 600 \\text{ Kč}', stav: 'vysledek' }
+        ]
       },
       {
         id: 'p2',
@@ -140,7 +172,12 @@ const TEMATA = [
         ],
         odpoved: '21 %',
         jednotka: '%',
-        kontrola: (vstup) => blizko(vstup, 21, 0.01)
+        kontrola: (vstup) => blizko(vstup, 21, 0.01),
+        postup: [
+          { latex: '100 \\cdot 1{,}1 = 110 \\text{ Kč}', stav: 'krok' },
+          { latex: '110 \\cdot 1{,}1 = 121 \\text{ Kč}', stav: 'krok' },
+          { latex: '121 - 100 = 21 \\Rightarrow \\text{celkový nárůst: } 21\\,\\%', stav: 'vysledek' }
+        ]
       },
       {
         id: 'p3',
@@ -151,7 +188,11 @@ const TEMATA = [
         ],
         odpoved: '6 žáků',
         jednotka: 'žáků',
-        kontrola: (vstup) => blizko(vstup, 6, 0.01)
+        kontrola: (vstup) => blizko(vstup, 6, 0.01),
+        postup: [
+          { latex: '25\\,\\% = \\frac{1}{4}', stav: 'krok' },
+          { latex: '\\frac{1}{4} \\cdot 24 = 6 \\text{ žáků}', stav: 'vysledek' }
+        ]
       },
       {
         id: 'p4',
@@ -166,7 +207,12 @@ const TEMATA = [
         kontrola: (vstup) => {
           const n = normalizuj(vstup);
           return blizko(vstup, 300, 0.01) || blizko(vstup, 5300, 0.01) || (n.includes('300') || n.includes('5300') || n.includes('5 300'));
-        }
+        },
+        postup: [
+          { latex: '\\text{úrok/rok} = 5\\,000 \\cdot 0{,}03 = 150 \\text{ Kč}', stav: 'krok' },
+          { latex: '\\text{úrok za 2 roky} = 2 \\cdot 150 = 300 \\text{ Kč}', stav: 'krok' },
+          { latex: '5\\,000 + 300 = 5\\,300 \\text{ Kč}', stav: 'vysledek' }
+        ]
       },
       {
         id: 'p5',
@@ -179,7 +225,12 @@ const TEMATA = [
         ],
         odpoved: '1 000 Kč',
         jednotka: 'Kč',
-        kontrola: (vstup) => blizko(vstup, 1000, 0.01)
+        kontrola: (vstup) => blizko(vstup, 1000, 0.01),
+        postup: [
+          { latex: 'x = \\text{původní cena [Kč]}', stav: 'krok' },
+          { latex: '1{,}15 \\cdot x = 1\\,150', stav: 'krok' },
+          { latex: 'x = \\frac{1\\,150}{1{,}15} = 1\\,000 \\text{ Kč}', stav: 'vysledek' }
+        ]
       }
     ]
   },
@@ -206,7 +257,12 @@ const TEMATA = [
         kontrola: (vstup) => {
           const n = normalizuj(vstup);
           return n.includes('17/12') || n.includes('17 / 12') || blizko(vstup, 17/12) || n.includes('1 5/12') || n.includes('1 a 5/12');
-        }
+        },
+        postup: [
+          { latex: '\\text{NSN}(4, 3) = 12', stav: 'krok' },
+          { latex: '\\frac{3}{4} = \\frac{9}{12},\\quad \\frac{2}{3} = \\frac{8}{12}', stav: 'krok' },
+          { latex: '\\frac{9}{12} + \\frac{8}{12} = \\frac{17}{12}', stav: 'vysledek' }
+        ]
       },
       {
         id: 'z2',
@@ -221,7 +277,11 @@ const TEMATA = [
         kontrola: (vstup) => {
           const n = normalizuj(vstup);
           return n.includes('3/4') || n.includes('3 / 4') || blizko(vstup, 0.75);
-        }
+        },
+        postup: [
+          { latex: '\\text{NSD}(36, 48) = 12', stav: 'krok' },
+          { latex: '\\frac{36 \\div 12}{48 \\div 12} = \\frac{3}{4}', stav: 'vysledek' }
+        ]
       },
       {
         id: 'z3',
@@ -236,7 +296,12 @@ const TEMATA = [
         kontrola: (vstup) => {
           const n = normalizuj(vstup);
           return n.includes('3/4') || n.includes('3 / 4') || blizko(vstup, 0.75);
-        }
+        },
+        postup: [
+          { latex: '\\frac{2 \\cdot 15}{5 \\cdot 8} = \\frac{30}{40}', stav: 'krok' },
+          { latex: '\\text{NSD}(30, 40) = 10', stav: 'krok' },
+          { latex: '\\frac{30}{40} = \\frac{3}{4}', stav: 'vysledek' }
+        ]
       },
       {
         id: 'z4',
@@ -251,7 +316,12 @@ const TEMATA = [
         kontrola: (vstup) => {
           const n = normalizuj(vstup);
           return n.includes('7/12') || n.includes('7 / 12') || blizko(vstup, 7/12);
-        }
+        },
+        postup: [
+          { latex: '\\text{NSN}(6, 4) = 12', stav: 'krok' },
+          { latex: '\\frac{5}{6} = \\frac{10}{12},\\quad \\frac{1}{4} = \\frac{3}{12}', stav: 'krok' },
+          { latex: '\\frac{10}{12} - \\frac{3}{12} = \\frac{7}{12}', stav: 'vysledek' }
+        ]
       },
       {
         id: 'z5',
@@ -266,7 +336,12 @@ const TEMATA = [
         kontrola: (vstup) => {
           const n = normalizuj(vstup);
           return n.includes('4/3') || n.includes('4 / 3') || blizko(vstup, 4/3) || n.includes('1 1/3') || n.includes('1 a 1/3');
-        }
+        },
+        postup: [
+          { latex: '\\frac{3}{4} \\div \\frac{9}{16} = \\frac{3}{4} \\cdot \\frac{16}{9} = \\frac{48}{36}', stav: 'krok' },
+          { latex: '\\text{NSD}(48, 36) = 12', stav: 'krok' },
+          { latex: '\\frac{48}{36} = \\frac{4}{3}', stav: 'vysledek' }
+        ]
       }
     ]
   },
@@ -290,7 +365,11 @@ const TEMATA = [
         ],
         odpoved: '$x = 13$',
         jednotka: '',
-        kontrola: (vstup) => blizko(vstup, 13, 0.01)
+        kontrola: (vstup) => blizko(vstup, 13, 0.01),
+        postup: [
+          { latex: '3(x - 4) = 3x - 12', stav: 'krok' },
+          { latex: '3x - 12 = 2x + 1 \\Rightarrow x = 13', stav: 'vysledek' }
+        ]
       },
       {
         id: 'r2',
@@ -306,7 +385,12 @@ const TEMATA = [
         kontrola: (vstup) => {
           const n = normalizuj(vstup);
           return (n.includes('x = 3') || n.includes('x=3') || n.includes('3')) && (n.includes('y = 1') || n.includes('y=1') || n.includes('1'));
-        }
+        },
+        postup: [
+          { latex: '(2x + y) + (x - y) = 7 + 2 \\Rightarrow 3x = 9', stav: 'krok' },
+          { latex: 'x = 3 \\Rightarrow 3 - y = 2 \\Rightarrow y = 1', stav: 'krok' },
+          { latex: 'x = 3,\\quad y = 1', stav: 'vysledek' }
+        ]
       },
       {
         id: 'r3',
@@ -321,7 +405,12 @@ const TEMATA = [
         kontrola: (vstup) => {
           const n = normalizuj(vstup).replace(/\s/g, '');
           return n.includes('(x+3)(x-3)') || n.includes('(x-3)(x+3)') || (n.includes('x+3') && n.includes('x-3'));
-        }
+        },
+        postup: [
+          { latex: 'a^2 - b^2 = (a + b)(a - b)', stav: 'krok' },
+          { latex: 'a = x,\\quad b = 3', stav: 'krok' },
+          { latex: 'x^2 - 9 = (x + 3)(x - 3)', stav: 'vysledek' }
+        ]
       },
       {
         id: 'r4',
@@ -336,7 +425,11 @@ const TEMATA = [
         kontrola: (vstup) => {
           const n = normalizuj(vstup);
           return n.includes('x > 4') || n.includes('x>4') || n.includes('(4, ∞)') || n.includes('(4, inf)') || n.includes('4; ∞') || blizko(vstup, 4, 0.01);
-        }
+        },
+        postup: [
+          { latex: '2x - 3 > 5 \\Rightarrow 2x > 8', stav: 'krok' },
+          { latex: 'x > 4', stav: 'vysledek' }
+        ]
       },
       {
         id: 'r5',
@@ -352,7 +445,12 @@ const TEMATA = [
         kontrola: (vstup) => {
           const n = normalizuj(vstup);
           return (n.includes('5') && (n.includes('-1') || n.includes('−1'))) || blizko(vstup, 5, 0.01) || blizko(vstup, -1, 0.01);
-        }
+        },
+        postup: [
+          { latex: '2x - 4 = 6 \\Rightarrow x = 5', stav: 'krok' },
+          { latex: '2x - 4 = -6 \\Rightarrow x = -1', stav: 'krok' },
+          { latex: 'x = 5 \\text{ nebo } x = -1', stav: 'vysledek' }
+        ]
       }
     ]
   },
@@ -376,7 +474,12 @@ const TEMATA = [
         ],
         odpoved: '10 cm',
         jednotka: 'cm',
-        kontrola: (vstup) => blizko(vstup, 10, 0.01)
+        kontrola: (vstup) => blizko(vstup, 10, 0.01),
+        postup: [
+          { latex: 'c^2 = a^2 + b^2 = 6^2 + 8^2', stav: 'krok' },
+          { latex: 'c^2 = 36 + 64 = 100', stav: 'krok' },
+          { latex: 'c = \\sqrt{100} = 10 \\text{ cm}', stav: 'vysledek' }
+        ]
       },
       {
         id: 'g2',
@@ -387,7 +490,11 @@ const TEMATA = [
         ],
         odpoved: '32 cm',
         jednotka: 'cm',
-        kontrola: (vstup) => blizko(vstup, 32, 0.01)
+        kontrola: (vstup) => blizko(vstup, 32, 0.01),
+        postup: [
+          { latex: 'S = a^2 = 64 \\Rightarrow a = 8 \\text{ cm}', stav: 'krok' },
+          { latex: 'O = 4 \\cdot 8 = 32 \\text{ cm}', stav: 'vysledek' }
+        ]
       },
       {
         id: 'g3',
@@ -398,7 +505,11 @@ const TEMATA = [
         ],
         odpoved: '31,4 cm',
         jednotka: 'cm',
-        kontrola: (vstup) => blizko(vstup, 31.4, 0.02)
+        kontrola: (vstup) => blizko(vstup, 31.4, 0.02),
+        postup: [
+          { latex: 'O = 2 \\cdot \\pi \\cdot r = 2 \\cdot 3{,}14 \\cdot 5', stav: 'krok' },
+          { latex: 'O = 31{,}4 \\text{ cm}', stav: 'vysledek' }
+        ]
       },
       {
         id: 'g4',
@@ -410,7 +521,12 @@ const TEMATA = [
         ],
         odpoved: '$72\\text{ cm}^2$',
         jednotka: 'cm²',
-        kontrola: (vstup) => blizko(vstup, 72, 0.01)
+        kontrola: (vstup) => blizko(vstup, 72, 0.01),
+        postup: [
+          { latex: 'S_{\\text{obdélník}} = 10 \\cdot 6 = 60 \\text{ cm}^2', stav: 'krok' },
+          { latex: 'S_{\\text{trojúhelník}} = \\frac{6 \\cdot 4}{2} = 12 \\text{ cm}^2', stav: 'krok' },
+          { latex: 'S_{\\text{celkem}} = 60 + 12 = 72 \\text{ cm}^2', stav: 'vysledek' }
+        ]
       }
     ]
   },
@@ -433,7 +549,11 @@ const TEMATA = [
         ],
         odpoved: '13 °C',
         jednotka: '°C',
-        kontrola: (vstup) => blizko(vstup, 13, 0.01)
+        kontrola: (vstup) => blizko(vstup, 13, 0.01),
+        postup: [
+          { latex: '12 + 15 + 11 + 17 + 10 = 65', stav: 'krok' },
+          { latex: '\\text{průměr} = \\frac{65}{5} = 13 \\text{ °C}', stav: 'vysledek' }
+        ]
       },
       {
         id: 'gr2',
@@ -445,7 +565,11 @@ const TEMATA = [
         ],
         odpoved: '30 %',
         jednotka: '%',
-        kontrola: (vstup) => blizko(vstup, 30, 0.01)
+        kontrola: (vstup) => blizko(vstup, 30, 0.01),
+        postup: [
+          { latex: '520 - 400 = 120 \\text{ kusů}', stav: 'krok' },
+          { latex: '\\frac{120}{400} \\cdot 100 = 30\\,\\%', stav: 'vysledek' }
+        ]
       },
       {
         id: 'gr3',
@@ -456,7 +580,11 @@ const TEMATA = [
         ],
         odpoved: '8 000 Kč',
         jednotka: 'Kč',
-        kontrola: (vstup) => blizko(vstup, 8000, 0.01)
+        kontrola: (vstup) => blizko(vstup, 8000, 0.01),
+        postup: [
+          { latex: '40\\,\\% = 0{,}4', stav: 'krok' },
+          { latex: '0{,}4 \\cdot 20\\,000 = 8\\,000 \\text{ Kč}', stav: 'vysledek' }
+        ]
       }
     ]
   }
