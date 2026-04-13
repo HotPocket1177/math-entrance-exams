@@ -58,9 +58,6 @@ const App = (() => {
         `${profil.trida}. třída · Týden ${tydenvRoce} · ${odemcenaTemata.length} témat odemčeno`;
     }
 
-    // Zobraz sekci denních příkladů
-    document.getElementById('denni-sada-sekce').classList.remove('hidden');
-
     zobrazDomovskou();
   }
 
@@ -520,7 +517,6 @@ const App = (() => {
       profil         = null;
       odemcenaTemata = null;
       document.getElementById('btn-logout').classList.add('hidden');
-      document.getElementById('denni-sada-sekce').classList.add('hidden');
       // onAuthStateChange SIGNED_OUT → zobrazAuthScreen()
     });
   }
@@ -544,9 +540,6 @@ const App = (() => {
     document.getElementById('btn-znovu').addEventListener('click', () => {
       if (aktualniTema) spustTema(aktualniTema);
     });
-
-    // Denní sada
-    document.getElementById('btn-spustit-denni').addEventListener('click', spustDenniSadu);
 
     // Výpočetní panel — smazat
     document.getElementById('btn-vypocet-smazat').addEventListener('click', () => {
