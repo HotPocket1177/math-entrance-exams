@@ -68,32 +68,58 @@ const SessionProgress = (() => {
 
   // ── Zaznamenej dokončení sady ─────────────────────────────────
   // Vrátí { count: int, zamceno: bool }
-  // count  = nový celkový počet dokončení dnes
+  // count  = nový celkový počet dokončení dnes (načteno z DB nebo z cache)
   // zamceno = true pokud count dosáhl 3 (téma se uzamče)
+  //
+  // Přístup: čti aktuální count z Supabase (nebo z cache pokud userId chybí),
+  // přičti 1, zapiš zpět. await zaručuje spolehlivost i po reloadu stránky.
   async function dokoncSadu(temaId, userId) {
-    const dnes    = getPragueDate();
-    const current = _cache[temaId] || { dokonceni_count: 0, uzamceno_do: null };
-    const newCount = current.dokonceni_count + 1;
-    const zamceno  = newCount >= 3;
-    const newZamcenoDo = zamceno ? dnes : null;
+    const dnes = getPragueDate();
+    let currentCount = _cache[temaId]?.dokonceni_count || 0;
 
-    // Aktualizuj cache okamžitě
-    _cache[temaId] = { dokonceni_count: newCount, uzamceno_do: newZamcenoDo };
-
-    // Sync do Supabase (fire-and-forget)
     if (userId) {
-      Auth.getSupabase()
+      const sb = Auth.getSupabase();
+
+      // Krok 1 — přečti aktuální count z DB (kanonický zdroj)
+      const { data: row, error: readErr } = await sb
+        .from('session_progress')
+        .select('dokonceni_count')
+        .eq('user_id', userId)
+        .eq('tema_id', temaId)
+        .maybeSingle();
+
+      if (readErr) {
+        console.warn('SessionProgress read error:', readErr.message);
+      } else if (row !== null) {
+        currentCount = row.dokonceni_count || 0;
+      }
+
+      const newCount     = currentCount + 1;
+      const zamceno      = newCount >= 3;
+      const newZamcenoDo = zamceno ? dnes : null;
+
+      // Aktualizuj cache
+      _cache[temaId] = { dokonceni_count: newCount, uzamceno_do: newZamcenoDo };
+
+      // Krok 2 — zapiš zpět do DB (await — ne fire-and-forget)
+      const { error: writeErr } = await sb
         .from('session_progress')
         .upsert({
           user_id:         userId,
           tema_id:         temaId,
           dokonceni_count: newCount,
           uzamceno_do:     newZamcenoDo
-        })
-        .then(({ error }) => { if (error) console.warn('SessionProgress sync error:', error.message); });
+        }, { onConflict: 'user_id,tema_id' });
+
+      if (writeErr) console.warn('SessionProgress upsert error:', writeErr.message);
+
+      return { count: newCount, zamceno };
     }
 
-    return { count: newCount, zamceno };
+    // Nepřihlášený uživatel — pouze lokální cache, bez limitu
+    const newCount = currentCount + 1;
+    _cache[temaId] = { dokonceni_count: newCount, uzamceno_do: null };
+    return { count: newCount, zamceno: false };
   }
 
   // ── Reset cache při odhlášení ─────────────────────────────────

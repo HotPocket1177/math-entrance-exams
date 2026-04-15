@@ -264,8 +264,8 @@ const App = (() => {
     dialogLog    = [];
     postupIndex  = -1;
 
-    // Progress bar
-    const procent = Math.round((index / aktualniTema.ulohy.length) * 100);
+    // Progress bar — ukazuje (index+1)/celkem, tj. 100 % na poslední úloze
+    const procent = Math.round(((index + 1) / aktualniTema.ulohy.length) * 100);
     document.getElementById('uloha-progress-fill').style.width = procent + '%';
     document.getElementById('uloha-progress-text').textContent =
       `Úloha ${index + 1} z ${aktualniTema.ulohy.length}`;
@@ -599,12 +599,17 @@ const App = (() => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); odeslat(); }
     });
 
-    document.getElementById('btn-dalsi').addEventListener('click', () => {
-      nactiUlohu(aktualniUlohaIndex + 1);
+    document.getElementById('btn-dalsi').addEventListener('click', async () => {
+      const jePosledni = aktualniUlohaIndex >= aktualniTema.ulohy.length - 1;
+      if (jePosledni) {
+        // Poslední úloha sady — spusť flow dokončení (počítadlo + případné uzamčení)
+        await dokonceniSady();
+      } else {
+        nactiUlohu(aktualniUlohaIndex + 1);
+      }
     });
 
     document.getElementById('btn-zpet-z-ulohy').addEventListener('click', () => {
-      jeDenniRezim = false;
       zobrazDomovskou();
     });
     document.getElementById('btn-zpet-z-vysledku').addEventListener('click', zobrazDomovskou);
