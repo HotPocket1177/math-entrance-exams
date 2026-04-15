@@ -1,66 +1,105 @@
-// daily.js — generátor denní sady úloh (deterministický seed + náhodný výběr)
+// daily.js — denní session progress (náhrada za seed-based daily systém)
+//
+// Každé téma lze procvičit max 3× za den. Po třetím dokončení se uzamkne
+// do půlnoci (Europe/Prague). Při načtení aplikace se automaticky resetují
+// záznamy s vypršeným datem.
 
-const Daily = (() => {
+const SessionProgress = (() => {
 
-  // ── LCG (Linear Congruential Generator) ──────────────────────
-  // Deterministický PRNG — stejný seed → stejná sekvence čísel.
-  // Konstanty z Numerical Recipes (Knuth).
-  function lcg(seed) {
-    let s = seed >>> 0; // unsigned 32-bit
-    return function rand() {
-      s = (Math.imul(1664525, s) + 1013904223) >>> 0;
-      return s / 0xFFFFFFFF; // [0, 1)
-    };
+  // In-memory cache: temaId → { dokonceni_count, uzamceno_do }
+  let _cache = {};
+
+  // ── Pomocné: dnešní datum v Prague timezone ───────────────────
+  // Vrátí "2026-04-15" — ISO datum v pražské časové zóně.
+  function getPragueDate() {
+    return new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Prague' });
   }
 
-  // ── Seed pro dnešní den ───────────────────────────────────────
-  // Vrátí integer ve formátu YYYYMMDD podle časové zóny Europe/Prague.
-  // Reset probíhá přesně o půlnoci českého času pro všechny žáky.
-  function getDailySeed() {
-    const dnes = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Prague' });
-    // dnes = "2026-04-13"
-    return parseInt(dnes.replace(/-/g, ''), 10); // 20260413
-  }
+  // ── Načti vše z Supabase po přihlášení ───────────────────────
+  // Volej jednou po úspěšném přihlášení. Resetuje záznamy s vypršeným
+  // uzamčením přímo v DB (fire-and-forget).
+  async function nactiVse(userId) {
+    if (!userId) return;
+    const sb   = Auth.getSupabase();
+    const dnes = getPragueDate();
 
-  // ── Denní sada 5 úloh ─────────────────────────────────────────
-  // Deterministicky vybere 5 různých úloh z odemčených témat.
-  // Výsledek je každý den jiný, ale pro všechny žáky téže třídy stejný.
-  function generateDailySet(trida, tydenvRoce, seed) {
-    const rand = lcg(seed);
-    const odemcenaIds = Syllabus.getOdemcenaTemata(trida, tydenvRoce);
-    const dostupnaTemata = TEMATA.filter(t => odemcenaIds.includes(t.id));
+    const { data, error } = await sb
+      .from('session_progress')
+      .select('tema_id, dokonceni_count, uzamceno_do')
+      .eq('user_id', userId);
 
-    if (dostupnaTemata.length === 0) return [];
+    if (error) { console.warn('SessionProgress load error:', error.message); return; }
 
-    // Celkový pool všech úloh z odemčených témat
-    const pool = [];
-    dostupnaTemata.forEach(tema => {
-      tema.ulohy.forEach(uloha => {
-        pool.push({ ...uloha, _temaId: tema.id, _temaNazev: tema.nazev });
-      });
+    _cache = {};
+    const toReset = [];
+
+    (data || []).forEach(row => {
+      if (row.uzamceno_do && row.uzamceno_do < dnes) {
+        // Uzamčení vypršelo → reset
+        toReset.push(row.tema_id);
+        _cache[row.tema_id] = { dokonceni_count: 0, uzamceno_do: null };
+      } else {
+        _cache[row.tema_id] = {
+          dokonceni_count: row.dokonceni_count || 0,
+          uzamceno_do:     row.uzamceno_do || null
+        };
+      }
     });
 
-    if (pool.length === 0) return [];
+    // Resetuj expired záznamy v DB (fire-and-forget)
+    toReset.forEach(temaId => {
+      sb.from('session_progress')
+        .upsert({ user_id: userId, tema_id: temaId, dokonceni_count: 0, uzamceno_do: null })
+        .then(({ error: e }) => { if (e) console.warn('SessionProgress reset error:', e.message); });
+    });
+  }
 
-    // Fisher-Yates shuffle s LCG seeded randem → deterministicky zamíchej pool
-    const shuffled = [...pool];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(rand() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  // ── Je téma dnes uzamčeno? ────────────────────────────────────
+  function jeZamceno(temaId) {
+    const d = _cache[temaId];
+    if (!d?.uzamceno_do) return false;
+    return d.uzamceno_do >= getPragueDate();
+  }
+
+  // ── Počet dokončení dnes ──────────────────────────────────────
+  function getDokonceniCount(temaId) {
+    return _cache[temaId]?.dokonceni_count || 0;
+  }
+
+  // ── Zaznamenej dokončení sady ─────────────────────────────────
+  // Vrátí { count: int, zamceno: bool }
+  // count  = nový celkový počet dokončení dnes
+  // zamceno = true pokud count dosáhl 3 (téma se uzamče)
+  async function dokoncSadu(temaId, userId) {
+    const dnes    = getPragueDate();
+    const current = _cache[temaId] || { dokonceni_count: 0, uzamceno_do: null };
+    const newCount = current.dokonceni_count + 1;
+    const zamceno  = newCount >= 3;
+    const newZamcenoDo = zamceno ? dnes : null;
+
+    // Aktualizuj cache okamžitě
+    _cache[temaId] = { dokonceni_count: newCount, uzamceno_do: newZamcenoDo };
+
+    // Sync do Supabase (fire-and-forget)
+    if (userId) {
+      Auth.getSupabase()
+        .from('session_progress')
+        .upsert({
+          user_id:         userId,
+          tema_id:         temaId,
+          dokonceni_count: newCount,
+          uzamceno_do:     newZamcenoDo
+        })
+        .then(({ error }) => { if (error) console.warn('SessionProgress sync error:', error.message); });
     }
 
-    // Vezmi prvních 5 (nebo méně pokud pool je malý)
-    return shuffled.slice(0, 5);
+    return { count: newCount, zamceno };
   }
 
-  // ── Náhodná úloha z tématu ────────────────────────────────────
-  // Používá Math.random() — není deterministická (pro tlačítko "Náhodná úloha").
-  function generateRandomUloha(temaId) {
-    const tema = TEMATA.find(t => t.id === temaId);
-    if (!tema || tema.ulohy.length === 0) return null;
-    const idx = Math.floor(Math.random() * tema.ulohy.length);
-    return { ...tema.ulohy[idx], _temaId: temaId, _temaNazev: tema.nazev };
+  // ── Reset cache při odhlášení ─────────────────────────────────
+  function resetCache() {
+    _cache = {};
   }
 
-  return { generateDailySet, generateRandomUloha, getDailySeed };
+  return { nactiVse, jeZamceno, getDokonceniCount, dokoncSadu, resetCache, getPragueDate };
 })();

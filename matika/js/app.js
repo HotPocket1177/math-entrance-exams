@@ -11,9 +11,7 @@ const App = (() => {
 
   // Stav žáka (vyplní se po přihlášení)
   let profil           = null;   // { trida: 8 }
-  let tydenvRoce       = null;
   let odemcenaTemata   = null;   // string[] nebo null (= vše odemčeno)
-  let jeDenniRezim     = false;
 
   // ─── Správa obrazovek ─────────────────────────────────────────
   const SCREENS = ['screen-auth', 'screen-home', 'screen-apikey', 'screen-uloha', 'screen-vysledky'];
@@ -47,6 +45,10 @@ const App = (() => {
   async function pokracujPoLoginu(session) {
     profil         = await Auth.getProfil();
     odemcenaTemata = Syllabus.getOdemcenaTemataPoTridu(profil?.trida || 8);
+
+    // Načti session progress (denní limity)
+    const userId = session?.user?.id || Auth.getSession()?.user?.id;
+    await SessionProgress.nactiVse(userId);
 
     // Hlavička — zobraz avatar dropdown
     const email = session?.user?.email || Auth.getSession()?.user?.email || '';
@@ -153,16 +155,22 @@ const App = (() => {
       const trida         = profil?.trida || 8;
       const ulohyProTridu = Syllabus.getUlohyProTridu(tema.id, trida);
       const jeOdemceno    = ulohyProTridu.length > 0;
+      const jeDnesHotovo  = jeOdemceno && SessionProgress.jeZamceno(tema.id);
+      const klikatelna    = jeOdemceno && !jeDnesHotovo;
       const celkem        = ulohyProTridu.length;
       const hotovo        = pocetDokoncenychUloh(tema.id);
       const procent       = celkem > 0 ? Math.round((hotovo / celkem) * 100) : 0;
       const minTrida      = !jeOdemceno ? Syllabus.getMinTrida(tema.id) : null;
 
       const karta = document.createElement('div');
-      karta.className = `tema-karta${jeOdemceno ? '' : ' tema-karta--zamcena'}`;
-      karta.setAttribute('role', jeOdemceno ? 'button' : 'article');
-      if (jeOdemceno) karta.setAttribute('tabindex', '0');
-      karta.setAttribute('aria-label', `Téma: ${tema.nazev}${jeOdemceno ? '' : ' (zamčeno)'}`);
+      if (!jeOdemceno)       karta.className = 'tema-karta tema-karta--zamcena';
+      else if (jeDnesHotovo) karta.className = 'tema-karta tema-karta--dnes-hotovo';
+      else                   karta.className = 'tema-karta';
+
+      karta.setAttribute('role', klikatelna ? 'button' : 'article');
+      if (klikatelna) karta.setAttribute('tabindex', '0');
+      karta.setAttribute('aria-label',
+        `Téma: ${tema.nazev}${!jeOdemceno ? ' (zamčeno)' : jeDnesHotovo ? ' (hotovo na dnes)' : ''}`);
 
       karta.innerHTML = `
         <div class="tema-ikona">${tema.ikona}</div>
@@ -175,11 +183,13 @@ const App = (() => {
         <div class="progress-bar" role="progressbar" aria-valuenow="${procent}" aria-valuemin="0" aria-valuemax="100">
           <div class="progress-fill" style="width:${procent}%"></div>
         </div>
-        ${jeOdemceno ? '' : `<span class="tema-zamek" aria-hidden="true">🔒</span>`}
-        ${jeOdemceno ? '' : `<p class="tema-zamceno-text">Dostupné od ${minTrida}. třídy</p>`}
+        ${!jeOdemceno   ? `<span class="tema-zamek" aria-hidden="true">🔒</span>` : ''}
+        ${!jeOdemceno   ? `<p class="tema-zamceno-text">Dostupné od ${minTrida}. třídy</p>` : ''}
+        ${jeDnesHotovo  ? `<span class="tema-zamek tema-zamek--hotovo" aria-hidden="true">✓</span>` : ''}
+        ${jeDnesHotovo  ? `<p class="tema-zamceno-text">Hotovo na dnes · Odemkne se zítra</p>` : ''}
       `;
 
-      if (jeOdemceno) {
+      if (klikatelna) {
         karta.addEventListener('click', () => spustTema(tema));
         karta.addEventListener('keydown', e => {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); spustTema(tema); }
@@ -192,41 +202,61 @@ const App = (() => {
 
   // ─── Spuštění tématu ──────────────────────────────────────────
   function spustTema(tema) {
-    const trida = profil?.trida || 8;
+    const trida           = profil?.trida || 8;
     const filtrovaneUlohy = Syllabus.getUlohyProTridu(tema.id, trida);
-    aktualniTema       = filtrovaneUlohy.length > 0
-      ? { ...tema, ulohy: filtrovaneUlohy }
-      : tema;
+    const ulohy           = filtrovaneUlohy.length > 0 ? filtrovaneUlohy : tema.ulohy || [];
+
+    // Zamíchej úlohy náhodně
+    const zamichane = [...ulohy].sort(() => Math.random() - 0.5);
+
+    aktualniTema       = { ...tema, ulohy: zamichane };
     aktualniUlohaIndex = 0;
-    skore              = { spravne: 0, celkem: aktualniTema.ulohy.length };
+    skore              = { spravne: 0, celkem: zamichane.length };
     dialogLog          = [];
     zobrazUlohu();
     document.getElementById('uloha-tema-nazev').textContent = tema.nazev;
     nactiUlohu(0);
   }
 
-  function spustDenniSadu() {
-    if (!profil) return;
-    const seed = Daily.getDailySeed();
-    const sada = Daily.generateDailySet(profil.trida, tydenvRoce, seed);
-    if (!sada.length) {
-      alert('Žádné úlohy k dispozici. Zkontroluj nastavení třídy a týdne.');
-      return;
+  // ─── Dokončení celé sady ──────────────────────────────────────
+  // Volá se z nactiUlohu() když index překročí délku sady.
+  async function dokonceniSady() {
+    const temaId = aktualniTema._temaId || aktualniTema.id;
+    const userId = Auth.getSession()?.user?.id;
+    const { count, zamceno } = await SessionProgress.dokoncSadu(temaId, userId);
+
+    if (zamceno) {
+      // Třetí dokončení — uzamkni téma, zobraz modal
+      zobrazDomovskou(); // home screen se znovu vykreslí s uzamčenou kartou
+      zobrazModalDnesHotovo();
+    } else {
+      // Méně než 3 dokončení — zamíchej úlohy a spusť znovu
+      const zbyvaPocet  = 3 - count;
+      const zamichane   = [...aktualniTema.ulohy].sort(() => Math.random() - 0.5);
+      aktualniTema      = { ...aktualniTema, ulohy: zamichane };
+      skore             = { spravne: 0, celkem: zamichane.length };
+      dialogLog         = [];
+
+      zobrazUlohu();
+      document.getElementById('uloha-tema-nazev').textContent = aktualniTema.nazev;
+      nactiUlohu(0, `Sada dokončena! Ještě ${zbyvaPocet}× a máš dnešní limit.`);
     }
-    jeDenniRezim = true;
-    const denniTema = {
-      id:    `denni_${seed}`,
-      nazev: '📅 Dnešní sada',
-      ulohy: sada
-    };
-    spustTema(denniTema);
+  }
+
+  // ─── Modal "Skvělá práce na dnes!" ────────────────────────────
+  function zobrazModalDnesHotovo() {
+    document.getElementById('modal-dnes-hotovo').classList.remove('hidden');
+  }
+
+  function zavriModalDnesHotovo() {
+    document.getElementById('modal-dnes-hotovo').classList.add('hidden');
   }
 
   // ─── Načtení úlohy (async) ────────────────────────────────────
-  async function nactiUlohu(index) {
+  // introZprava — volitelná zpráva zobrazená před zadáním první úlohy (po restartu sady)
+  async function nactiUlohu(index, introZprava = null) {
     if (index >= aktualniTema.ulohy.length) {
-      jeDenniRezim = false;
-      zobrazVysledky();
+      await dokonceniSady();
       return;
     }
     aktualniUlohaIndex = index;
@@ -242,8 +272,7 @@ const App = (() => {
 
     // Kontext žáka pro engine
     const kontextZaka = profil ? {
-      trida: profil.trida,
-      tydenvRoce,
+      trida:          profil.trida,
       odemcenaTemata: odemcenaTemata || TEMATA.map(t => t.id)
     } : null;
 
@@ -264,6 +293,7 @@ const App = (() => {
     skrejLoadingIndikator();
 
     if (uvodniOtazka.error) zobrazApiChybu(uvodniOtazka.error);
+    if (introZprava) pridejZpravu('info', introZprava);
     pridejZpravu('hint', uvodniOtazka.text);
 
     setVstupDisabled(false);
@@ -556,6 +586,7 @@ const App = (() => {
       await Auth.odhlas();
       profil         = null;
       odemcenaTemata = null;
+      SessionProgress.resetCache();
       document.getElementById('user-dropdown-wrap').classList.add('hidden');
       // onAuthStateChange SIGNED_OUT → zobrazAuthScreen()
     });
@@ -599,6 +630,12 @@ const App = (() => {
     // Výpočetní panel — smazat
     document.getElementById('btn-vypocet-smazat').addEventListener('click', () => {
       document.getElementById('vypocet-log').innerHTML = '';
+    });
+
+    // Modal "Skvělá práce na dnes!" — zavřít
+    document.getElementById('btn-modal-zpet')?.addEventListener('click', zavriModalDnesHotovo);
+    document.getElementById('modal-dnes-hotovo')?.addEventListener('click', e => {
+      if (e.target === e.currentTarget) zavriModalDnesHotovo();
     });
 
     // API klíč (legacy)

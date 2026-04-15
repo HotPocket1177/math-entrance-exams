@@ -249,7 +249,24 @@
       </div>
     </div>
 
+    <!-- ══════════════════════════════════════════════════════
+         MODAL — Skvělá práce na dnes!
+    ═══════════════════════════════════════════════════════ -->
+    <div id="modal-dnes-hotovo" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-hotovo-title">
+      <div class="modal-karta">
+        <div class="modal-ikona">🎉</div>
+        <h2 id="modal-hotovo-title" class="modal-nadpis">Skvělá práce na dnes!</h2>
+        <p class="modal-text">Dokončil/a jsi toto téma 3×.<br>To je pro dnešek maximum —<br>mozek potřebuje čas na zpracování.</p>
+        <p class="modal-text modal-text--accent">Zítra na tebe čeká nová sada.</p>
+        <button id="btn-modal-zpet" class="btn-primary">Zpět na témata</button>
+      </div>
+    </div>
+
   </main>
+
+  <footer class="app-footer">
+    <a href="docs/prirucka.html" class="footer-link">Jak to funguje?</a>
+  </footer>
 
   <!-- ═══ Skripty — POŘADÍ JE KRITICKÉ ═══════════════════════
        1. Supabase SDK (definuje window.supabase)

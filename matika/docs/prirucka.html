@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jak to funguje? — Matika přijímačky</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" crossorigin="anonymous">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📐</text></svg>">
+  <style>
+    .prirucka-container {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 0 1rem 4rem;
+    }
+
+    .prirucka-zpet {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      font-size: .85rem;
+      color: var(--color-text-muted);
+      margin-bottom: 2rem;
+      text-decoration: none;
+      transition: color var(--transition);
+    }
+    .prirucka-zpet:hover { color: var(--color-primary); }
+
+    .prirucka-hero {
+      margin-bottom: 2.5rem;
+    }
+
+    .prirucka-sekce {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 1.5rem 1.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .prirucka-sekce h2 {
+      font-family: var(--font-head);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--color-text);
+      margin-bottom: 1rem;
+      padding-bottom: .5rem;
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .prirucka-sekce ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: .6rem;
+    }
+
+    .prirucka-sekce li {
+      font-size: .92rem;
+      color: var(--color-text-muted);
+      line-height: 1.6;
+      padding-left: 1.1rem;
+      position: relative;
+    }
+
+    .prirucka-sekce li::before {
+      content: '›';
+      position: absolute;
+      left: 0;
+      color: var(--color-primary);
+      font-weight: 700;
+    }
+
+    .prirucka-sekce li strong {
+      color: var(--color-text);
+    }
+
+    .prirucka-footer {
+      text-align: center;
+      margin-top: 2.5rem;
+      font-size: .8rem;
+      color: var(--color-text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <header class="app-header" role="banner">
+    <div class="header-inner">
+      <div class="app-logo">Matika <span>přijímačky</span></div>
+      <button id="btn-dark-mode" class="btn-icon" title="Tmavý/světlý režim" aria-label="Přepnout tmavý/světlý režim">🌙</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="screen" style="padding-top: 2rem;">
+      <div class="prirucka-container">
+
+        <a href="../index.html" class="prirucka-zpet">← Zpět do aplikace</a>
+
+        <div class="prirucka-hero">
+          <h1 class="screen-title">Jak to funguje?</h1>
+          <p class="screen-subtitle">Vše, co potřebuješ vědět o přípravě na přijímačky z matematiky.</p>
+        </div>
+
+        <!-- Přihlášení a účet -->
+        <div class="prirucka-sekce">
+          <h2>🔑 Přihlášení a účet</h2>
+          <ul>
+            <li>Registrace vyžaduje <strong>e-mail a heslo</strong> — žádné osobní údaje.</li>
+            <li><strong>„Zůstat přihlášen"</strong> — session přežije zavření prohlížeče; bez zaškrtnutí se odhlásíš při zavření tabu.</li>
+            <li>Třídu nastavíš kliknutím na svůj <strong>avatar vpravo nahoře</strong> — podle třídy se ti zobrazí odpovídající témata a úlohy.</li>
+          </ul>
+        </div>
+
+        <!-- Výběr tématu -->
+        <div class="prirucka-sekce">
+          <h2>📚 Výběr tématu</h2>
+          <ul>
+            <li>Vidíš pouze témata, která se učí <strong>ve tvé třídě</strong>.</li>
+            <li><strong>Zamčená témata</strong> (šedá, ikonka 🔒) se odemknou až v příslušném ročníku.</li>
+            <li>U každého tématu vidíš, <strong>kolik úloh je k dispozici</strong> a kolik jsi jich správně vyřešil/a.</li>
+          </ul>
+        </div>
+
+        <!-- Jak funguje dialog -->
+        <div class="prirucka-sekce">
+          <h2>💬 Jak funguje dialog</h2>
+          <ul>
+            <li>Appka ti <strong>nikdy nedá rovnou správnou odpověď</strong> — místo toho ti pokládá návodné otázky.</li>
+            <li>Po zadání odpovědi dostaneš buď <strong>potvrzení</strong> (správně) nebo <strong>návodnou otázku</strong> (zkus znovu).</li>
+            <li><strong>Vpravo vidíš postup řešení</strong> — odkrývá se postupně jak procházíš kroky:
+              <br>zelená = správný krok, oranžová = nápověda.</li>
+            <li>Pokud nevíš jak dál, <strong>odpověz cokoliv</strong> — appka tě navede dalším krokem.</li>
+          </ul>
+        </div>
+
+        <!-- Denní limit -->
+        <div class="prirucka-sekce">
+          <h2>⏰ Denní limit</h2>
+          <ul>
+            <li>Každé téma můžeš procvičit <strong>3× za den</strong>.</li>
+            <li>Po každém dokončení sady se úlohy <strong>zamíchají do jiného pořadí</strong>.</li>
+            <li>Po třetím dokončení se téma <strong>uzamkne do zítřka</strong> — mozek potřebuje čas na zpracování látky.</li>
+            <li>Uzamčená témata se odemknou každý den <strong>o půlnoci (české čas)</strong>. Na kartě tématu uvidíš: „Hotovo na dnes · Odemkne se zítra".</li>
+          </ul>
+        </div>
+
+        <!-- Matematický zápis -->
+        <div class="prirucka-sekce">
+          <h2>➗ Matematický zápis</h2>
+          <ul>
+            <li>Zlomky a rovnice jsou zobrazeny <strong>stejně jako v učebnici</strong> (LaTeX rendering).</li>
+            <li>Při psaní odpovědi stačí <strong>běžný zápis</strong>: <code>27</code>, <code>3/4</code>, <code>x=5</code> nebo <code>x=5 nebo x=-2</code> — appka různé formáty rozumí.</li>
+          </ul>
+        </div>
+
+        <div class="prirucka-footer">
+          Matika přijímačky &mdash; připrav se na přijímačky z matematiky krok za krokem.
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Dark mode (kopie z app.js, bez Supabase závislostí)
+    (function () {
+      const btn       = document.getElementById('btn-dark-mode');
+      const ulozene   = localStorage.getItem('matika_darkmode');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const dark      = ulozene !== null ? ulozene === '1' : prefersDark;
+      if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+
+      btn.addEventListener('click', () => {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (isDark) {
+          document.documentElement.removeAttribute('data-theme');
+          localStorage.setItem('matika_darkmode', '0');
+        } else {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          localStorage.setItem('matika_darkmode', '1');
+        }
+      });
+    })();
+  </script>
+
+</body>
+</html>
