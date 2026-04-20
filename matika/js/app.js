@@ -21,6 +21,11 @@ const App = (() => {
   const TASKS_PER_CYCLE = 5;
   const _pouziteUlohy   = {};   // temaId → Set<taskId> — úlohy použité v aktuálním kole
 
+  // ─── Resume stav ─────────────────────────────────────────────
+  // Uloží se při kliknutí "Zpět" uprostřed sady; obnoví se při opětovném
+  // otevření stejného tématu, aby uživatel pokračoval tam, kde skončil.
+  let _resumeState = null;  // { temaId, tema, index, skore } | null
+
   // ─── Správa obrazovek ─────────────────────────────────────────
   const SCREENS = ['screen-auth', 'screen-home', 'screen-apikey', 'screen-uloha', 'screen-vysledky'];
 
@@ -243,11 +248,29 @@ const App = (() => {
 
   // ─── Spuštění tématu ──────────────────────────────────────────
   function spustTema(tema) {
+    const temaId = tema._temaId || tema.id;
+
+    // Pokud máme uložený stav pro toto téma (uživatel kliknul Zpět uprostřed sady),
+    // pokračuj tam, kde přestal — nevolej selectUlohyProCyklus (nezabere nové úlohy).
+    if (_resumeState && _resumeState.temaId === temaId && _resumeState.index > 0) {
+      aktualniTema       = _resumeState.tema;
+      aktualniUlohaIndex = _resumeState.index;
+      skore              = _resumeState.skore;
+      dialogLog          = [];
+      _resumeState       = null;
+      zobrazUlohu();
+      document.getElementById('uloha-tema-nazev').textContent = aktualniTema.nazev;
+      nactiUlohu(aktualniUlohaIndex);
+      return;
+    }
+
+    _resumeState = null;  // Smaž zastaralý resume stav jiného tématu
+
     const trida = profil?.trida || 8;
-    const pool  = Syllabus.getUlohyProTridu(tema.id, trida);
+    const pool  = Syllabus.getUlohyProTridu(temaId, trida);
     const zdroj = pool.length > 0 ? pool : (tema.ulohy || []);
 
-    const vybrane = selectUlohyProCyklus(tema.id, zdroj);
+    const vybrane = selectUlohyProCyklus(temaId, zdroj);
 
     aktualniTema       = { ...tema, ulohy: vybrane };
     aktualniUlohaIndex = 0;
@@ -261,6 +284,7 @@ const App = (() => {
   // ─── Dokončení celé sady ──────────────────────────────────────
   // Volá se z nactiUlohu() když index překročí délku sady.
   async function dokonceniSady() {
+    _resumeState = null;  // Sada dokončena — není co obnovit
     const temaId = aktualniTema._temaId || aktualniTema.id;
     const userId = Auth.getSession()?.user?.id;
     const { count, zamceno } = await SessionProgress.dokoncSadu(temaId, userId);
@@ -662,9 +686,23 @@ const App = (() => {
     });
 
     document.getElementById('btn-zpet-z-ulohy').addEventListener('click', () => {
+      // Ulož pozici pro případ, že se uživatel vrátí ke stejnému tématu
+      if (aktualniTema && aktualniUlohaIndex > 0) {
+        _resumeState = {
+          temaId: aktualniTema._temaId || aktualniTema.id,
+          tema:   aktualniTema,
+          index:  aktualniUlohaIndex,
+          skore:  { ...skore }
+        };
+      } else {
+        _resumeState = null;
+      }
       zobrazDomovskou();
     });
-    document.getElementById('btn-zpet-z-vysledku').addEventListener('click', zobrazDomovskou);
+    document.getElementById('btn-zpet-z-vysledku').addEventListener('click', () => {
+      _resumeState = null;
+      zobrazDomovskou();
+    });
     document.getElementById('btn-znovu').addEventListener('click', () => {
       if (aktualniTema) spustTema(aktualniTema);
     });
@@ -740,8 +778,15 @@ const App = (() => {
         // TOKEN_REFRESHED, SIGNED_IN, INITIAL_SESSION — vždy zrušíme timer
         clearTimeout(_signOutTimer);
         if (event === 'SIGNED_IN' && !_pokracujBezi) {
-          _pokracujBezi = true;
-          pokracujPoLoginu(session).finally(() => { _pokracujBezi = false; });
+          // Spuštění pokracujPoLoginu jen pokud jsme skutečně na přihlašovací
+          // obrazovce — Supabase v2 občas vyvolá SIGNED_IN i při obnově tokenu
+          // (alt-tab, TOKEN_REFRESHED), což by jinak přesměrovalo na home screen
+          // uprostřed řešené úlohy.
+          const naAuthScreenu = !document.getElementById('screen-auth').classList.contains('hidden');
+          if (naAuthScreenu) {
+            _pokracujBezi = true;
+            pokracujPoLoginu(session).finally(() => { _pokracujBezi = false; });
+          }
         }
       }
     });
