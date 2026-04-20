@@ -1016,6 +1016,36 @@ select.apikey-input {
   font-size: .97rem;
 }
 
+/* ── Cykly (denní progres na kartě tématu) ── */
+.tema-cykly {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  margin-top: .55rem;
+}
+
+.cyklus-puntik {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-border);
+  transition: background var(--transition);
+}
+
+.cyklus-puntik.hotovy {
+  background: var(--color-primary);
+}
+
+.tema-karta--dnes-hotovo .cyklus-puntik.hotovy {
+  background: var(--color-success);
+}
+
+.cykly-text {
+  font-size: .72rem;
+  color: var(--color-text-muted);
+  margin-left: .2rem;
+}
+
 /* ── Footer ── */
 .app-footer {
   text-align: center;

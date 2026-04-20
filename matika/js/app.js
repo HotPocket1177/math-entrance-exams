@@ -13,6 +13,14 @@ const App = (() => {
   let profil           = null;   // { trida: 8 }
   let odemcenaTemata   = null;   // string[] nebo null (= vše odemčeno)
 
+  // ─── Auth guards ─────────────────────────────────────────────
+  let _signOutTimer    = null;   // debounce timer — zabraňuje falešnému odhlášení při obnově tokenu
+  let _pokracujBezi    = false;  // guard proti souběžným voláním pokracujPoLoginu
+
+  // ─── Per-cyklus výběr úloh ───────────────────────────────────
+  const TASKS_PER_CYCLE = 5;
+  const _pouziteUlohy   = {};   // temaId → Set<taskId> — úlohy použité v aktuálním kole
+
   // ─── Správa obrazovek ─────────────────────────────────────────
   const SCREENS = ['screen-auth', 'screen-home', 'screen-apikey', 'screen-uloha', 'screen-vysledky'];
 
@@ -161,6 +169,7 @@ const App = (() => {
       const hotovo        = pocetDokoncenychUloh(tema.id);
       const procent       = celkem > 0 ? Math.round((hotovo / celkem) * 100) : 0;
       const minTrida      = !jeOdemceno ? Syllabus.getMinTrida(tema.id) : null;
+      const dokonceniCount = jeOdemceno ? SessionProgress.getDokonceniCount(tema.id) : 0;
 
       const karta = document.createElement('div');
       if (!jeOdemceno)       karta.className = 'tema-karta tema-karta--zamcena';
@@ -187,6 +196,13 @@ const App = (() => {
         ${!jeOdemceno   ? `<p class="tema-zamceno-text">Dostupné od ${minTrida}. třídy</p>` : ''}
         ${jeDnesHotovo  ? `<span class="tema-zamek tema-zamek--hotovo" aria-hidden="true">✓</span>` : ''}
         ${jeDnesHotovo  ? `<p class="tema-zamceno-text">Hotovo na dnes · Odemkne se zítra</p>` : ''}
+        ${jeOdemceno    ? `
+        <div class="tema-cykly" aria-label="Dnes ${dokonceniCount} ze 3 cyklů">
+          <span class="cyklus-puntik${dokonceniCount >= 1 ? ' hotovy' : ''}"></span>
+          <span class="cyklus-puntik${dokonceniCount >= 2 ? ' hotovy' : ''}"></span>
+          <span class="cyklus-puntik${dokonceniCount >= 3 ? ' hotovy' : ''}"></span>
+          <span class="cykly-text">Dnes: ${dokonceniCount}/3</span>
+        </div>` : ''}
       `;
 
       if (klikatelna) {
@@ -200,18 +216,42 @@ const App = (() => {
     });
   }
 
+  // ─── Výběr úloh pro cyklus (bez opakování mezi cykly) ────────
+  // Fisher-Yates shuffle + deduplication přes _pouziteUlohy
+  function selectUlohyProCyklus(temaId, pool) {
+    if (!_pouziteUlohy[temaId]) _pouziteUlohy[temaId] = new Set();
+    const pouzite = _pouziteUlohy[temaId];
+
+    let dostupne = pool.filter(u => !pouzite.has(u.id));
+
+    // Pokud není dost nepoužitých úloh, resetuj použité a ber celý pool
+    if (dostupne.length < TASKS_PER_CYCLE) {
+      pouzite.clear();
+      dostupne = [...pool];
+    }
+
+    // Fisher-Yates shuffle
+    for (let i = dostupne.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [dostupne[i], dostupne[j]] = [dostupne[j], dostupne[i]];
+    }
+
+    const vybrane = dostupne.slice(0, TASKS_PER_CYCLE);
+    vybrane.forEach(u => pouzite.add(u.id));
+    return vybrane;
+  }
+
   // ─── Spuštění tématu ──────────────────────────────────────────
   function spustTema(tema) {
-    const trida           = profil?.trida || 8;
-    const filtrovaneUlohy = Syllabus.getUlohyProTridu(tema.id, trida);
-    const ulohy           = filtrovaneUlohy.length > 0 ? filtrovaneUlohy : tema.ulohy || [];
+    const trida = profil?.trida || 8;
+    const pool  = Syllabus.getUlohyProTridu(tema.id, trida);
+    const zdroj = pool.length > 0 ? pool : (tema.ulohy || []);
 
-    // Zamíchej úlohy náhodně
-    const zamichane = [...ulohy].sort(() => Math.random() - 0.5);
+    const vybrane = selectUlohyProCyklus(tema.id, zdroj);
 
-    aktualniTema       = { ...tema, ulohy: zamichane };
+    aktualniTema       = { ...tema, ulohy: vybrane };
     aktualniUlohaIndex = 0;
-    skore              = { spravne: 0, celkem: zamichane.length };
+    skore              = { spravne: 0, celkem: vybrane.length };
     dialogLog          = [];
     zobrazUlohu();
     document.getElementById('uloha-tema-nazev').textContent = tema.nazev;
@@ -230,12 +270,16 @@ const App = (() => {
       zobrazDomovskou(); // home screen se znovu vykreslí s uzamčenou kartou
       zobrazModalDnesHotovo();
     } else {
-      // Méně než 3 dokončení — zamíchej úlohy a spusť znovu
-      const zbyvaPocet  = 3 - count;
-      const zamichane   = [...aktualniTema.ulohy].sort(() => Math.random() - 0.5);
-      aktualniTema      = { ...aktualniTema, ulohy: zamichane };
-      skore             = { spravne: 0, celkem: zamichane.length };
-      dialogLog         = [];
+      // Méně než 3 dokončení — vyber novou sadu (bez již viděných úloh) a spusť znovu
+      const zbyvaPocet = 3 - count;
+      const trida      = profil?.trida || 8;
+      const pool       = Syllabus.getUlohyProTridu(temaId, trida);
+      const zdroj      = pool.length > 0 ? pool : (TEMATA.find(t => t.id === temaId)?.ulohy || []);
+      const vybrane    = selectUlohyProCyklus(temaId, zdroj);
+
+      aktualniTema = { ...aktualniTema, ulohy: vybrane };
+      skore        = { spravne: 0, celkem: vybrane.length };
+      dialogLog    = [];
 
       zobrazUlohu();
       document.getElementById('uloha-tema-nazev').textContent = aktualniTema.nazev;
@@ -546,7 +590,15 @@ const App = (() => {
       chybaEl.classList.add('hidden');
       try {
         const zapamatovat = document.getElementById('auth-zapamatovat').checked;
-        await Auth.prihlasuj(email, password, zapamatovat);
+        await Auth.prihlasuj(email, password);
+        // Pro "nezůstat přihlášen": smažeme token při zavření tabu
+        if (!zapamatovat) {
+          window.addEventListener('beforeunload', () => {
+            Object.keys(localStorage)
+              .filter(k => k.endsWith('-auth-token'))
+              .forEach(k => localStorage.removeItem(k));
+          }, { once: true });
+        }
         // onAuthStateChange SIGNED_IN → pokracujPoLoginu() volá se přes callback
       } catch (e) {
         chybaEl.textContent = e.message;
@@ -643,6 +695,14 @@ const App = (() => {
       if (e.target === e.currentTarget) zavriModalDnesHotovo();
     });
 
+    // Obnoví home screen % při návratu do tabu (řeší problém neaktualizace karet)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && Auth.jeAuthenticated()) {
+        const homeVisible = !document.getElementById('screen-home').classList.contains('hidden');
+        if (homeVisible) renderTemata();
+      }
+    });
+
     // API klíč (legacy)
     document.getElementById('btn-odeslat-apikey')?.addEventListener('click', ulozApiKlic);
     document.getElementById('apikey-input')?.addEventListener('keydown', e => {
@@ -661,11 +721,28 @@ const App = (() => {
     initDarkMode();
 
     // Zaregistruj callback PŘED Auth.init() (race condition prevence)
-    Auth.onSessionChange(async (event, session) => {
+    Auth.onSessionChange((event, session) => {
       if (event === 'SIGNED_OUT') {
-        zobrazAuthScreen();
-      } else if (event === 'SIGNED_IN' && session) {
-        await pokracujPoLoginu(session);
+        // Debounce — Supabase může krátce vyvolat SIGNED_OUT při automatické
+        // obnově tokenu (např. po alt-tabu). Počkáme 700 ms; pokud mezitím
+        // přijde TOKEN_REFRESHED nebo SIGNED_IN se session, timer zrušíme.
+        clearTimeout(_signOutTimer);
+        _signOutTimer = setTimeout(() => {
+          if (!Auth.jeAuthenticated()) {
+            profil         = null;
+            odemcenaTemata = null;
+            SessionProgress.resetCache();
+            document.getElementById('user-dropdown-wrap').classList.add('hidden');
+            zobrazAuthScreen();
+          }
+        }, 700);
+      } else if (session) {
+        // TOKEN_REFRESHED, SIGNED_IN, INITIAL_SESSION — vždy zrušíme timer
+        clearTimeout(_signOutTimer);
+        if (event === 'SIGNED_IN' && !_pokracujBezi) {
+          _pokracujBezi = true;
+          pokracujPoLoginu(session).finally(() => { _pokracujBezi = false; });
+        }
       }
     });
 

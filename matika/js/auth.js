@@ -43,13 +43,10 @@ const Auth = (() => {
   }
 
   // ── Přihlášení ────────────────────────────────────────────────
-  // persistSession: true = session přežije zavření tabu (výchozí Supabase chování)
-  //                 false = session zanikne při zavření tabu/prohlížeče
-  async function prihlasuj(email, password, persistSession = true) {
-    const { data, error } = await _supabase.auth.signInWithPassword(
-      { email, password },
-      persistSession ? undefined : { persistSession: false }
-    );
+  // Session je vždy trvalá (localStorage). Pro "nezůstat přihlášen" volající
+  // zaregistruje beforeunload handler, který tokeny smaže při zavření tabu.
+  async function prihlasuj(email, password) {
+    const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     return data;
   }
