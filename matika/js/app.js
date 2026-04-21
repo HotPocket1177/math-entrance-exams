@@ -302,7 +302,17 @@ const App = (() => {
 
     _resumeState = null;
 
-    const trida = profil?.trida || 8;
+    const trida  = profil?.trida || 8;
+    const userId = Auth.getSession()?.user?.id;
+
+    // ── Zaregistruj cyklus hned při startu (zabrání bypass přes Zpět) ──
+    const { count: cyklusCount, zamceno: uzamceno } = await SessionProgress.spustiSadu(temaId, userId);
+    if (uzamceno) {
+      // Uživatel dosáhl denního limitu — ukaž home s modálem
+      zobrazDomovskou();
+      zobrazModalDnesHotovo();
+      return;
+    }
 
     // ── Pokus o AI generování ─────────────────────────────────
     let vybrane = null;
@@ -337,6 +347,8 @@ const App = (() => {
     aktualniUlohaIndex = 0;
     skore              = { spravne: 0, celkem: vybrane.length };
     dialogLog          = [];
+    // Ulož count pro dokonceniSady (ví kolik cyklů dnes proběhlo)
+    aktualniTema._cyklusCount = cyklusCount;
     zobrazUlohu();
     document.getElementById('uloha-tema-nazev').textContent = tema.nazev;
     nactiUlohu(0);
@@ -345,30 +357,57 @@ const App = (() => {
   // ─── Dokončení celé sady ──────────────────────────────────────
   // Volá se z nactiUlohu() když index překročí délku sady.
   async function dokonceniSady() {
-    _resumeState = null;  // Sada dokončena — není co obnovit
+    _resumeState = null;
     const temaId = aktualniTema._temaId || aktualniTema.id;
     const userId = Auth.getSession()?.user?.id;
-    const { count, zamceno } = await SessionProgress.dokoncSadu(temaId, userId);
+    // Count byl inkrementován v spustTema() — tady jen čteme aktuální stav
+    const count   = aktualniTema._cyklusCount || SessionProgress.getDokonceniCount(temaId);
+    const zamceno = count >= 3;
 
     if (zamceno) {
-      // Třetí dokončení — uzamkni téma, zobraz modal
-      zobrazDomovskou(); // home screen se znovu vykreslí s uzamčenou kartou
+      await SessionProgress.uzamkniSadu(temaId, userId);
+      zobrazDomovskou();
       zobrazModalDnesHotovo();
     } else {
-      // Méně než 3 dokončení — vyber novou sadu (bez již viděných úloh) a spusť znovu
-      const zbyvaPocet = 3 - count;
-      const trida      = profil?.trida || 8;
-      const pool       = Syllabus.getUlohyProTridu(temaId, trida);
-      const zdroj      = pool.length > 0 ? pool : (TEMATA.find(t => t.id === temaId)?.ulohy || []);
-      const vybrane    = selectUlohyProCyklus(temaId, zdroj);
+      // Zaregistruj nový cyklus hned při startu (stejný princip jako v spustTema)
+      const { count: novyCount, zamceno: uzamceno2 } = await SessionProgress.spustiSadu(temaId, userId);
+      if (uzamceno2) {
+        zobrazDomovskou();
+        zobrazModalDnesHotovo();
+        return;
+      }
 
-      aktualniTema = { ...aktualniTema, ulohy: vybrane };
+      const zbyvaPocet = 3 - novyCount;  // kolik cyklů zbývá po tomto
+      const trida      = profil?.trida || 8;
+
+      let vybrane = null;
+
+      if (Api.jeAiDostupne()) {
+        zobrazNacitani('Připravuji další příklady…');
+        try {
+          vybrane = await Generator.generujSadu(temaId, trida, TASKS_PER_CYCLE);
+        } catch {
+          vybrane = null;
+        }
+        zobrazNacitani(null);
+      }
+
+      if (!vybrane) {
+        const pool  = Syllabus.getUlohyProTridu(temaId, trida);
+        const zdroj = pool.length > 0 ? pool : (TEMATA.find(t => t.id === temaId)?.ulohy || []);
+        vybrane = selectUlohyProCyklus(temaId, zdroj);
+      }
+
+      aktualniTema = { ...aktualniTema, ulohy: vybrane, _cyklusCount: novyCount };
       skore        = { spravne: 0, celkem: vybrane.length };
       dialogLog    = [];
 
       zobrazUlohu();
       document.getElementById('uloha-tema-nazev').textContent = aktualniTema.nazev;
-      nactiUlohu(0, `Sada dokončena! Ještě ${zbyvaPocet}× a máš dnešní limit.`);
+      const introText = zbyvaPocet === 0
+        ? 'Sada dokončena! Tohle je tvůj poslední cyklus na dnes.'
+        : `Sada dokončena! Ještě ${zbyvaPocet}× a máš dnešní limit.`;
+      nactiUlohu(0, introText);
     }
   }
 

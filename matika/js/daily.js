@@ -6,9 +6,6 @@
 
 const SessionProgress = (() => {
 
-  // In-memory cache: temaId → { dokonceni_count, uzamceno_do }
-  let _cache = {};
-
   const LOCAL_KEY = 'matika_daily_progress';
 
   function _nactiLocal() {
@@ -18,6 +15,10 @@ const SessionProgress = (() => {
   function _ulozLocal() {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(_cache));
   }
+
+  // In-memory cache — inicializuje se hned z localStorage, aby byl progress
+  // viditelný okamžitě při startu (před dokončením async načtení z Supabase).
+  let _cache = _nactiLocal();
 
   // ── Pomocné: dnešní datum v Prague timezone ───────────────────
   // Vrátí "2026-04-15" — ISO datum v pražské časové zóně.
@@ -85,67 +86,80 @@ const SessionProgress = (() => {
     return _cache[temaId]?.dokonceni_count || 0;
   }
 
-  // ── Zaznamenej dokončení sady ─────────────────────────────────
-  // Vrátí { count: int, zamceno: bool }
-  // count  = nový celkový počet dokončení dnes (načteno z DB nebo z cache)
-  // zamceno = true pokud count dosáhl 3 (téma se uzamče)
-  //
-  // Přístup: čti aktuální count z Supabase (nebo z cache pokud userId chybí),
-  // přičti 1, zapiš zpět. await zaručuje spolehlivost i po reloadu stránky.
-  async function dokoncSadu(temaId, userId) {
-    const dnes = getPragueDate();
-    let currentCount = _cache[temaId]?.dokonceni_count || 0;
-
+  // ── Spuštění sady — zaregistruj cycle na začátku (ne na konci) ──
+  // Tím se zabrání obcházení limitu přes tlačítko "Zpět" před dokončením.
+  // Vrátí { count, zamceno }.
+  // Pokud je téma již zamčeno nebo count >= 3 → zamceno: true, cyklus nespouštěj.
+  async function spustiSadu(temaId, userId) {
+    // Nejdřív zkontroluji základ z DB (kanonický zdroj)
     if (userId) {
       const sb = Auth.getSupabase();
-
-      // Krok 1 — přečti aktuální count z DB (kanonický zdroj)
-      const { data: row, error: readErr } = await sb
+      const { data: row } = await sb
         .from('session_progress')
-        .select('dokonceni_count')
+        .select('dokonceni_count, uzamceno_do')
         .eq('user_id', userId)
         .eq('tema_id', temaId)
         .maybeSingle();
 
-      if (readErr) {
-        console.warn('SessionProgress read error:', readErr.message);
-      } else if (row !== null) {
-        currentCount = row.dokonceni_count || 0;
+      if (row) {
+        const dnes = getPragueDate();
+        if (row.uzamceno_do && row.uzamceno_do >= dnes) {
+          _cache[temaId] = { dokonceni_count: row.dokonceni_count, uzamceno_do: row.uzamceno_do };
+          _ulozLocal();
+          return { count: row.dokonceni_count, zamceno: true };
+        }
+        _cache[temaId] = {
+          dokonceni_count: row.uzamceno_do && row.uzamceno_do < dnes ? 0 : (row.dokonceni_count || 0),
+          uzamceno_do: row.uzamceno_do && row.uzamceno_do < dnes ? null : row.uzamceno_do
+        };
       }
-
-      const newCount     = currentCount + 1;
-      const zamceno      = newCount >= 3;
-      const newZamcenoDo = zamceno ? dnes : null;
-
-      // Aktualizuj cache
-      _cache[temaId] = { dokonceni_count: newCount, uzamceno_do: newZamcenoDo };
-
-      // Krok 2 — zapiš zpět do DB (await — ne fire-and-forget)
-      const { error: writeErr } = await sb
-        .from('session_progress')
-        .upsert({
-          user_id:         userId,
-          tema_id:         temaId,
-          dokonceni_count: newCount,
-          uzamceno_do:     newZamcenoDo
-        }, { onConflict: 'user_id,tema_id' });
-
-      if (writeErr) console.warn('SessionProgress upsert error:', writeErr.message);
-
-      _ulozLocal();
-      return { count: newCount, zamceno };
     }
 
-    // Nepřihlášený uživatel — pouze lokální cache, bez limitu
+    const currentCount = _cache[temaId]?.dokonceni_count || 0;
+
+    if (currentCount >= 3 || jeZamceno(temaId)) {
+      return { count: currentCount, zamceno: true };
+    }
+
     const newCount = currentCount + 1;
-    _cache[temaId] = { dokonceni_count: newCount, uzamceno_do: null };
+    _cache[temaId] = { ...(_cache[temaId] || {}), dokonceni_count: newCount, uzamceno_do: null };
+    _ulozLocal();
+
+    // Zapiš do DB (fire-and-forget — neblokujeme UI)
+    if (userId) {
+      const sb = Auth.getSupabase();
+      sb.from('session_progress')
+        .upsert({ user_id: userId, tema_id: temaId, dokonceni_count: newCount, uzamceno_do: null },
+                { onConflict: 'user_id,tema_id' })
+        .then(({ error: e }) => { if (e) console.warn('spustiSadu DB error:', e.message); });
+    }
+
     return { count: newCount, zamceno: false };
+  }
+
+  // ── Uzamknutí tématu po dokončení 3. sady ────────────────────
+  // Volá se POUZE po dokončení celé sady — nastaví uzamceno_do = dnes.
+  async function uzamkniSadu(temaId, userId) {
+    const dnes = getPragueDate();
+    const count = _cache[temaId]?.dokonceni_count || 3;
+    _cache[temaId] = { dokonceni_count: count, uzamceno_do: dnes };
+    _ulozLocal();
+
+    if (userId) {
+      const sb = Auth.getSupabase();
+      const { error } = await sb
+        .from('session_progress')
+        .upsert({ user_id: userId, tema_id: temaId, dokonceni_count: count, uzamceno_do: dnes },
+                { onConflict: 'user_id,tema_id' });
+      if (error) console.warn('uzamkniSadu DB error:', error.message);
+    }
   }
 
   // ── Reset cache při odhlášení ─────────────────────────────────
   function resetCache() {
     _cache = {};
+    localStorage.removeItem(LOCAL_KEY);
   }
 
-  return { nactiVse, jeZamceno, getDokonceniCount, dokoncSadu, resetCache, getPragueDate };
+  return { nactiVse, jeZamceno, getDokonceniCount, spustiSadu, uzamkniSadu, resetCache, getPragueDate };
 })();

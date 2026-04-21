@@ -87,6 +87,18 @@ const Engine = (() => {
       return { typ: 'uspech', text: `Správně! ${stav.uloha.odpoved}`, hotovo: true };
     }
 
+    // Po 5 neúspěšných pokusech vždy zobraz řešení (zabrání softlocku)
+    if (stav.pocetPokusu >= 5) {
+      stav.zobrazenaOdpoved = true;
+      stav.dokonceno = true;
+      return {
+        typ: 'reseni',
+        text: `Nevadí, tady je správné řešení: ${stav.uloha.odpoved}`,
+        hotovo: true,
+        bodovaZtrata: true
+      };
+    }
+
     // Špatná odpověď → AI nápověda nebo statický fallback
     if (Api.jeAiDostupne()) {
       try {
