@@ -59,7 +59,19 @@ const App = (() => {
 
   // ─── Po úspěšném přihlášení ───────────────────────────────────
   async function pokracujPoLoginu(session) {
-    profil         = await Auth.getProfil();
+    profil = await Auth.getProfil();
+
+    // Pokud profil neexistuje (nový účet nebo selhala tvorba při registraci),
+    // vytvoř ho teď — session_progress má FK na profiles(id), bez profilu
+    // všechny zápisy selžou s FK violation a progress se neuloží.
+    if (!profil) {
+      const userId = session?.user?.id || Auth.getSession()?.user?.id;
+      await Auth.getSupabase()
+        .from('profiles')
+        .upsert({ id: userId, trida: 8 }, { onConflict: 'id' });
+      profil = { trida: 8 };
+    }
+
     odemcenaTemata = Syllabus.getOdemcenaTemataPoTridu(profil?.trida || 8);
 
     // Načti session progress (denní limity)
