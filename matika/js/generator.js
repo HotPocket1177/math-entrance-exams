@@ -46,28 +46,37 @@ const Generator = (() => {
 Téma: ${TEMA_POPIS[temaId] || temaId}
 Třída žáka: ${trida}. třída
 
-Vygeneruj JEDEN nový, unikátní příklad. Požadavky:
+POSTUP TVORBY (dodržuj pořadí):
+1. Vymysli zadání s realistickým kontextem a pěknými čísly.
+2. PŘESNĚ VYPOČÍTEJ správnou odpověď (krok za krokem v hlavě).
+3. Zapište výpočetní kroky (postup) — každý krok musí numericky navazovat na předchozí a vést k výsledku z bodu 2.
+4. Ověř: dosad výsledek zpět do zadání a zkontroluj, že sedí.
+5. Teprve pak vytvoř JSON.
+
+Požadavky:
 - Realistický kontext (ne abstraktní "číslo x")
 - Správná matematika, pěkná celá nebo desetinná čísla (ne nahodilá zlomky)
 - Obtížnost odpovídající přijímačkám na střední školu
 - Zadání a kroky v češtině, matematika v LaTeX ($...$)
-- Kroky = sokratovské nápovědy, každý krok nasměruje žáka (ne rovnou řešení)
+- kroky[] = sokratovské nápovědy (nasměrují žáka otázkou, NEříkají výsledek)
+- postup[] = PŘESNÉ výpočetní kroky; poslední krok MUSÍ obsahovat finální číslo shodné s answerValue
 
 Vrať VÝHRADNĚ validní JSON (žádný text mimo JSON):
 {
   "zadani": "text zadání (LaTeX v $...$)",
-  "kroky": ["nápovědný krok 1", "krok 2", "krok 3"],
+  "kroky": ["nápovědná otázka 1", "nápovědná otázka 2", "nápovědná otázka 3"],
   "odpoved": "text správné odpovědi (krátce)",
   "postup": [
-    {"latex": "výpočetní krok v LaTeX", "stav": "krok"},
-    {"latex": "výsledek", "stav": "vysledek"}
+    {"latex": "první výpočetní krok v LaTeX", "stav": "krok"},
+    {"latex": "druhý výpočetní krok", "stav": "krok"},
+    {"latex": "finální výsledek = answerValue", "stav": "vysledek"}
   ],
   "answerType": "number",
   "answerValue": 42.5,
   "tolerance": 0.05
 }
 
-Pro slovní úlohy kde jsou dvě hodnoty (nebo soustava) použij "answerType": "keywords", "keywords": ["hodnota1", "hodnota2"].
+Pro slovní úlohy s více hodnotami (soustava) použij "answerType": "keywords", "keywords": ["hodnota1", "hodnota2"].
 Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;
   }
 
@@ -93,6 +102,20 @@ Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;
     // Validace povinných polí
     if (!prob.zadani || !prob.odpoved) throw new Error('Neúplný JSON od AI');
 
+    // Ověř postup: poslední krok musí obsahovat answerValue (jinak kroky odstraníme)
+    let postupOvereny = Array.isArray(prob.postup) ? prob.postup : [];
+    if (postupOvereny.length > 0 && prob.answerType === 'number' && prob.answerValue != null) {
+      const posledniKrok = (postupOvereny[postupOvereny.length - 1]?.latex || '').toLowerCase();
+      const num = String(prob.answerValue);
+      // Přijmeme: "42.5", "42,5", "42{,}5" (LaTeX čárka), nebo samotnou celou část
+      const intPart = num.split('.')[0];
+      const sedí = posledniKrok.includes(num) ||
+                   posledniKrok.includes(num.replace('.', ',')) ||
+                   posledniKrok.includes(num.replace('.', '{,}')) ||
+                   (intPart.length >= 3 && posledniKrok.includes(intPart));
+      if (!sedí) postupOvereny = [];  // kroky neodpovídají výsledku — nevypisuj je
+    }
+
     return {
       id:       `gen_${temaId}_${Date.now()}_${index}`,
       tridy:    [6, 7, 8, 9],
@@ -101,7 +124,7 @@ Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;
       kroky:    Array.isArray(prob.kroky)  ? prob.kroky  : [],
       odpoved:  prob.odpoved,
       jednotka: prob.jednotka || '',
-      postup:   Array.isArray(prob.postup) ? prob.postup : [],
+      postup:   postupOvereny,
       kontrola: makeKontrola(prob),
     };
   }

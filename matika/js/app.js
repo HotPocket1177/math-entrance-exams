@@ -8,6 +8,7 @@ const App = (() => {
   let dialogLog          = [];
   let cekaNaApi          = false;
   let postupIndex        = -1;  // index posledního odhaleného kroku z postup[]
+  let _pokusuNaUlohu     = 0;   // špatné odpovědi na aktuální úlohu (pro postup nápovědu)
 
   // Stav žáka (vyplní se po přihlášení)
   let profil           = null;   // { trida: 8 }
@@ -429,8 +430,10 @@ const App = (() => {
     }
     aktualniUlohaIndex = index;
     const uloha = aktualniTema.ulohy[index];
-    dialogLog    = [];
-    postupIndex  = -1;
+    dialogLog      = [];
+    postupIndex    = -1;
+    _pokusuNaUlohu = 0;
+    aktualizujTlacitkoKroku();
 
     // Progress bar — ukazuje (index+1)/celkem, tj. 100 % na poslední úloze
     const procent = Math.round(((index + 1) / aktualniTema.ulohy.length) * 100);
@@ -566,6 +569,32 @@ const App = (() => {
     while (postupIndex + 1 < uloha.postup.length) {
       odhalKrok('napoveda');
     }
+    skrejTlacitkoKroku();
+  }
+
+  // ── Tlačítko "Ukázat nápovědu ke kroku" ───────────────────────
+  function aktualizujTlacitkoKroku() {
+    const uloha     = aktualniTema?.ulohy?.[aktualniUlohaIndex];
+    const maPostup  = uloha?.postup?.length > 0;
+    const zbyvaji   = maPostup && (postupIndex + 1 < uloha.postup.length);
+    const wrap      = document.getElementById('vypocet-napoveda-wrap');
+    const btn       = document.getElementById('btn-ukaz-krok');
+    if (!wrap || !btn) return;
+
+    if (!zbyvaji || _pokusuNaUlohu < 2) {
+      wrap.classList.add('hidden');
+      return;
+    }
+
+    wrap.classList.remove('hidden');
+    const zbyvajiciKroku = uloha.postup.length - (postupIndex + 1);
+    btn.textContent = postupIndex === -1
+      ? '💡 Ukázat nápovědu ke kroku'
+      : `💡 Ukázat další krok (${zbyvajiciKroku} zbývají)`;
+  }
+
+  function skrejTlacitkoKroku() {
+    document.getElementById('vypocet-napoveda-wrap')?.classList.add('hidden');
   }
 
   // ─── Odeslání odpovědi (async) ────────────────────────────────
@@ -598,10 +627,12 @@ const App = (() => {
 
     if (vysledek.typ === 'napoveda') {
       pridejZpravu('hint', vysledek.text);
-      odhalKrok('napoveda');
+      _pokusuNaUlohu++;
+      aktualizujTlacitkoKroku();
       setVstupDisabled(false);
       document.getElementById('vstup-pole').focus();
     } else if (vysledek.typ === 'uspech') {
+      skrejTlacitkoKroku();
       pridejZpravu('uspech', vysledek.text);
       odhalKrok('spravne');
       ulozProgress(
@@ -612,6 +643,7 @@ const App = (() => {
       skore.spravne++;
       dokoncUlohu();
     } else if (vysledek.typ === 'reseni') {
+      skrejTlacitkoKroku();
       pridejZpravu('reseni', vysledek.text);
       odhalZbytek();
       ulozProgress(
@@ -825,6 +857,12 @@ const App = (() => {
     // Výpočetní panel — smazat
     document.getElementById('btn-vypocet-smazat').addEventListener('click', () => {
       document.getElementById('vypocet-log').innerHTML = '';
+    });
+
+    // Výpočetní panel — ukázat krok na požádání
+    document.getElementById('btn-ukaz-krok')?.addEventListener('click', () => {
+      odhalKrok('napoveda');
+      aktualizujTlacitkoKroku();
     });
 
     // Modal "Skvělá práce na dnes!" — zavřít
