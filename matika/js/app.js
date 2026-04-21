@@ -128,11 +128,25 @@ const App = (() => {
 
   // ─── localStorage helpers ────────────────────────────────────
   function nactiProgress() {
-    try { return JSON.parse(localStorage.getItem('matika_progress') || '{}'); }
-    catch { return {}; }
+    try {
+      const raw = JSON.parse(localStorage.getItem('matika_progress') || '{}');
+      // Vyčisti AI-generované záznamy (gen_*) — průběžná sanitace starých dat
+      let dirty = false;
+      Object.keys(raw).forEach(temaId => {
+        Object.keys(raw[temaId] || {}).forEach(id => {
+          if (id.startsWith('gen_')) { delete raw[temaId][id]; dirty = true; }
+        });
+      });
+      if (dirty) localStorage.setItem('matika_progress', JSON.stringify(raw));
+      return raw;
+    } catch { return {}; }
   }
 
   function ulozProgress(temaId, ulohaId, uspech) {
+    // AI-generované příklady mají unikátní ID při každém generování —
+    // nemá smysl je sledovat (zkreslují % dokončení statického poolu).
+    if (ulohaId.startsWith('gen_')) return;
+
     // Lokální cache
     const p = nactiProgress();
     if (!p[temaId]) p[temaId] = {};
@@ -159,7 +173,11 @@ const App = (() => {
   function pocetDokoncenychUloh(temaId) {
     const p = nactiProgress();
     if (!p[temaId]) return 0;
-    return Object.values(p[temaId]).filter(v => v === 'spravne').length;
+    // Filtruj AI-generované záznamy (ID začínají "gen_") — mohly se nakupit
+    // z dřívějška před zavedením tohoto filtru.
+    return Object.entries(p[temaId])
+      .filter(([id, v]) => !id.startsWith('gen_') && v === 'spravne')
+      .length;
   }
 
   function maApiKlic() {
