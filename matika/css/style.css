@@ -868,6 +868,14 @@ select.apikey-input {
   font-weight: 700;
 }
 
+/* Textová nápověda (kroky[] fallback — bez LaTeX) */
+.vypocet-krok--text {
+  font-size: .82rem;
+  font-style: italic;
+  line-height: 1.5;
+  white-space: normal;
+}
+
 /* Tlačítko "Ukázat krok" ve výpočetním panelu */
 .vypocet-napoveda-wrap {
   padding: .5rem .5rem .25rem;

@@ -553,20 +553,45 @@ const App = (() => {
     log.scrollTop = log.scrollHeight;
   }
 
-  // Odhal další krok z postup[] aktuální úlohy
+  // Text hint (z kroky[] fallback) — zobrazí v pravém panelu jako nápovědný text
+  function pridejTextHintDoVypoctu(text, tipTyp) {
+    const log = document.getElementById('vypocet-log');
+    const el  = document.createElement('div');
+    el.className = `vypocet-krok vypocet-krok--${tipTyp} vypocet-krok--text`;
+    el.textContent = text;
+    log.appendChild(el);
+    requestAnimationFrame(() => MathRender.renderMath(el));
+    log.scrollTop = log.scrollHeight;
+  }
+
+  // ── Pomocná: unified pool kroků (postup LaTeX nebo kroky text) ──
+  // Vrací pole objektů { latex, text, stav } pro aktuální úlohu.
+  function _getKrokyPool(uloha) {
+    if (!uloha) return [];
+    if (uloha.postup?.length > 0) return uloha.postup;  // preferuj LaTeX postup
+    // Fallback: kroky[] jako textové nápovědy
+    return (uloha.kroky || []).map(k => ({ latex: null, text: k, stav: 'krok' }));
+  }
+
+  // Odhal další krok (LaTeX nebo text) z aktuální úlohy
   function odhalKrok(tipTyp) {
-    const uloha = aktualniTema.ulohy[aktualniUlohaIndex];
-    if (!uloha?.postup) return;
+    const uloha = aktualniTema?.ulohy?.[aktualniUlohaIndex];
+    const pool  = _getKrokyPool(uloha);
     postupIndex++;
-    if (postupIndex >= uloha.postup.length) return;
-    pridejKrokDoVypoctu(uloha.postup[postupIndex], tipTyp);
+    if (postupIndex >= pool.length) return;
+    const krok = pool[postupIndex];
+    if (krok.latex) {
+      pridejKrokDoVypoctu(krok, tipTyp);
+    } else {
+      pridejTextHintDoVypoctu(krok.text, tipTyp);
+    }
   }
 
   // Odhal všechny zbývající kroky najednou (po zobrazení řešení)
   function odhalZbytek() {
-    const uloha = aktualniTema.ulohy[aktualniUlohaIndex];
-    if (!uloha?.postup) return;
-    while (postupIndex + 1 < uloha.postup.length) {
+    const uloha = aktualniTema?.ulohy?.[aktualniUlohaIndex];
+    const pool  = _getKrokyPool(uloha);
+    while (postupIndex + 1 < pool.length) {
       odhalKrok('napoveda');
     }
     skrejTlacitkoKroku();
@@ -574,11 +599,11 @@ const App = (() => {
 
   // ── Tlačítko "Ukázat nápovědu ke kroku" ───────────────────────
   function aktualizujTlacitkoKroku() {
-    const uloha     = aktualniTema?.ulohy?.[aktualniUlohaIndex];
-    const maPostup  = uloha?.postup?.length > 0;
-    const zbyvaji   = maPostup && (postupIndex + 1 < uloha.postup.length);
-    const wrap      = document.getElementById('vypocet-napoveda-wrap');
-    const btn       = document.getElementById('btn-ukaz-krok');
+    const uloha  = aktualniTema?.ulohy?.[aktualniUlohaIndex];
+    const pool   = _getKrokyPool(uloha);
+    const zbyvaji = pool.length > 0 && (postupIndex + 1 < pool.length);
+    const wrap   = document.getElementById('vypocet-napoveda-wrap');
+    const btn    = document.getElementById('btn-ukaz-krok');
     if (!wrap || !btn) return;
 
     if (!zbyvaji || _pokusuNaUlohu < 2) {
@@ -587,7 +612,7 @@ const App = (() => {
     }
 
     wrap.classList.remove('hidden');
-    const zbyvajiciKroku = uloha.postup.length - (postupIndex + 1);
+    const zbyvajiciKroku = pool.length - (postupIndex + 1);
     btn.textContent = postupIndex === -1
       ? '💡 Ukázat nápovědu ke kroku'
       : `💡 Ukázat další krok (${zbyvajiciKroku} zbývají)`;

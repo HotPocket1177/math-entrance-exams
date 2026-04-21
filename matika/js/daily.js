@@ -48,13 +48,19 @@ const SessionProgress = (() => {
     }
 
     _cache = {};
-    const toReset = [];
+    const toReset = [];  // expired → reset na 0
+    const toHeal  = [];  // count>=3 bez data → doplň uzamceno_do
 
     (data || []).forEach(row => {
       if (row.uzamceno_do && row.uzamceno_do < dnes) {
         // Uzamčení vypršelo → reset
         toReset.push(row.tema_id);
         _cache[row.tema_id] = { dokonceni_count: 0, uzamceno_do: null };
+      } else if (!row.uzamceno_do && (row.dokonceni_count || 0) >= 3) {
+        // Léčení legacy dat: count=3 bez zámku → nastav datum na dnes
+        // (jinak by se count 3 nikdy neresetoval při novém dni)
+        toHeal.push(row.tema_id);
+        _cache[row.tema_id] = { dokonceni_count: 3, uzamceno_do: dnes };
       } else {
         _cache[row.tema_id] = {
           dokonceni_count: row.dokonceni_count || 0,
@@ -69,16 +75,30 @@ const SessionProgress = (() => {
     // Resetuj expired záznamy v DB (fire-and-forget)
     toReset.forEach(temaId => {
       sb.from('session_progress')
-        .upsert({ user_id: userId, tema_id: temaId, dokonceni_count: 0, uzamceno_do: null })
+        .upsert({ user_id: userId, tema_id: temaId, dokonceni_count: 0, uzamceno_do: null },
+                { onConflict: 'user_id,tema_id' })
         .then(({ error: e }) => { if (e) console.warn('SessionProgress reset error:', e.message); });
+    });
+
+    // Doplň chybějící uzamceno_do pro count=3 záznamy (fire-and-forget)
+    toHeal.forEach(temaId => {
+      sb.from('session_progress')
+        .upsert({ user_id: userId, tema_id: temaId, dokonceni_count: 3, uzamceno_do: dnes },
+                { onConflict: 'user_id,tema_id' })
+        .then(({ error: e }) => { if (e) console.warn('SessionProgress heal error:', e.message); });
     });
   }
 
   // ── Je téma dnes uzamčeno? ────────────────────────────────────
   function jeZamceno(temaId) {
     const d = _cache[temaId];
-    if (!d?.uzamceno_do) return false;
-    return d.uzamceno_do >= getPragueDate();
+    if (!d) return false;
+    // Explicitní zámek (uzamceno_do nastaveno)
+    if (d.uzamceno_do && d.uzamceno_do >= getPragueDate()) return true;
+    // Obranná pojistka: count >= 3 = všechny cykly dnes spotřebovány
+    // (pokrývá případ kdy user zavřel prohlížeč před dokončením uzamkniSadu)
+    if (d.dokonceni_count >= 3) return true;
+    return false;
   }
 
   // ── Počet dokončení dnes ──────────────────────────────────────
@@ -122,14 +142,18 @@ const SessionProgress = (() => {
     }
 
     const newCount = currentCount + 1;
-    _cache[temaId] = { ...(_cache[temaId] || {}), dokonceni_count: newCount, uzamceno_do: null };
+    // Nastav uzamceno_do hned při 3. cyklu — zajistí správný next-day reset
+    // i kdyby user zavřel prohlížeč před dokončením sady.
+    const dnes = getPragueDate();
+    const uzamcenoDo = newCount >= 3 ? dnes : null;
+    _cache[temaId] = { ...(_cache[temaId] || {}), dokonceni_count: newCount, uzamceno_do: uzamcenoDo };
     _ulozLocal();
 
     // Zapiš do DB (fire-and-forget — neblokujeme UI)
     if (userId) {
       const sb = Auth.getSupabase();
       sb.from('session_progress')
-        .upsert({ user_id: userId, tema_id: temaId, dokonceni_count: newCount, uzamceno_do: null },
+        .upsert({ user_id: userId, tema_id: temaId, dokonceni_count: newCount, uzamceno_do: uzamcenoDo },
                 { onConflict: 'user_id,tema_id' })
         .then(({ error: e }) => { if (e) console.warn('spustiSadu DB error:', e.message); });
     }
