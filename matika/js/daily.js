@@ -71,6 +71,7 @@ const SessionProgress = (() => {
 
     // Synchronizuj do localStorage (záloha)
     _ulozLocal();
+    console.log('[SessionProgress] načteno z DB:', JSON.stringify(_cache));
 
     // Resetuj expired záznamy v DB (fire-and-forget)
     toReset.forEach(temaId => {
