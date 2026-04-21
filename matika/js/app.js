@@ -18,8 +18,9 @@ const App = (() => {
   let _pokracujBezi    = false;  // guard proti souběžným voláním pokracujPoLoginu
 
   // ─── Per-cyklus výběr úloh ───────────────────────────────────
-  const TASKS_PER_CYCLE = 5;
-  const _pouziteUlohy   = {};   // temaId → Set<taskId> — úlohy použité v aktuálním kole
+  const TASKS_PER_CYCLE  = 5;
+  const HISTORY_KEY      = 'matika_history';           // { temaId: { taskId: timestampMs } }
+  const COOLDOWN_MS      = 30 * 24 * 60 * 60 * 1000;  // 30 dní
 
   // ─── Resume stav ─────────────────────────────────────────────
   // Uloží se při kliknutí "Zpět" uprostřed sady; obnoví se při opětovném
@@ -221,18 +222,28 @@ const App = (() => {
     });
   }
 
-  // ─── Výběr úloh pro cyklus (bez opakování mezi cykly) ────────
-  // Fisher-Yates shuffle + deduplication přes _pouziteUlohy
+  // ─── Výběr úloh pro cyklus (bez opakování po dobu 30 dní) ───
+  // Historie se ukládá do localStorage s timestampem; úloha se
+  // nezobrazí dokud neuplyne COOLDOWN_MS od posledního zobrazení.
+  function _nactiHistorii() {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}'); }
+    catch { return {}; }
+  }
+
   function selectUlohyProCyklus(temaId, pool) {
-    if (!_pouziteUlohy[temaId]) _pouziteUlohy[temaId] = new Set();
-    const pouzite = _pouziteUlohy[temaId];
+    const now      = Date.now();
+    const historie = _nactiHistorii();
+    const tema     = historie[temaId] || {};
 
-    let dostupne = pool.filter(u => !pouzite.has(u.id));
+    // Úlohy, které nebyly zobrazeny v posledních 30 dnech
+    let dostupne = pool.filter(u => {
+      const t = tema[u.id];
+      return !t || (now - t) > COOLDOWN_MS;
+    });
 
-    // Pokud není dost nepoužitých úloh, resetuj použité a ber celý pool
+    // Pokud jich není dost, vezmi nejstarší zobrazené (v pořadí od nejdávnějšího)
     if (dostupne.length < TASKS_PER_CYCLE) {
-      pouzite.clear();
-      dostupne = [...pool];
+      dostupne = [...pool].sort((a, b) => (tema[a.id] || 0) - (tema[b.id] || 0));
     }
 
     // Fisher-Yates shuffle
@@ -242,7 +253,12 @@ const App = (() => {
     }
 
     const vybrane = dostupne.slice(0, TASKS_PER_CYCLE);
-    vybrane.forEach(u => pouzite.add(u.id));
+
+    // Ulož timestamp zobrazení
+    vybrane.forEach(u => { tema[u.id] = now; });
+    historie[temaId] = tema;
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(historie));
+
     return vybrane;
   }
 
