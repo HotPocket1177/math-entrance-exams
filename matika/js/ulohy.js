@@ -226,6 +226,255 @@ const TEMATA = [
           { latex: '-10p = -72 \\Rightarrow p = 7{,}2 \\text{ Kč}', stav: 'krok' },
           { latex: 's = 42 - 28{,}8 = 13{,}2 \\text{ Kč}', stav: 'vysledek' }
         ]
+      },
+      {
+        id: 's11', tridy: [6,7,8,9], podtyp: 'zakladni',
+        zadani: 'Otci je 38 let, synovi 14 let. Za kolik let bude otec dvakrát starší než syn?',
+        kroky: [
+          'Za $x$ let bude otci $38 + x$ let a synovi $14 + x$ let. Zapiš podmínku „dvakrát starší".',
+          '$38 + x = 2(14 + x) \\Rightarrow 38 + x = 28 + 2x$.',
+          '$38 - 28 = 2x - x \\Rightarrow x = ?$'
+        ],
+        odpoved: 'Za 10 let',
+        jednotka: 'let',
+        kontrola: (vstup) => blizko(vstup, 10, 0.01),
+        postup: [
+          { latex: '38 + x = 2(14 + x)', stav: 'krok' },
+          { latex: '38 + x = 28 + 2x \\Rightarrow x = 10', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 's12', tridy: [6,7,8,9], podtyp: 'zakladni',
+        zadani: 'Dva vlaky vyjely naproti sobě ze dvou měst vzdálených 360 km. Jeden jede rychlostí 80 km/h, druhý 100 km/h. Za jak dlouho se setkají?',
+        kroky: [
+          'Setkají se, až součet ujetých vzdáleností bude 360 km. Za čas $t$ ujede první $80t$ km, druhý $100t$ km.',
+          '$80t + 100t = 360 \\Rightarrow 180t = 360$.',
+          '$t = ?$ hodiny.'
+        ],
+        odpoved: '2 hodiny',
+        jednotka: 'h',
+        kontrola: (vstup) => blizko(vstup, 2, 0.01) || blizko(vstup, 120, 0.01),
+        postup: [
+          { latex: '(80 + 100) \\cdot t = 360 \\Rightarrow 180t = 360', stav: 'krok' },
+          { latex: 't = 2 \\text{ hodiny}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 's13', tridy: [7,8,9], podtyp: 'soustava',
+        zadani: 'Na výstavu přišlo 80 osob. Dospělí platili 120 Kč, děti 60 Kč. Celkem vybrali 7 800 Kč. Kolik bylo dospělých a kolik dětí?',
+        kroky: [
+          'Označ: dospělých $= d$, dětí $= k$. Soustava: $d + k = 80$ a $120d + 60k = 7\\,800$.',
+          'Z první rovnice: $k = 80 - d$. Dosaď do druhé.',
+          '$120d + 60(80 - d) = 7\\,800 \\Rightarrow 60d = 3\\,000 \\Rightarrow d = ?$'
+        ],
+        odpoved: '50 dospělých, 30 dětí',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return (n.includes('50') && n.includes('30')) || blizko(vstup, 50);
+        },
+        postup: [
+          { latex: '120d + 60(80-d) = 7\\,800 \\Rightarrow 60d = 3\\,000', stav: 'krok' },
+          { latex: 'd = 50 \\text{ dospělých},\\quad k = 30 \\text{ dětí}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 's14', tridy: [7,8,9], podtyp: 'zakladni',
+        zadani: 'Jeden dělník zvládne práci za 12 hodin, druhý za 18 hodin. Za kolik hodin ji zvládnou společně?',
+        kroky: [
+          'Výkon za hodinu: první $= \\frac{1}{12}$ práce, druhý $= \\frac{1}{18}$ práce. Jejich společný výkon?',
+          '$\\frac{1}{12} + \\frac{1}{18} = \\frac{3}{36} + \\frac{2}{36} = \\frac{5}{36}$ práce za hodinu.',
+          'Celková práce $= 1$. Čas $= 1 \\div \\frac{5}{36} = ?$'
+        ],
+        odpoved: '7,2 hodiny',
+        jednotka: 'h',
+        kontrola: (vstup) => blizko(vstup, 7.2, 0.05),
+        postup: [
+          { latex: '\\tfrac{1}{12} + \\tfrac{1}{18} = \\tfrac{5}{36} \\text{ práce/hod}', stav: 'krok' },
+          { latex: 't = \\frac{36}{5} = 7{,}2 \\text{ hodiny}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 's15', tridy: [6,7,8,9], podtyp: 'zakladni',
+        zadani: 'Eva má o 250 Kč méně než David. Dohromady mají 1 450 Kč. Kolik má každý z nich?',
+        kroky: [
+          'Označ Davidovu částku jako $d$. Eva má $d - 250$ Kč. Zapiš rovnici pro součet.',
+          '$d + (d - 250) = 1\\,450 \\Rightarrow 2d - 250 = 1\\,450$.',
+          '$2d = 1\\,700 \\Rightarrow d = ?$. Kolik má Eva?'
+        ],
+        odpoved: 'David 850 Kč, Eva 600 Kč.',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return (n.includes('850') && n.includes('600')) || blizko(vstup, 850) || blizko(vstup, 600);
+        },
+        postup: [
+          { latex: '2d - 250 = 1\\,450 \\Rightarrow 2d = 1\\,700', stav: 'krok' },
+          { latex: 'David: 850 \\text{ Kč},\\quad Eva: 600 \\text{ Kč}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 's16', tridy: [6,7,8,9], podtyp: 'zakladni',
+        zadani: 'Dva cyklisté jedou naproti sobě ze dvou měst vzdálených 120 km. Jeden jede rychlostí 25 km/h, druhý 15 km/h. Za jak dlouho se setkají?',
+        kroky: [
+          'Obě rychlosti se sčítají: $v_{\\text{celk}} = 25 + 15 = 40$ km/h.',
+          '$t = \\frac{120}{40} = ?$ hodiny.'
+        ],
+        odpoved: '3 hodiny',
+        jednotka: 'h',
+        kontrola: (vstup) => blizko(vstup, 3, 0.01) || blizko(vstup, 180, 0.01),
+        postup: [
+          { latex: 'v_{\\text{celk}} = 25 + 15 = 40 \\text{ km/h}', stav: 'krok' },
+          { latex: 't = \\frac{120}{40} = 3 \\text{ hodiny}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 's17', tridy: [6,7,8,9], podtyp: 'zakladni',
+        zadani: 'Tři přátelé si rozdělí 840 Kč v poměru 2 : 3 : 5. Kolik dostane každý z nich?',
+        kroky: [
+          'Celkový počet dílů: $2 + 3 + 5 = 10$ dílů. Jeden díl $= 840 \\div 10 = ?$ Kč.',
+          'První dostane $2 \\cdot 84 = ?$ Kč, druhý $3 \\cdot 84 = ?$ Kč, třetí $5 \\cdot 84 = ?$ Kč.'
+        ],
+        odpoved: '168 Kč, 252 Kč a 420 Kč',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return (n.includes('168') && n.includes('420')) || blizko(vstup, 168) || blizko(vstup, 420);
+        },
+        postup: [
+          { latex: '\\text{1 díl} = \\frac{840}{10} = 84 \\text{ Kč}', stav: 'krok' },
+          { latex: '168 \\text{ Kč} : 252 \\text{ Kč} : 420 \\text{ Kč}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 's18', tridy: [7,8,9], podtyp: 'zakladni',
+        zadani: 'Délka obdélníku je třikrát větší než šířka. Obvod obdélníku je 96 cm. Jaký je obsah obdélníku?',
+        kroky: [
+          'Označ šířku $= w$, délku $= 3w$. Obvod: $2(w + 3w) = 96$.',
+          '$2 \\cdot 4w = 96 \\Rightarrow 8w = 96 \\Rightarrow w = ?$',
+          'Šířka $= 12$ cm, délka $= 36$ cm. Obsah $= ?$'
+        ],
+        odpoved: '432 cm²',
+        jednotka: 'cm²',
+        kontrola: (vstup) => blizko(vstup, 432, 0.01),
+        postup: [
+          { latex: '8w = 96 \\Rightarrow w = 12 \\text{ cm},\\quad l = 36 \\text{ cm}', stav: 'krok' },
+          { latex: 'S = 12 \\cdot 36 = 432 \\text{ cm}^2', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 's19', tridy: [7,8,9], podtyp: 'zakladni',
+        zadani: 'Auto jelo 120 km průměrnou rychlostí 60 km/h a pak 80 km rychlostí 40 km/h. Jaká je průměrná rychlost celé cesty?',
+        kroky: [
+          'Čas první části: $t_1 = 120 \\div 60 = 2$ h. Čas druhé části: $t_2 = 80 \\div 40 = 2$ h.',
+          'Celková vzdálenost: $120 + 80 = 200$ km. Celkový čas: $2 + 2 = 4$ h.',
+          'Průměrná rychlost $= 200 \\div 4 = ?$ km/h.'
+        ],
+        odpoved: '50 km/h',
+        jednotka: 'km/h',
+        kontrola: (vstup) => blizko(vstup, 50, 0.01),
+        postup: [
+          { latex: 't_1 = 2\\text{ h},\\quad t_2 = 2\\text{ h}', stav: 'krok' },
+          { latex: 'v_{\\text{prům}} = \\frac{200}{4} = 50 \\text{ km/h}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 's20', tridy: [7,8,9], podtyp: 'soustava',
+        zadani: 'Za 3 kg jablek a 2 kg hrušek zaplatíme 82 Kč. Za 2 kg jablek a 3 kg hrušek zaplatíme 78 Kč. Kolik stojí 1 kg jablek?',
+        kroky: [
+          'Označ: jablka $= a$, hrušky $= h$. Soustava: $3a + 2h = 82$ a $2a + 3h = 78$.',
+          'Vynásob první rovnici 3 a druhou 2: $9a + 6h = 246$, $4a + 6h = 156$.',
+          'Odečti druhou od první: $5a = 90 \\Rightarrow a = ?$'
+        ],
+        odpoved: 'Jablka 18 Kč/kg, hrušky 14 Kč/kg.',
+        jednotka: 'Kč/kg',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return (n.includes('18') && n.includes('14')) || blizko(vstup, 18);
+        },
+        postup: [
+          { latex: '9a + 6h = 246,\\quad 4a + 6h = 156', stav: 'krok' },
+          { latex: '5a = 90 \\Rightarrow a = 18 \\text{ Kč/kg}', stav: 'krok' },
+          { latex: 'h = (82 - 54) / 2 = 14 \\text{ Kč/kg}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 's21', tridy: [6,7,8,9], podtyp: 'zakladni',
+        zadani: 'Škola organizuje výlet pro 150 žáků. Každý autobus pojme 48 žáků. Kolik autobusů je minimálně potřeba?',
+        kroky: [
+          '$150 \\div 48 = ?$. Výsledek není celé číslo — co to znamená pro počet autobusů?',
+          '$150 \\div 48 \\approx 3{,}125$. Protože nesmíme nikoho nechat doma, zaokrouhlujeme nahoru.'
+        ],
+        odpoved: '4 autobusy',
+        jednotka: '',
+        kontrola: (vstup) => blizko(vstup, 4, 0.01),
+        postup: [
+          { latex: '150 \\div 48 = 3{,}125', stav: 'krok' },
+          { latex: '\\text{Zaokrouhlit nahoru} \\Rightarrow 4 \\text{ autobusy}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 's22', tridy: [7,8,9], podtyp: 'zakladni',
+        zadani: 'Obchodník chce smíchat kávu za 200 Kč/kg s kávou za 350 Kč/kg tak, aby 1 kg směsi stál 260 Kč. Kolik gramů levné kávy potřebuje?',
+        kroky: [
+          'Označ množství levné kávy jako $x$ kg. Drahé kávy bude $1 - x$ kg.',
+          '$200x + 350(1 - x) = 260$. Rozbal závorku.',
+          '$200x + 350 - 350x = 260 \\Rightarrow -150x = -90 \\Rightarrow x = ?$'
+        ],
+        odpoved: '600 g',
+        jednotka: 'g',
+        kontrola: (vstup) => blizko(vstup, 600, 5) || blizko(vstup, 0.6, 0.01),
+        postup: [
+          { latex: '200x + 350(1-x) = 260', stav: 'krok' },
+          { latex: '-150x = -90 \\Rightarrow x = 0{,}6 \\text{ kg} = 600 \\text{ g}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 's23', tridy: [6,7,8,9], podtyp: 'zakladni',
+        zadani: 'Turistická trasa je 135 km. Skupina chodí 9 hodin denně průměrnou rychlostí 5 km/h. Za kolik dní trasu projdou?',
+        kroky: [
+          'Za jeden den ujdou: $9 \\cdot 5 = ?$ km.',
+          'Počet dní $= 135 \\div ?$'
+        ],
+        odpoved: '3 dny',
+        jednotka: 'dní',
+        kontrola: (vstup) => blizko(vstup, 3, 0.01),
+        postup: [
+          { latex: '\\text{za den: } 9 \\cdot 5 = 45 \\text{ km}', stav: 'krok' },
+          { latex: '135 \\div 45 = 3 \\text{ dny}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 's24', tridy: [6,7,8,9], podtyp: 'zakladni',
+        zadani: 'Tomáš spoří každý týden 250 Kč. Za kolik týdnů ušetří 4 000 Kč?',
+        kroky: [
+          'Počet týdnů $= 4\\,000 \\div 250 = ?$'
+        ],
+        odpoved: '16 týdnů',
+        jednotka: 'týdnů',
+        kontrola: (vstup) => blizko(vstup, 16, 0.01),
+        postup: [
+          { latex: '4\\,000 \\div 250 = 16 \\text{ týdnů}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 's25', tridy: [7,8,9], podtyp: 'soustava',
+        zadani: 'Do kina přišlo 120 diváků. Lístek stojí 150 Kč nebo 90 Kč (pro studenty). Celkem vybrali 15 600 Kč. Kolik bylo studentů?',
+        kroky: [
+          'Označ: dospělých $= d$, studentů $= s$. Soustava: $d + s = 120$ a $150d + 90s = 15\\,600$.',
+          'Z první: $d = 120 - s$. Dosaď do druhé.',
+          '$150(120 - s) + 90s = 15\\,600 \\Rightarrow 18\\,000 - 60s = 15\\,600 \\Rightarrow s = ?$'
+        ],
+        odpoved: '40 studentů, 80 dospělých',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return (n.includes('40') && n.includes('80')) || blizko(vstup, 40);
+        },
+        postup: [
+          { latex: '18\\,000 - 60s = 15\\,600 \\Rightarrow 60s = 2\\,400', stav: 'krok' },
+          { latex: 's = 40 \\text{ studentů},\\quad d = 80 \\text{ dospělých}', stav: 'vysledek' }
+        ]
       }
     ]
   },
@@ -415,6 +664,230 @@ const TEMATA = [
         postup: [
           { latex: '\\frac{24}{40} \\cdot 100', stav: 'krok' },
           { latex: '= 60\\,\\%', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'p11', tridy: [7,8,9], podtyp: 'zpetny',
+        zadani: 'Jana dostala přidáno 12 % k platu. Nyní bere 22 400 Kč. Jaký byl její původní plat?',
+        kroky: [
+          'Nový plat $= $ původní $\\cdot 1{,}12$. Označ původní plat jako $x$.',
+          '$1{,}12 \\cdot x = 22\\,400 \\Rightarrow x = \\frac{22\\,400}{1{,}12} = ?$'
+        ],
+        odpoved: '20 000 Kč',
+        jednotka: 'Kč',
+        kontrola: (vstup) => blizko(vstup, 20000, 0.01),
+        postup: [
+          { latex: '1{,}12 \\cdot x = 22\\,400', stav: 'krok' },
+          { latex: 'x = 20\\,000 \\text{ Kč}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'p12', tridy: [7,8,9], podtyp: 'zpetny',
+        zadani: 'Televize je v akci se slevou 30 %. Zlevněná cena je 7 000 Kč. Jaká byla původní cena?',
+        kroky: [
+          'Po 30% slevě platíme $70\\,\\%$ z původní ceny. Označ původní cenu jako $x$.',
+          '$0{,}7 \\cdot x = 7\\,000 \\Rightarrow x = ?$'
+        ],
+        odpoved: '10 000 Kč',
+        jednotka: 'Kč',
+        kontrola: (vstup) => blizko(vstup, 10000, 0.01),
+        postup: [
+          { latex: '0{,}7 \\cdot x = 7\\,000', stav: 'krok' },
+          { latex: 'x = 10\\,000 \\text{ Kč}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'p13', tridy: [8,9], podtyp: 'zakladni',
+        zadani: 'Cena plynu vzrostla o 15 % a pak o dalších 8 %. O kolik procent celkem vzrostla cena oproti původní?',
+        kroky: [
+          'Začni s cenou 100 Kč. Po prvním zdražení: $100 \\cdot 1{,}15 = 115$ Kč.',
+          'Po druhém zdražení: $115 \\cdot 1{,}08 = ?$ Kč.',
+          'Celkový nárůst $= ? - 100$. Vyjádři v procentech z původní ceny 100 Kč.'
+        ],
+        odpoved: '24,2 %',
+        jednotka: '%',
+        kontrola: (vstup) => blizko(vstup, 24.2, 0.1),
+        postup: [
+          { latex: '100 \\cdot 1{,}15 \\cdot 1{,}08 = 124{,}2 \\text{ Kč}', stav: 'krok' },
+          { latex: '\\text{celkový nárůst: } 24{,}2\\,\\%', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'p14', tridy: [7,8,9], podtyp: 'zakladni',
+        zadani: 'Z 800 oslovených lidí odpovědělo kladně 560. Kolik procent odpovědělo kladně?',
+        kroky: [
+          'Procento $= \\frac{\\text{část}}{\\text{celek}} \\cdot 100\\,\\%$.',
+          '$\\frac{560}{800} \\cdot 100 = ?\\,\\%$'
+        ],
+        odpoved: '70 %',
+        jednotka: '%',
+        kontrola: (vstup) => blizko(vstup, 70, 0.01),
+        postup: [
+          { latex: '\\frac{560}{800} \\cdot 100 = 70\\,\\%', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'p15', tridy: [7,8,9], podtyp: 'zakladni',
+        zadani: 'Základní cena zboží je 2 400 Kč. DPH je 15 %. Jaká je cena s DPH?',
+        kroky: [
+          'Cena s DPH $= $ základní cena $\\cdot (1 + 0{,}15) = $ základní cena $\\cdot 1{,}15$.',
+          '$2\\,400 \\cdot 1{,}15 = ?$ Kč.'
+        ],
+        odpoved: '2 760 Kč',
+        jednotka: 'Kč',
+        kontrola: (vstup) => blizko(vstup, 2760, 0.01),
+        postup: [
+          { latex: '2\\,400 \\cdot 1{,}15 = 2\\,760 \\text{ Kč}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'p16', tridy: [8,9], podtyp: 'zakladni',
+        zadani: 'Roztok obsahuje 40 g soli v 250 g roztoku. Kolik procent tvoří sůl v roztoku?',
+        kroky: [
+          'Hmotnostní procento $= \\frac{\\text{hmotnost látky}}{\\text{hmotnost roztoku}} \\cdot 100\\,\\%$.',
+          '$\\frac{40}{250} \\cdot 100 = ?\\,\\%$'
+        ],
+        odpoved: '16 %',
+        jednotka: '%',
+        kontrola: (vstup) => blizko(vstup, 16, 0.01),
+        postup: [
+          { latex: '\\frac{40}{250} \\cdot 100 = 16\\,\\%', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'p17', tridy: [7,8,9], podtyp: 'zakladni',
+        zadani: 'Obchodník koupil zboží za 600 Kč a prodal za 750 Kč. Kolik procent tvoří zisk z kupní ceny?',
+        kroky: [
+          'Zisk $= 750 - 600 = 150$ Kč.',
+          'Zisk v procentech $= \\frac{150}{600} \\cdot 100 = ?\\,\\%$'
+        ],
+        odpoved: '25 %',
+        jednotka: '%',
+        kontrola: (vstup) => blizko(vstup, 25, 0.01),
+        postup: [
+          { latex: '\\text{zisk} = 750 - 600 = 150 \\text{ Kč}', stav: 'krok' },
+          { latex: '\\frac{150}{600} \\cdot 100 = 25\\,\\%', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'p18', tridy: [7,8,9], podtyp: 'zpetny',
+        zadani: 'Po zdražení o 25 % stojí výrobek 875 Kč. Jaká byla původní cena?',
+        kroky: [
+          'Po zdražení o 25 % platíme $125\\,\\%$ z původní ceny. Označ původní cenu jako $x$.',
+          '$1{,}25 \\cdot x = 875 \\Rightarrow x = \\frac{875}{1{,}25} = ?$'
+        ],
+        odpoved: '700 Kč',
+        jednotka: 'Kč',
+        kontrola: (vstup) => blizko(vstup, 700, 0.01),
+        postup: [
+          { latex: '1{,}25 \\cdot x = 875', stav: 'krok' },
+          { latex: 'x = 700 \\text{ Kč}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'p19', tridy: [7,8,9], podtyp: 'zpetny',
+        zadani: 'Marta utratila 35 % svého kapesného za oblečení a zaplatila 1 750 Kč. Kolik bylo její kapesné?',
+        kroky: [
+          'Označ kapesné jako $x$. $35\\,\\% \\cdot x = 1\\,750$.',
+          '$0{,}35 \\cdot x = 1\\,750 \\Rightarrow x = ?$'
+        ],
+        odpoved: '5 000 Kč',
+        jednotka: 'Kč',
+        kontrola: (vstup) => blizko(vstup, 5000, 0.01),
+        postup: [
+          { latex: '0{,}35 \\cdot x = 1\\,750', stav: 'krok' },
+          { latex: 'x = 5\\,000 \\text{ Kč}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'p20', tridy: [7,8,9], podtyp: 'zakladni',
+        zadani: 'Škola měla loni 350 žáků, letos 385 žáků. O kolik procent vzrostl počet žáků?',
+        kroky: [
+          'Procentní změna $= \\frac{\\text{nová} - \\text{původní}}{\\text{původní}} \\cdot 100\\,\\%$.',
+          '$\\frac{385 - 350}{350} \\cdot 100 = \\frac{35}{350} \\cdot 100 = ?\\,\\%$'
+        ],
+        odpoved: '10 %',
+        jednotka: '%',
+        kontrola: (vstup) => blizko(vstup, 10, 0.01),
+        postup: [
+          { latex: '\\frac{35}{350} \\cdot 100 = 10\\,\\%', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'p21', tridy: [7,8,9], podtyp: 'zakladni',
+        zadani: 'V obchodě je sleva 20 % na oblečení. Košile stojí původně 650 Kč. Za kolik ji koupíš?',
+        kroky: [
+          'Po 20% slevě platíme $80\\,\\%$ z původní ceny.',
+          '$650 \\cdot 0{,}8 = ?$ Kč.'
+        ],
+        odpoved: '520 Kč',
+        jednotka: 'Kč',
+        kontrola: (vstup) => blizko(vstup, 520, 0.01),
+        postup: [
+          { latex: '650 \\cdot 0{,}8 = 520 \\text{ Kč}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'p22', tridy: [7,8,9], podtyp: 'zakladni',
+        zadani: 'Obchodní zástupce dostane 5 % provize z prodeje. V červenci prodal za 120 000 Kč. Kolik mu přijde provize?',
+        kroky: [
+          'Provize $= 5\\,\\% \\cdot 120\\,000 = 0{,}05 \\cdot 120\\,000 = ?$ Kč.'
+        ],
+        odpoved: '6 000 Kč',
+        jednotka: 'Kč',
+        kontrola: (vstup) => blizko(vstup, 6000, 0.01),
+        postup: [
+          { latex: '0{,}05 \\cdot 120\\,000 = 6\\,000 \\text{ Kč}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'p23', tridy: [8,9], podtyp: 'zpetny',
+        zadani: 'Výrobek stojí 968 Kč včetně 21% DPH. Jaká je cena bez DPH?',
+        kroky: [
+          'Cena s DPH $= $ cena bez DPH $\\cdot 1{,}21$. Označ cenu bez DPH jako $x$.',
+          '$1{,}21 \\cdot x = 968 \\Rightarrow x = \\frac{968}{1{,}21} = ?$'
+        ],
+        odpoved: '800 Kč',
+        jednotka: 'Kč',
+        kontrola: (vstup) => blizko(vstup, 800, 0.01),
+        postup: [
+          { latex: '1{,}21 \\cdot x = 968', stav: 'krok' },
+          { latex: 'x = 800 \\text{ Kč}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'p24', tridy: [8,9], podtyp: 'zakladni',
+        zadani: 'Zboží zdražilo o 40 % a pak se zlevnilo o 40 %. Je výsledná cena vyšší nebo nižší oproti původní? O kolik procent?',
+        kroky: [
+          'Začni s cenou 100 Kč. Po zdražení: $100 \\cdot 1{,}4 = 140$ Kč.',
+          'Po slevě o 40 % z nové ceny: $140 \\cdot 0{,}6 = ?$ Kč.',
+          'Porovnej s původní cenou 100 Kč. O kolik procent se liší?'
+        ],
+        odpoved: 'Nižší o 16 %',
+        jednotka: '%',
+        kontrola: (vstup) => blizko(vstup, 16, 0.5) || blizko(vstup, -16, 0.5),
+        postup: [
+          { latex: '100 \\cdot 1{,}4 = 140 \\text{ Kč}', stav: 'krok' },
+          { latex: '140 \\cdot 0{,}6 = 84 \\text{ Kč}', stav: 'krok' },
+          { latex: '84 - 100 = -16\\,\\% \\Rightarrow \\text{nižší o } 16\\,\\%', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'p25', tridy: [6,7,8,9], podtyp: 'zakladni',
+        zadani: 'Třídy mají dohromady 360 žáků. Z toho 45 % jsou chlapci. Kolik je chlapců a kolik dívek?',
+        kroky: [
+          'Chlapci $= 45\\,\\% \\cdot 360 = 0{,}45 \\cdot 360 = ?$.',
+          'Dívky $= 360 - ?$'
+        ],
+        odpoved: '162 chlapců, 198 dívek',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return (n.includes('162') && n.includes('198')) || blizko(vstup, 162) || blizko(vstup, 198);
+        },
+        postup: [
+          { latex: '0{,}45 \\cdot 360 = 162 \\text{ chlapců}', stav: 'krok' },
+          { latex: '360 - 162 = 198 \\text{ dívek}', stav: 'vysledek' }
         ]
       }
     ]
@@ -615,6 +1088,260 @@ const TEMATA = [
         postup: [
           { latex: '\\tfrac{2}{3}=\\tfrac{8}{12},\\quad \\tfrac{3}{4}=\\tfrac{9}{12},\\quad \\tfrac{5}{6}=\\tfrac{10}{12}', stav: 'krok' },
           { latex: '\\tfrac{2}{3} < \\tfrac{3}{4} < \\tfrac{5}{6}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'z11', tridy: [6,7,8,9], podtyp: 'zakladni',
+        zadani: 'Vypočítej: $\\dfrac{5}{8} \\cdot \\dfrac{4}{15}$',
+        kroky: [
+          'Násob čitatele a jmenovatele: $\\frac{5 \\cdot 4}{8 \\cdot 15} = \\frac{20}{120}$.',
+          'Zjednoduš: NSD(20, 120) = 20. $\\frac{20}{120} = ?$'
+        ],
+        odpoved: '$\\dfrac{1}{6}$',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return n.includes('1/6') || n.includes('1 / 6') || blizko(vstup, 1/6);
+        },
+        postup: [
+          { latex: '\\frac{5 \\cdot 4}{8 \\cdot 15} = \\frac{20}{120}', stav: 'krok' },
+          { latex: '\\frac{20}{120} = \\frac{1}{6}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'z12', tridy: [6,7,8,9], podtyp: 'zakladni',
+        zadani: 'Zapiš jako smíšené číslo: $\\dfrac{29}{7}$',
+        kroky: [
+          '$29 \\div 7 = ?$ zbytek $?$. Celá část je podíl, zlomková část je zbytek/7.',
+          '$29 = 4 \\cdot 7 + 1 \\Rightarrow \\frac{29}{7} = 4\\frac{1}{7}$.'
+        ],
+        odpoved: '$4\\dfrac{1}{7}$',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return n.includes('4') && (n.includes('1/7') || n.includes('1 / 7')) || blizko(vstup, 29/7);
+        },
+        postup: [
+          { latex: '29 = 4 \\cdot 7 + 1', stav: 'krok' },
+          { latex: '\\frac{29}{7} = 4\\tfrac{1}{7}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'z13', tridy: [7,8,9], podtyp: 'operace',
+        zadani: 'Jana přečetla $\\dfrac{3}{5}$ knihy. Ze zbývající části přečetla ještě $\\dfrac{1}{4}$. Jaký podíl celé knihy Jana přečetla celkem?',
+        kroky: [
+          'Zbývá po první části: $1 - \\frac{3}{5} = \\frac{2}{5}$ knihy.',
+          'Z toho přečte čtvrtinu: $\\frac{1}{4} \\cdot \\frac{2}{5} = \\frac{2}{20} = \\frac{1}{10}$ knihy.',
+          'Celkem přečteno: $\\frac{3}{5} + \\frac{1}{10} = \\frac{6}{10} + \\frac{1}{10} = ?$'
+        ],
+        odpoved: '$\\dfrac{7}{10}$',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return n.includes('7/10') || n.includes('7 / 10') || blizko(vstup, 0.7);
+        },
+        postup: [
+          { latex: '\\tfrac{1}{4} \\cdot \\tfrac{2}{5} = \\tfrac{1}{10}', stav: 'krok' },
+          { latex: '\\tfrac{3}{5} + \\tfrac{1}{10} = \\tfrac{7}{10}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'z14', tridy: [6,7,8,9], podtyp: 'zakladni',
+        zadani: 'Petr vynaložil $\\dfrac{2}{7}$ peněz na jídlo a $\\dfrac{3}{7}$ na cestovné. Jaký zlomek peněz mu zbývá?',
+        kroky: [
+          'Vydaná část: $\\frac{2}{7} + \\frac{3}{7} = ?$ (stejný jmenovatel).',
+          'Zbývá: $1 - \\frac{5}{7} = ?$'
+        ],
+        odpoved: '$\\dfrac{2}{7}$',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return n.includes('2/7') || n.includes('2 / 7') || blizko(vstup, 2/7);
+        },
+        postup: [
+          { latex: '\\tfrac{2}{7} + \\tfrac{3}{7} = \\tfrac{5}{7}', stav: 'krok' },
+          { latex: '1 - \\tfrac{5}{7} = \\tfrac{2}{7}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'z15', tridy: [6,7,8,9], podtyp: 'zakladni',
+        zadani: 'Vypočítej: $\\dfrac{1}{2} + \\dfrac{1}{3} + \\dfrac{1}{6}$',
+        kroky: [
+          'NSN(2, 3, 6) = 6. Převeď: $\\frac{1}{2} = \\frac{?}{6}$, $\\frac{1}{3} = \\frac{?}{6}$.',
+          '$\\frac{3}{6} + \\frac{2}{6} + \\frac{1}{6} = ?$'
+        ],
+        odpoved: '$1$',
+        jednotka: '',
+        kontrola: (vstup) => blizko(vstup, 1, 0.01),
+        postup: [
+          { latex: '\\frac{3}{6} + \\frac{2}{6} + \\frac{1}{6} = \\frac{6}{6}', stav: 'krok' },
+          { latex: '= 1', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'z16', tridy: [6,7,8,9], podtyp: 'zakladni',
+        zadani: '$\\dfrac{3}{8}$ z čísla $x$ je 24. Jaké je číslo $x$?',
+        kroky: [
+          '$\\frac{3}{8} \\cdot x = 24$. Vyřeš pro $x$.',
+          '$x = 24 \\cdot \\frac{8}{3} = \\frac{192}{3} = ?$'
+        ],
+        odpoved: '$x = 64$',
+        jednotka: '',
+        kontrola: (vstup) => blizko(vstup, 64, 0.01),
+        postup: [
+          { latex: 'x = 24 \\cdot \\frac{8}{3}', stav: 'krok' },
+          { latex: 'x = 64', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'z17', tridy: [7,8,9], podtyp: 'operace',
+        zadani: 'Sklad je zaplněn na $\\dfrac{3}{4}$. Přivezli další zboží, které zaplnilo $\\dfrac{2}{5}$ zbývajícího místa. Na kolik celkového skladu je teď obsazeno?',
+        kroky: [
+          'Zbývající prostor před dovozem: $1 - \\frac{3}{4} = \\frac{1}{4}$.',
+          'Nově zaplněno: $\\frac{2}{5} \\cdot \\frac{1}{4} = \\frac{2}{20} = \\frac{1}{10}$.',
+          'Celkem obsazeno: $\\frac{3}{4} + \\frac{1}{10} = \\frac{15}{20} + \\frac{2}{20} = ?$'
+        ],
+        odpoved: '$\\dfrac{17}{20}$',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return n.includes('17/20') || n.includes('17 / 20') || blizko(vstup, 17/20);
+        },
+        postup: [
+          { latex: '\\tfrac{2}{5} \\cdot \\tfrac{1}{4} = \\tfrac{1}{10}', stav: 'krok' },
+          { latex: '\\tfrac{3}{4} + \\tfrac{1}{10} = \\tfrac{15}{20} + \\tfrac{2}{20} = \\tfrac{17}{20}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'z18', tridy: [7,8,9], podtyp: 'operace',
+        zadani: 'Rodina spotřebuje za den $\\dfrac{5}{6}$ kg rýže. Za kolik dní spotřebuje zásobu 5 kg?',
+        kroky: [
+          'Počet dní $= 5 \\div \\frac{5}{6} = 5 \\cdot \\frac{6}{5} = ?$'
+        ],
+        odpoved: '6 dní',
+        jednotka: 'dní',
+        kontrola: (vstup) => blizko(vstup, 6, 0.01),
+        postup: [
+          { latex: '5 \\div \\tfrac{5}{6} = 5 \\cdot \\tfrac{6}{5} = 6 \\text{ dní}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'z19', tridy: [7,8,9], podtyp: 'zakladni',
+        zadani: 'Kdo dostal větší podíl koláče? Klára dostala $\\dfrac{5}{8}$, Míša dostala $\\dfrac{7}{12}$.',
+        kroky: [
+          'Převeď na společného jmenovatele: NSN(8, 12) = 24.',
+          '$\\frac{5}{8} = \\frac{?}{24}$, $\\frac{7}{12} = \\frac{?}{24}$. Srovnej čitatele.'
+        ],
+        odpoved: 'Klára ($\\dfrac{5}{8} > \\dfrac{7}{12}$)',
+        jednotka: '',
+        kontrola: (vstup) => normalizuj(vstup).includes('klár'),
+        postup: [
+          { latex: '\\tfrac{5}{8} = \\tfrac{15}{24},\\quad \\tfrac{7}{12} = \\tfrac{14}{24}', stav: 'krok' },
+          { latex: '\\tfrac{15}{24} > \\tfrac{14}{24} \\Rightarrow \\text{Klára má více}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'z20', tridy: [7,8,9], podtyp: 'operace',
+        zadani: 'Vypočítej: $2\\dfrac{1}{3} \\cdot 1\\dfrac{1}{2}$',
+        kroky: [
+          'Převeď smíšená čísla na nepravé zlomky: $2\\frac{1}{3} = \\frac{?}{3}$, $1\\frac{1}{2} = \\frac{?}{2}$.',
+          '$\\frac{7}{3} \\cdot \\frac{3}{2} = \\frac{21}{6} = ?$. Zjednoduš a případně zapiš jako smíšené číslo.'
+        ],
+        odpoved: '$3\\dfrac{1}{2}$',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return n.includes('3.5') || n.includes('3,5') || (n.includes('3') && n.includes('1/2')) || blizko(vstup, 3.5);
+        },
+        postup: [
+          { latex: '\\tfrac{7}{3} \\cdot \\tfrac{3}{2} = \\tfrac{21}{6} = \\tfrac{7}{2}', stav: 'krok' },
+          { latex: '= 3\\tfrac{1}{2}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'z21', tridy: [7,8,9], podtyp: 'operace',
+        zadani: 'Ze zásoby bylo spotřebováno nejprve $\\dfrac{3}{8}$, potom $\\dfrac{5}{12}$. Kolik zásoby zbývá?',
+        kroky: [
+          'NSN(8, 12) = 24. Převeď: $\\frac{3}{8} = \\frac{?}{24}$, $\\frac{5}{12} = \\frac{?}{24}$.',
+          'Spotřebováno celkem: $\\frac{9}{24} + \\frac{10}{24} = \\frac{19}{24}$.',
+          'Zbývá: $1 - \\frac{19}{24} = ?$'
+        ],
+        odpoved: '$\\dfrac{5}{24}$',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return n.includes('5/24') || n.includes('5 / 24') || blizko(vstup, 5/24);
+        },
+        postup: [
+          { latex: '\\tfrac{9}{24} + \\tfrac{10}{24} = \\tfrac{19}{24}', stav: 'krok' },
+          { latex: '1 - \\tfrac{19}{24} = \\tfrac{5}{24}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'z22', tridy: [7,8,9], podtyp: 'operace',
+        zadani: 'Vypočítej: $2\\dfrac{1}{4} \\div 1\\dfrac{1}{2}$',
+        kroky: [
+          'Převeď: $2\\frac{1}{4} = \\frac{9}{4}$, $1\\frac{1}{2} = \\frac{3}{2}$.',
+          'Dělení = násobení převráceným: $\\frac{9}{4} \\cdot \\frac{2}{3} = ?$.'
+        ],
+        odpoved: '$\\dfrac{3}{2}$',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return n.includes('3/2') || n.includes('1.5') || n.includes('1,5') || (n.includes('1') && n.includes('1/2')) || blizko(vstup, 1.5);
+        },
+        postup: [
+          { latex: '\\tfrac{9}{4} \\div \\tfrac{3}{2} = \\tfrac{9}{4} \\cdot \\tfrac{2}{3} = \\tfrac{18}{12}', stav: 'krok' },
+          { latex: '= \\tfrac{3}{2} = 1\\tfrac{1}{2}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'z23', tridy: [7,8,9], podtyp: 'operace',
+        zadani: 'Recept na 4 porce potřebuje $\\dfrac{3}{4}$ kg mouky. Kolik kg mouky je potřeba na 10 porcí?',
+        kroky: [
+          'Mouka na 1 porci: $\\frac{3}{4} \\div 4 = \\frac{3}{16}$ kg.',
+          'Na 10 porcí: $10 \\cdot \\frac{3}{16} = \\frac{30}{16} = ?$ kg. Zjednoduš.'
+        ],
+        odpoved: '$1\\dfrac{7}{8}$ kg (= 1,875 kg)',
+        jednotka: 'kg',
+        kontrola: (vstup) => blizko(vstup, 1.875, 0.02),
+        postup: [
+          { latex: '\\tfrac{3}{4} \\div 4 = \\tfrac{3}{16} \\text{ kg/porci}', stav: 'krok' },
+          { latex: '10 \\cdot \\tfrac{3}{16} = \\tfrac{30}{16} = \\tfrac{15}{8} = 1\\tfrac{7}{8} \\text{ kg}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'z24', tridy: [6,7,8,9], podtyp: 'zakladni',
+        zadani: 'Zkrať zlomek $\\dfrac{45}{75}$ na základní tvar.',
+        kroky: [
+          'Najdi NSD čísel 45 a 75. (Nápověda: zkus čísla 5, 15...)',
+          'NSD(45, 75) = 15. Vydělej čitatele i jmenovatele 15.',
+          '$\\frac{45 \\div 15}{75 \\div 15} = ?$'
+        ],
+        odpoved: '$\\dfrac{3}{5}$',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return n.includes('3/5') || n.includes('3 / 5') || blizko(vstup, 3/5);
+        },
+        postup: [
+          { latex: '\\text{NSD}(45, 75) = 15', stav: 'krok' },
+          { latex: '\\frac{45}{75} = \\frac{3}{5}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'z25', tridy: [7,8,9], podtyp: 'zakladni',
+        zadani: 'Jana přečetla $\\dfrac{3}{5}$ knihy, a to je 120 stránek. Kolik stránek má celá kniha?',
+        kroky: [
+          'Označme celkový počet stránek jako $x$. $\\frac{3}{5} \\cdot x = 120$.',
+          '$x = 120 \\cdot \\frac{5}{3} = ?$'
+        ],
+        odpoved: '200 stránek',
+        jednotka: 'stránek',
+        kontrola: (vstup) => blizko(vstup, 200, 0.01),
+        postup: [
+          { latex: '\\tfrac{3}{5} \\cdot x = 120', stav: 'krok' },
+          { latex: 'x = 120 \\cdot \\tfrac{5}{3} = 200 \\text{ stránek}', stav: 'vysledek' }
         ]
       }
     ]
@@ -819,6 +1546,270 @@ const TEMATA = [
           { latex: '3x + 6 = 9 \\Rightarrow x = 1', stav: 'krok' },
           { latex: '3x + 6 = -9 \\Rightarrow x = -5', stav: 'krok' },
           { latex: 'x = 1 \\text{ nebo } x = -5', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'r11', tridy: [7,8,9], podtyp: 'linearni',
+        zadani: 'Vyřeš rovnici: $2(3x - 1) - 3(x + 2) = 7$',
+        kroky: [
+          'Rozbal závorky: $6x - 2 - 3x - 6 = 7$.',
+          'Sjednoť: $3x - 8 = 7$.',
+          '$3x = 15 \\Rightarrow x = ?$'
+        ],
+        odpoved: '$x = 5$',
+        jednotka: '',
+        kontrola: (vstup) => blizko(vstup, 5, 0.01),
+        postup: [
+          { latex: '6x - 2 - 3x - 6 = 7 \\Rightarrow 3x - 8 = 7', stav: 'krok' },
+          { latex: 'x = 5', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'r12', tridy: [8,9], podtyp: 'soustava',
+        zadani: 'Na kino šlo 20 lidí. Dospělý zaplatil 180 Kč, student 120 Kč. Celkem zaplatili 2 880 Kč. Kolik bylo studentů?',
+        kroky: [
+          'Soustava: $d + s = 20$ a $180d + 120s = 2\\,880$. Z první: $d = 20 - s$.',
+          '$180(20 - s) + 120s = 2\\,880 \\Rightarrow 3\\,600 - 60s = 2\\,880$.',
+          '$-60s = -720 \\Rightarrow s = ?$'
+        ],
+        odpoved: '12 studentů',
+        jednotka: '',
+        kontrola: (vstup) => blizko(vstup, 12, 0.01),
+        postup: [
+          { latex: '3\\,600 - 60s = 2\\,880', stav: 'krok' },
+          { latex: 's = 12 \\text{ studentů}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'r13', tridy: [8,9], podtyp: 'linearni',
+        zadani: 'Vyřeš rovnici: $\\dfrac{x}{3} + \\dfrac{x}{4} = 7$',
+        kroky: [
+          'NSN(3, 4) = 12. Vynásob celou rovnici 12.',
+          '$12 \\cdot \\frac{x}{3} + 12 \\cdot \\frac{x}{4} = 84 \\Rightarrow 4x + 3x = 84$.',
+          '$7x = 84 \\Rightarrow x = ?$'
+        ],
+        odpoved: '$x = 12$',
+        jednotka: '',
+        kontrola: (vstup) => blizko(vstup, 12, 0.01),
+        postup: [
+          { latex: '4x + 3x = 84 \\Rightarrow 7x = 84', stav: 'krok' },
+          { latex: 'x = 12', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'r14', tridy: [8,9], podtyp: 'linearni',
+        zadani: 'Vyřeš dvojitou nerovnici: $-3 < 2x + 1 \\leq 7$',
+        kroky: [
+          'Odečti 1 od všech tří částí: $-3 - 1 < 2x \\leq 7 - 1$.',
+          '$-4 < 2x \\leq 6$. Vyděl vším 2.',
+          '$? < x \\leq ?$'
+        ],
+        odpoved: '$-2 < x \\leq 3$',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return n.includes('-2') && n.includes('3');
+        },
+        postup: [
+          { latex: '-4 < 2x \\leq 6', stav: 'krok' },
+          { latex: '-2 < x \\leq 3', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'r15', tridy: [7,8,9], podtyp: 'linearni',
+        zadani: 'Vyřeš rovnici: $5 - 3x = 2x - 10$',
+        kroky: [
+          'Přesuň členy s $x$ na pravou stranu a čísla na levou.',
+          '$5 + 10 = 2x + 3x \\Rightarrow 15 = 5x$.',
+          '$x = ?$'
+        ],
+        odpoved: '$x = 3$',
+        jednotka: '',
+        kontrola: (vstup) => blizko(vstup, 3, 0.01),
+        postup: [
+          { latex: '5 + 10 = 2x + 3x \\Rightarrow 15 = 5x', stav: 'krok' },
+          { latex: 'x = 3', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'r16', tridy: [7,8,9], podtyp: 'linearni',
+        zadani: 'Adam myslí na číslo. Přičte k němu 17 a pak výsledek znásobí 3. Dostane 75. Na jaké číslo myslel?',
+        kroky: [
+          'Označ hledané číslo jako $x$. Zapiš rovnici: $3(x + 17) = 75$.',
+          '$x + 17 = 25 \\Rightarrow x = ?$'
+        ],
+        odpoved: '$x = 8$',
+        jednotka: '',
+        kontrola: (vstup) => blizko(vstup, 8, 0.01),
+        postup: [
+          { latex: '3(x + 17) = 75 \\Rightarrow x + 17 = 25', stav: 'krok' },
+          { latex: 'x = 8', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'r17', tridy: [8,9], podtyp: 'soustava',
+        zadani: 'Vyřeš soustavu rovnic:\n$x + y = 10$\n$2x - y = 2$',
+        kroky: [
+          'Sečti obě rovnice: $(x + y) + (2x - y) = 10 + 2$.',
+          '$3x = 12 \\Rightarrow x = ?$. Dosaď do první rovnice.',
+          '$4 + y = 10 \\Rightarrow y = ?$'
+        ],
+        odpoved: '$x = 4$, $y = 6$',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return (n.includes('4') && n.includes('6')) &&
+                 (n.includes('x') || n.includes('y') || n.includes('='));
+        },
+        postup: [
+          { latex: '3x = 12 \\Rightarrow x = 4', stav: 'krok' },
+          { latex: 'y = 10 - 4 = 6', stav: 'krok' },
+          { latex: 'x = 4,\\quad y = 6', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'r18', tridy: [8,9], podtyp: 'linearni',
+        zadani: 'Vyřeš rovnici: $\\dfrac{2x - 3}{5} = \\dfrac{x + 1}{3}$',
+        kroky: [
+          'Zkříženě násobíme: $3(2x - 3) = 5(x + 1)$.',
+          '$6x - 9 = 5x + 5$.',
+          '$x = ?$'
+        ],
+        odpoved: '$x = 14$',
+        jednotka: '',
+        kontrola: (vstup) => blizko(vstup, 14, 0.01),
+        postup: [
+          { latex: '3(2x-3) = 5(x+1) \\Rightarrow 6x - 9 = 5x + 5', stav: 'krok' },
+          { latex: 'x = 14', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'r19', tridy: [8,9], podtyp: 'absolutni',
+        zadani: 'Vyřeš rovnici: $|x - 3| = 5$',
+        kroky: [
+          '$|A| = 5$ má dvě větve: $A = 5$ nebo $A = -5$.',
+          'Větev 1: $x - 3 = 5 \\Rightarrow x = ?$',
+          'Větev 2: $x - 3 = -5 \\Rightarrow x = ?$'
+        ],
+        odpoved: '$x = 8$ nebo $x = -2$',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return n.includes('8') && (n.includes('-2') || n.includes('−2'));
+        },
+        postup: [
+          { latex: 'x - 3 = 5 \\Rightarrow x = 8', stav: 'krok' },
+          { latex: 'x - 3 = -5 \\Rightarrow x = -2', stav: 'krok' },
+          { latex: 'x = 8 \\text{ nebo } x = -2', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'r20', tridy: [7,8,9], podtyp: 'linearni',
+        zadani: 'Vyřeš rovnici: $4(x + 2) = 3(x - 1) + 15$',
+        kroky: [
+          'Rozbal závorky: $4x + 8 = 3x - 3 + 15$.',
+          '$4x + 8 = 3x + 12$.',
+          '$x = ?$'
+        ],
+        odpoved: '$x = 4$',
+        jednotka: '',
+        kontrola: (vstup) => blizko(vstup, 4, 0.01),
+        postup: [
+          { latex: '4x + 8 = 3x + 12', stav: 'krok' },
+          { latex: 'x = 4', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'r21', tridy: [7,8,9], podtyp: 'linearni',
+        zadani: 'Nerovnici $-2x + 3 > 9$ vyřeš a výsledek zapiš na číselné ose (slovně: $x < ?$ nebo $x > ?$).',
+        kroky: [
+          '$-2x + 3 > 9 \\Rightarrow -2x > 6$.',
+          'Při dělení záporným číslem se otočí nerovnost: $x < ?$'
+        ],
+        odpoved: '$x < -3$',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return n.includes('-3') || blizko(vstup, -3, 0.01);
+        },
+        postup: [
+          { latex: '-2x > 6', stav: 'krok' },
+          { latex: 'x < -3 \\quad\\text{(otočení nerovnosti)}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'r22', tridy: [8,9], podtyp: 'linearni',
+        zadani: 'Najdi všechna celá čísla $x$, pro která platí: $2 \\leq 3x - 7 < 8$',
+        kroky: [
+          'Přičti 7 ke všem částem: $9 \\leq 3x < 15$.',
+          'Vyděl 3: $3 \\leq x < 5$.',
+          'Celá čísla v tomto rozsahu jsou?'
+        ],
+        odpoved: '$x \\in \\{3,\\ 4\\}$',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return n.includes('3') && n.includes('4');
+        },
+        postup: [
+          { latex: '9 \\leq 3x < 15 \\Rightarrow 3 \\leq x < 5', stav: 'krok' },
+          { latex: 'x \\in \\{3,\\ 4\\}', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'r23', tridy: [8,9], podtyp: 'soustava',
+        zadani: 'Vyřeš soustavu rovnic:\n$x + 2y = 8$\n$2x - y = 6$',
+        kroky: [
+          'Z první rovnice: $x = 8 - 2y$. Dosaď do druhé.',
+          '$2(8 - 2y) - y = 6 \\Rightarrow 16 - 4y - y = 6 \\Rightarrow -5y = -10 \\Rightarrow y = ?$',
+          '$y = 2$. Dosaď: $x = 8 - 4 = ?$'
+        ],
+        odpoved: '$x = 4$, $y = 2$',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return (n.includes('4') && n.includes('2')) &&
+                 (n.includes('x') || n.includes('y') || n.includes('='));
+        },
+        postup: [
+          { latex: '-5y = -10 \\Rightarrow y = 2', stav: 'krok' },
+          { latex: 'x = 8 - 4 = 4', stav: 'krok' },
+          { latex: 'x = 4,\\quad y = 2', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'r24', tridy: [8,9], podtyp: 'absolutni',
+        zadani: 'Vyřeš nerovnici s absolutní hodnotou: $|x - 2| < 4$',
+        kroky: [
+          '$|A| < 4$ znamená $-4 < A < 4$. Dosaď $A = x - 2$.',
+          '$-4 < x - 2 < 4$. Přičti 2 ke všem částem.',
+          '$? < x < ?$'
+        ],
+        odpoved: '$-2 < x < 6$',
+        jednotka: '',
+        kontrola: (vstup) => {
+          const n = normalizuj(vstup);
+          return n.includes('-2') && n.includes('6');
+        },
+        postup: [
+          { latex: '-4 < x - 2 < 4', stav: 'krok' },
+          { latex: '-2 < x < 6', stav: 'vysledek' }
+        ]
+      },
+      {
+        id: 'r25', tridy: [8,9], podtyp: 'linearni',
+        zadani: 'Vyřeš rovnici: $\\dfrac{3x + 1}{4} - \\dfrac{x - 2}{2} = 1$',
+        kroky: [
+          'NSN(4, 2) = 4. Vynásob celou rovnici 4.',
+          '$3x + 1 - 2(x - 2) = 4 \\Rightarrow 3x + 1 - 2x + 4 = 4$.',
+          '$x + 5 = 4 \\Rightarrow x = ?$'
+        ],
+        odpoved: '$x = -1$',
+        jednotka: '',
+        kontrola: (vstup) => blizko(vstup, -1, 0.01),
+        postup: [
+          { latex: '3x + 1 - 2(x-2) = 4 \\Rightarrow x + 5 = 4', stav: 'krok' },
+          { latex: 'x = -1', stav: 'vysledek' }
         ]
       }
     ]

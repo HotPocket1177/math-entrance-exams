@@ -9,6 +9,16 @@ const SessionProgress = (() => {
   // In-memory cache: temaId → { dokonceni_count, uzamceno_do }
   let _cache = {};
 
+  const LOCAL_KEY = 'matika_daily_progress';
+
+  function _nactiLocal() {
+    try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}'); } catch { return {}; }
+  }
+
+  function _ulozLocal() {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(_cache));
+  }
+
   // ── Pomocné: dnešní datum v Prague timezone ───────────────────
   // Vrátí "2026-04-15" — ISO datum v pražské časové zóně.
   function getPragueDate() {
@@ -28,7 +38,13 @@ const SessionProgress = (() => {
       .select('tema_id, dokonceni_count, uzamceno_do')
       .eq('user_id', userId);
 
-    if (error) { console.warn('SessionProgress load error:', error.message); return; }
+    if (error) {
+      console.warn('SessionProgress load error:', error.message);
+      // Záložní plán: použij localStorage data
+      const local = _nactiLocal();
+      if (Object.keys(local).length > 0) _cache = local;
+      return;
+    }
 
     _cache = {};
     const toReset = [];
@@ -45,6 +61,9 @@ const SessionProgress = (() => {
         };
       }
     });
+
+    // Synchronizuj do localStorage (záloha)
+    _ulozLocal();
 
     // Resetuj expired záznamy v DB (fire-and-forget)
     toReset.forEach(temaId => {
@@ -113,6 +132,7 @@ const SessionProgress = (() => {
 
       if (writeErr) console.warn('SessionProgress upsert error:', writeErr.message);
 
+      _ulozLocal();
       return { count: newCount, zamceno };
     }
 

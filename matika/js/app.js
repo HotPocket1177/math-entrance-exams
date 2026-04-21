@@ -18,9 +18,10 @@ const App = (() => {
   let _pokracujBezi    = false;  // guard proti souběžným voláním pokracujPoLoginu
 
   // ─── Per-cyklus výběr úloh ───────────────────────────────────
-  const TASKS_PER_CYCLE  = 5;
-  const HISTORY_KEY      = 'matika_history';           // { temaId: { taskId: timestampMs } }
-  const COOLDOWN_MS      = 30 * 24 * 60 * 60 * 1000;  // 30 dní
+  const TASKS_PER_CYCLE    = 5;
+  const HISTORY_KEY        = 'matika_history';           // { temaId: { taskId: timestampMs } }
+  const COOLDOWN_PRIMARY   = 30 * 24 * 60 * 60 * 1000;  // 30 dní (ideál)
+  const COOLDOWN_SECONDARY =  7 * 24 * 60 * 60 * 1000;  // 7 dní (fallback)
 
   // ─── Resume stav ─────────────────────────────────────────────
   // Uloží se při kliknutí "Zpět" uprostřed sady; obnoví se při opětovném
@@ -235,13 +236,21 @@ const App = (() => {
     const historie = _nactiHistorii();
     const tema     = historie[temaId] || {};
 
-    // Úlohy, které nebyly zobrazeny v posledních 30 dnech
+    // Stupeň 1: příklady nezobrazené v posledních 30 dnech
     let dostupne = pool.filter(u => {
       const t = tema[u.id];
-      return !t || (now - t) > COOLDOWN_MS;
+      return !t || (now - t) > COOLDOWN_PRIMARY;
     });
 
-    // Pokud jich není dost, vezmi nejstarší zobrazené (v pořadí od nejdávnějšího)
+    // Stupeň 2: příklady nezobrazené v posledních 7 dnech
+    if (dostupne.length < TASKS_PER_CYCLE) {
+      dostupne = pool.filter(u => {
+        const t = tema[u.id];
+        return !t || (now - t) > COOLDOWN_SECONDARY;
+      });
+    }
+
+    // Stupeň 3: vezmi nejdéle nepoužívané (LRU) — jen krajní případ malého poolu
     if (dostupne.length < TASKS_PER_CYCLE) {
       dostupne = [...pool].sort((a, b) => (tema[a.id] || 0) - (tema[b.id] || 0));
     }
@@ -262,8 +271,19 @@ const App = (() => {
     return vybrane;
   }
 
+  // ─── Loading overlay pro generování příkladů ─────────────────
+  function zobrazNacitani(text) {
+    const overlay = document.getElementById('generovani-overlay');
+    if (text) {
+      document.getElementById('generovani-text').textContent = text;
+      overlay.classList.remove('hidden');
+    } else {
+      overlay.classList.add('hidden');
+    }
+  }
+
   // ─── Spuštění tématu ──────────────────────────────────────────
-  function spustTema(tema) {
+  async function spustTema(tema) {
     const temaId = tema._temaId || tema.id;
 
     // Pokud máme uložený stav pro toto téma (uživatel kliknul Zpět uprostřed sady),
@@ -280,13 +300,38 @@ const App = (() => {
       return;
     }
 
-    _resumeState = null;  // Smaž zastaralý resume stav jiného tématu
+    _resumeState = null;
 
     const trida = profil?.trida || 8;
-    const pool  = Syllabus.getUlohyProTridu(temaId, trida);
-    const zdroj = pool.length > 0 ? pool : (tema.ulohy || []);
 
-    const vybrane = selectUlohyProCyklus(temaId, zdroj);
+    // ── Pokus o AI generování ─────────────────────────────────
+    let vybrane = null;
+
+    if (Api.jeAiDostupne()) {
+      zobrazUlohu();
+      document.getElementById('uloha-tema-nazev').textContent = tema.nazev;
+      zobrazNacitani('Generuji nové příklady… ⏳');
+
+      try {
+        let hotovo = 0;
+        vybrane = await Generator.generujSadu(temaId, trida, TASKS_PER_CYCLE, (n, z) => {
+          hotovo = n;
+          zobrazNacitani(`Generuji příklady… ${hotovo}/${z}`);
+        });
+      } catch (err) {
+        console.warn('Generator selhal, používám statický pool:', err.message);
+        vybrane = null;
+      }
+
+      zobrazNacitani(null);
+    }
+
+    // ── Fallback: statický pool ───────────────────────────────
+    if (!vybrane) {
+      const pool  = Syllabus.getUlohyProTridu(temaId, trida);
+      const zdroj = pool.length > 0 ? pool : (tema.ulohy || []);
+      vybrane = selectUlohyProCyklus(temaId, zdroj);
+    }
 
     aktualniTema       = { ...tema, ulohy: vybrane };
     aktualniUlohaIndex = 0;

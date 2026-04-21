@@ -3,8 +3,12 @@
 const Api = (() => {
 
   // Hlavní vstupní bod: pošle messages na AI a vrátí textovou odpověď
-  async function chat(messages) {
+  // opts.maxTokens  — limit tokenů (výchozí 200, pro generování příkladů použij 800)
+  // opts.temperature — teplota (výchozí 0.7)
+  async function chat(messages, opts = {}) {
     const jwt = Auth.getJwt();
+    const maxTokens  = opts.maxTokens  ?? 200;
+    const temperature = opts.temperature ?? 0.7;
 
     // ── Primární cesta: Supabase Edge Function (JWT auth) ────────
     if (CONFIG.useEdgeFunction && jwt) {
@@ -18,8 +22,8 @@ const Api = (() => {
         body: JSON.stringify({
           messages,
           model: CONFIG.model,
-          max_tokens: 200,
-          temperature: 0.7
+          max_tokens: maxTokens,
+          temperature
         })
       });
 
@@ -47,8 +51,8 @@ const Api = (() => {
       body: JSON.stringify({
         model: CONFIG.model,
         messages,
-        max_tokens: 200,
-        temperature: 0.7
+        max_tokens: maxTokens,
+        temperature
       })
     });
 
