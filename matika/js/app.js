@@ -8,6 +8,7 @@ const App = (() => {
   let dialogLog          = [];
   let cekaNaApi          = false;
   let postupIndex        = -1;  // index posledního odhaleného kroku z postup[]
+  let _pokusuNaUlohu     = 0;   // špatné odpovědi na aktuální úlohu (pro postup nápovědu)
 
   // Stav žáka (vyplní se po přihlášení)
   let profil           = null;   // { trida: 8 }
@@ -18,8 +19,15 @@ const App = (() => {
   let _pokracujBezi    = false;  // guard proti souběžným voláním pokracujPoLoginu
 
   // ─── Per-cyklus výběr úloh ───────────────────────────────────
-  const TASKS_PER_CYCLE = 5;
-  const _pouziteUlohy   = {};   // temaId → Set<taskId> — úlohy použité v aktuálním kole
+  const TASKS_PER_CYCLE    = 5;
+  const HISTORY_KEY        = 'matika_history';           // { temaId: { taskId: timestampMs } }
+  const COOLDOWN_PRIMARY   = 30 * 24 * 60 * 60 * 1000;  // 30 dní (ideál)
+  const COOLDOWN_SECONDARY =  7 * 24 * 60 * 60 * 1000;  // 7 dní (fallback)
+
+  // ─── Resume stav ─────────────────────────────────────────────
+  // Uloží se při kliknutí "Zpět" uprostřed sady; obnoví se při opětovném
+  // otevření stejného tématu, aby uživatel pokračoval tam, kde skončil.
+  let _resumeState = null;  // { temaId, tema, index, skore } | null
 
   // ─── Resume stav ─────────────────────────────────────────────
   // Uloží se při kliknutí "Zpět" uprostřed sady; obnoví se při opětovném
@@ -90,7 +98,19 @@ const App = (() => {
 
   // ─── Po úspěšném přihlášení ───────────────────────────────────
   async function pokracujPoLoginu(session) {
-    profil         = await Auth.getProfil();
+    profil = await Auth.getProfil();
+
+    // Pokud profil neexistuje (nový účet nebo selhala tvorba při registraci),
+    // vytvoř ho teď — session_progress má FK na profiles(id), bez profilu
+    // všechny zápisy selžou s FK violation a progress se neuloží.
+    if (!profil) {
+      const userId = session?.user?.id || Auth.getSession()?.user?.id;
+      await Auth.getSupabase()
+        .from('profiles')
+        .upsert({ id: userId, trida: 8 }, { onConflict: 'id' });
+      profil = { trida: 8 };
+    }
+
     odemcenaTemata = Syllabus.getOdemcenaTemataPoTridu(profil?.trida || 8);
 
     // Načti session progress (denní limity)
@@ -147,11 +167,25 @@ const App = (() => {
 
   // ─── localStorage helpers ────────────────────────────────────
   function nactiProgress() {
-    try { return JSON.parse(localStorage.getItem('matika_progress') || '{}'); }
-    catch { return {}; }
+    try {
+      const raw = JSON.parse(localStorage.getItem('matika_progress') || '{}');
+      // Vyčisti AI-generované záznamy (gen_*) — průběžná sanitace starých dat
+      let dirty = false;
+      Object.keys(raw).forEach(temaId => {
+        Object.keys(raw[temaId] || {}).forEach(id => {
+          if (id.startsWith('gen_')) { delete raw[temaId][id]; dirty = true; }
+        });
+      });
+      if (dirty) localStorage.setItem('matika_progress', JSON.stringify(raw));
+      return raw;
+    } catch { return {}; }
   }
 
   function ulozProgress(temaId, ulohaId, uspech) {
+    // AI-generované příklady mají unikátní ID při každém generování —
+    // nemá smysl je sledovat (zkreslují % dokončení statického poolu).
+    if (ulohaId.startsWith('gen_')) return;
+
     // Lokální cache
     const p = nactiProgress();
     if (!p[temaId]) p[temaId] = {};
@@ -178,7 +212,11 @@ const App = (() => {
   function pocetDokoncenychUloh(temaId) {
     const p = nactiProgress();
     if (!p[temaId]) return 0;
-    return Object.values(p[temaId]).filter(v => v === 'spravne').length;
+    // Filtruj AI-generované záznamy (ID začínají "gen_") — mohly se nakupit
+    // z dřívějška před zavedením tohoto filtru.
+    return Object.entries(p[temaId])
+      .filter(([id, v]) => !id.startsWith('gen_') && v === 'spravne')
+      .length;
   }
 
   function maApiKlic() {
@@ -255,18 +293,36 @@ const App = (() => {
     });
   }
 
-  // ─── Výběr úloh pro cyklus (bez opakování mezi cykly) ────────
-  // Fisher-Yates shuffle + deduplication přes _pouziteUlohy
+  // ─── Výběr úloh pro cyklus (bez opakování po dobu 30 dní) ───
+  // Historie se ukládá do localStorage s timestampem; úloha se
+  // nezobrazí dokud neuplyne COOLDOWN_MS od posledního zobrazení.
+  function _nactiHistorii() {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}'); }
+    catch { return {}; }
+  }
+
   function selectUlohyProCyklus(temaId, pool) {
-    if (!_pouziteUlohy[temaId]) _pouziteUlohy[temaId] = new Set();
-    const pouzite = _pouziteUlohy[temaId];
+    const now      = Date.now();
+    const historie = _nactiHistorii();
+    const tema     = historie[temaId] || {};
 
-    let dostupne = pool.filter(u => !pouzite.has(u.id));
+    // Stupeň 1: příklady nezobrazené v posledních 30 dnech
+    let dostupne = pool.filter(u => {
+      const t = tema[u.id];
+      return !t || (now - t) > COOLDOWN_PRIMARY;
+    });
 
-    // Pokud není dost nepoužitých úloh, resetuj použité a ber celý pool
+    // Stupeň 2: příklady nezobrazené v posledních 7 dnech
     if (dostupne.length < TASKS_PER_CYCLE) {
-      pouzite.clear();
-      dostupne = [...pool];
+      dostupne = pool.filter(u => {
+        const t = tema[u.id];
+        return !t || (now - t) > COOLDOWN_SECONDARY;
+      });
+    }
+
+    // Stupeň 3: vezmi nejdéle nepoužívané (LRU) — jen krajní případ malého poolu
+    if (dostupne.length < TASKS_PER_CYCLE) {
+      dostupne = [...pool].sort((a, b) => (tema[a.id] || 0) - (tema[b.id] || 0));
     }
 
     // Fisher-Yates shuffle
@@ -276,10 +332,16 @@ const App = (() => {
     }
 
     const vybrane = dostupne.slice(0, TASKS_PER_CYCLE);
-    vybrane.forEach(u => pouzite.add(u.id));
+
+    // Ulož timestamp zobrazení
+    vybrane.forEach(u => { tema[u.id] = now; });
+    historie[temaId] = tema;
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(historie));
+
     return vybrane;
   }
 
+<<<<<<< HEAD
   // ─── Spuštění tématu ──────────────────────────────────────────
   function spustTema(tema) {
     const temaId = tema._temaId || tema.id;
@@ -305,11 +367,86 @@ const App = (() => {
     const zdroj = pool.length > 0 ? pool : (tema.ulohy || []);
 
     const vybrane = selectUlohyProCyklus(temaId, zdroj);
+=======
+  // ─── Loading overlay pro generování příkladů ─────────────────
+  function zobrazNacitani(text) {
+    const overlay = document.getElementById('generovani-overlay');
+    if (text) {
+      document.getElementById('generovani-text').textContent = text;
+      overlay.classList.remove('hidden');
+    } else {
+      overlay.classList.add('hidden');
+    }
+  }
+
+  // ─── Spuštění tématu ──────────────────────────────────────────
+  async function spustTema(tema) {
+    const temaId = tema._temaId || tema.id;
+
+    // Pokud máme uložený stav pro toto téma (uživatel kliknul Zpět uprostřed sady),
+    // pokračuj tam, kde přestal — nevolej selectUlohyProCyklus (nezabere nové úlohy).
+    if (_resumeState && _resumeState.temaId === temaId && _resumeState.index > 0) {
+      aktualniTema       = _resumeState.tema;
+      aktualniUlohaIndex = _resumeState.index;
+      skore              = _resumeState.skore;
+      dialogLog          = [];
+      _resumeState       = null;
+      zobrazUlohu();
+      document.getElementById('uloha-tema-nazev').textContent = aktualniTema.nazev;
+      nactiUlohu(aktualniUlohaIndex);
+      return;
+    }
+
+    _resumeState = null;
+
+    const trida  = profil?.trida || 8;
+    const userId = Auth.getSession()?.user?.id;
+
+    // ── Zaregistruj cyklus hned při startu (zabrání bypass přes Zpět) ──
+    const { count: cyklusCount, zamceno: uzamceno } = await SessionProgress.spustiSadu(temaId, userId);
+    if (uzamceno) {
+      // Uživatel dosáhl denního limitu — ukaž home s modálem
+      zobrazDomovskou();
+      zobrazModalDnesHotovo();
+      return;
+    }
+
+    // ── Pokus o AI generování ─────────────────────────────────
+    let vybrane = null;
+
+    if (Api.jeAiDostupne()) {
+      zobrazUlohu();
+      document.getElementById('uloha-tema-nazev').textContent = tema.nazev;
+      zobrazNacitani('Generuji nové příklady… ⏳');
+
+      try {
+        let hotovo = 0;
+        vybrane = await Generator.generujSadu(temaId, trida, TASKS_PER_CYCLE, (n, z) => {
+          hotovo = n;
+          zobrazNacitani(`Generuji příklady… ${hotovo}/${z}`);
+        });
+      } catch (err) {
+        console.warn('Generator selhal, používám statický pool:', err.message);
+        vybrane = null;
+      }
+
+      zobrazNacitani(null);
+    }
+
+    // ── Fallback: statický pool ───────────────────────────────
+    if (!vybrane) {
+      const pool  = Syllabus.getUlohyProTridu(temaId, trida);
+      const zdroj = pool.length > 0 ? pool : (tema.ulohy || []);
+      vybrane = selectUlohyProCyklus(temaId, zdroj);
+    }
+>>>>>>> 07494efc415a2e031e3fce8a4875215ed9ec13d5
 
     aktualniTema       = { ...tema, ulohy: vybrane };
     aktualniUlohaIndex = 0;
     skore              = { spravne: 0, celkem: vybrane.length };
     dialogLog          = [];
+    // Ulož count pro dokonceniSady (ví kolik cyklů dnes proběhlo)
+    aktualniTema._cyklusCount = cyklusCount;
     zobrazUlohu();
     document.getElementById('uloha-tema-nazev').textContent = tema.nazev;
     nactiUlohu(0);
@@ -318,30 +455,61 @@ const App = (() => {
   // ─── Dokončení celé sady ──────────────────────────────────────
   // Volá se z nactiUlohu() když index překročí délku sady.
   async function dokonceniSady() {
+<<<<<<< HEAD
     _resumeState = null;  // Sada dokončena — není co obnovit
+=======
+    _resumeState = null;
+>>>>>>> 07494efc415a2e031e3fce8a4875215ed9ec13d5
     const temaId = aktualniTema._temaId || aktualniTema.id;
     const userId = Auth.getSession()?.user?.id;
-    const { count, zamceno } = await SessionProgress.dokoncSadu(temaId, userId);
+    // Count byl inkrementován v spustTema() — tady jen čteme aktuální stav
+    const count   = aktualniTema._cyklusCount || SessionProgress.getDokonceniCount(temaId);
+    const zamceno = count >= 3;
 
     if (zamceno) {
-      // Třetí dokončení — uzamkni téma, zobraz modal
-      zobrazDomovskou(); // home screen se znovu vykreslí s uzamčenou kartou
+      await SessionProgress.uzamkniSadu(temaId, userId);
+      zobrazDomovskou();
       zobrazModalDnesHotovo();
     } else {
-      // Méně než 3 dokončení — vyber novou sadu (bez již viděných úloh) a spusť znovu
-      const zbyvaPocet = 3 - count;
-      const trida      = profil?.trida || 8;
-      const pool       = Syllabus.getUlohyProTridu(temaId, trida);
-      const zdroj      = pool.length > 0 ? pool : (TEMATA.find(t => t.id === temaId)?.ulohy || []);
-      const vybrane    = selectUlohyProCyklus(temaId, zdroj);
+      // Zaregistruj nový cyklus hned při startu (stejný princip jako v spustTema)
+      const { count: novyCount, zamceno: uzamceno2 } = await SessionProgress.spustiSadu(temaId, userId);
+      if (uzamceno2) {
+        zobrazDomovskou();
+        zobrazModalDnesHotovo();
+        return;
+      }
 
-      aktualniTema = { ...aktualniTema, ulohy: vybrane };
+      const zbyvaPocet = 3 - novyCount;  // kolik cyklů zbývá po tomto
+      const trida      = profil?.trida || 8;
+
+      let vybrane = null;
+
+      if (Api.jeAiDostupne()) {
+        zobrazNacitani('Připravuji další příklady…');
+        try {
+          vybrane = await Generator.generujSadu(temaId, trida, TASKS_PER_CYCLE);
+        } catch {
+          vybrane = null;
+        }
+        zobrazNacitani(null);
+      }
+
+      if (!vybrane) {
+        const pool  = Syllabus.getUlohyProTridu(temaId, trida);
+        const zdroj = pool.length > 0 ? pool : (TEMATA.find(t => t.id === temaId)?.ulohy || []);
+        vybrane = selectUlohyProCyklus(temaId, zdroj);
+      }
+
+      aktualniTema = { ...aktualniTema, ulohy: vybrane, _cyklusCount: novyCount };
       skore        = { spravne: 0, celkem: vybrane.length };
       dialogLog    = [];
 
       zobrazUlohu();
       document.getElementById('uloha-tema-nazev').textContent = aktualniTema.nazev;
-      nactiUlohu(0, `Sada dokončena! Ještě ${zbyvaPocet}× a máš dnešní limit.`);
+      const introText = zbyvaPocet === 0
+        ? 'Sada dokončena! Tohle je tvůj poslední cyklus na dnes.'
+        : `Sada dokončena! Ještě ${zbyvaPocet}× a máš dnešní limit.`;
+      nactiUlohu(0, introText);
     }
   }
 
@@ -363,8 +531,10 @@ const App = (() => {
     }
     aktualniUlohaIndex = index;
     const uloha = aktualniTema.ulohy[index];
-    dialogLog    = [];
-    postupIndex  = -1;
+    dialogLog      = [];
+    postupIndex    = -1;
+    _pokusuNaUlohu = 0;
+    aktualizujTlacitkoKroku();
 
     // Progress bar — ukazuje (index+1)/celkem, tj. 100 % na poslední úloze
     const procent = Math.round(((index + 1) / aktualniTema.ulohy.length) * 100);
@@ -539,22 +709,73 @@ const App = (() => {
     log.scrollTop = log.scrollHeight;
   }
 
-  // Odhal další krok z postup[] aktuální úlohy
+  // Text hint (z kroky[] fallback) — zobrazí v pravém panelu jako nápovědný text
+  function pridejTextHintDoVypoctu(text, tipTyp) {
+    const log = document.getElementById('vypocet-log');
+    const el  = document.createElement('div');
+    el.className = `vypocet-krok vypocet-krok--${tipTyp} vypocet-krok--text`;
+    el.textContent = text;
+    log.appendChild(el);
+    requestAnimationFrame(() => MathRender.renderMath(el));
+    log.scrollTop = log.scrollHeight;
+  }
+
+  // ── Pomocná: unified pool kroků (postup LaTeX nebo kroky text) ──
+  // Vrací pole objektů { latex, text, stav } pro aktuální úlohu.
+  function _getKrokyPool(uloha) {
+    if (!uloha) return [];
+    if (uloha.postup?.length > 0) return uloha.postup;  // preferuj LaTeX postup
+    // Fallback: kroky[] jako textové nápovědy
+    return (uloha.kroky || []).map(k => ({ latex: null, text: k, stav: 'krok' }));
+  }
+
+  // Odhal další krok (LaTeX nebo text) z aktuální úlohy
   function odhalKrok(tipTyp) {
-    const uloha = aktualniTema.ulohy[aktualniUlohaIndex];
-    if (!uloha?.postup) return;
+    const uloha = aktualniTema?.ulohy?.[aktualniUlohaIndex];
+    const pool  = _getKrokyPool(uloha);
     postupIndex++;
-    if (postupIndex >= uloha.postup.length) return;
-    pridejKrokDoVypoctu(uloha.postup[postupIndex], tipTyp);
+    if (postupIndex >= pool.length) return;
+    const krok = pool[postupIndex];
+    if (krok.latex) {
+      pridejKrokDoVypoctu(krok, tipTyp);
+    } else {
+      pridejTextHintDoVypoctu(krok.text, tipTyp);
+    }
   }
 
   // Odhal všechny zbývající kroky najednou (po zobrazení řešení)
   function odhalZbytek() {
-    const uloha = aktualniTema.ulohy[aktualniUlohaIndex];
-    if (!uloha?.postup) return;
-    while (postupIndex + 1 < uloha.postup.length) {
+    const uloha = aktualniTema?.ulohy?.[aktualniUlohaIndex];
+    const pool  = _getKrokyPool(uloha);
+    while (postupIndex + 1 < pool.length) {
       odhalKrok('napoveda');
     }
+    skrejTlacitkoKroku();
+  }
+
+  // ── Tlačítko "Ukázat nápovědu ke kroku" ───────────────────────
+  function aktualizujTlacitkoKroku() {
+    const uloha  = aktualniTema?.ulohy?.[aktualniUlohaIndex];
+    const pool   = _getKrokyPool(uloha);
+    const zbyvaji = pool.length > 0 && (postupIndex + 1 < pool.length);
+    const wrap   = document.getElementById('vypocet-napoveda-wrap');
+    const btn    = document.getElementById('btn-ukaz-krok');
+    if (!wrap || !btn) return;
+
+    if (!zbyvaji || _pokusuNaUlohu < 2) {
+      wrap.classList.add('hidden');
+      return;
+    }
+
+    wrap.classList.remove('hidden');
+    const zbyvajiciKroku = pool.length - (postupIndex + 1);
+    btn.textContent = postupIndex === -1
+      ? '💡 Ukázat nápovědu ke kroku'
+      : `💡 Ukázat další krok (${zbyvajiciKroku} zbývají)`;
+  }
+
+  function skrejTlacitkoKroku() {
+    document.getElementById('vypocet-napoveda-wrap')?.classList.add('hidden');
   }
 
   // ─── Odeslání odpovědi (async) ────────────────────────────────
@@ -587,11 +808,17 @@ const App = (() => {
 
     if (vysledek.typ === 'napoveda') {
       pridejZpravu('hint', vysledek.text);
+<<<<<<< HEAD
       odhalKrok('napoveda');
       ulozKonverzaci();   // průběžný save po každé nápovědě
+=======
+      _pokusuNaUlohu++;
+      aktualizujTlacitkoKroku();
+>>>>>>> 07494efc415a2e031e3fce8a4875215ed9ec13d5
       setVstupDisabled(false);
       document.getElementById('vstup-pole').focus();
     } else if (vysledek.typ === 'uspech') {
+      skrejTlacitkoKroku();
       pridejZpravu('uspech', vysledek.text);
       odhalKrok('spravne');
       ulozProgress(
@@ -602,6 +829,7 @@ const App = (() => {
       skore.spravne++;
       dokoncUlohu();
     } else if (vysledek.typ === 'reseni') {
+      skrejTlacitkoKroku();
       pridejZpravu('reseni', vysledek.text);
       odhalZbytek();
       ulozProgress(
@@ -783,7 +1011,10 @@ const App = (() => {
     });
 
     document.getElementById('btn-zpet-z-ulohy').addEventListener('click', () => {
+<<<<<<< HEAD
       ulozKonverzaci();   // zachraň konverzaci před odchodem
+=======
+>>>>>>> 07494efc415a2e031e3fce8a4875215ed9ec13d5
       // Ulož pozici pro případ, že se uživatel vrátí ke stejnému tématu
       if (aktualniTema && aktualniUlohaIndex > 0) {
         _resumeState = {
@@ -825,6 +1056,7 @@ const App = (() => {
       document.getElementById('vypocet-log').innerHTML = '';
     });
 
+<<<<<<< HEAD
     // Tlačítko "Nahlásit chybu" — zobrazí ID úlohy pro report
     document.getElementById('btn-nahlasit-chybu')?.addEventListener('click', () => {
       if (!aktualniTema) return;
@@ -832,6 +1064,12 @@ const App = (() => {
       const temaId = aktualniTema._temaId || aktualniTema.id;
       const info   = `Téma: ${temaId} | Úloha ID: ${uloha?.id || '?'}\nZadání: ${uloha?.zadani || '?'}`;
       alert(`Díky za zpětnou vazbu! Pošli tuto informaci autorovi:\n\n${info}`);
+=======
+    // Výpočetní panel — ukázat krok na požádání
+    document.getElementById('btn-ukaz-krok')?.addEventListener('click', () => {
+      odhalKrok('napoveda');
+      aktualizujTlacitkoKroku();
+>>>>>>> 07494efc415a2e031e3fce8a4875215ed9ec13d5
     });
 
     // Modal "Skvělá práce na dnes!" — zavřít
