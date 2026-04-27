@@ -353,10 +353,19 @@ const App = (() => {
 
     // Pokud máme uložený stav pro toto téma (uživatel kliknul Zpět uprostřed sady),
     // pokračuj tam, kde přestal — nevolej selectUlohyProCyklus (nezabere nové úlohy).
-    if (_resumeState && _resumeState.temaId === temaId && _resumeState.index > 0) {
+    // Pokud se uživatel vrátil ke stejnému tématu (Zpět uprostřed sady nebo na 1. úloze),
+    // obnov přesně stejnou sadu úloh — jinak by se vybraly jiné úlohy a uložená konverzace
+    // by nebyla nalezena pod jiným uloha.id.
+    if (_resumeState && _resumeState.temaId === temaId) {
+      if (SessionProgress.jeZamceno(temaId)) {
+        _resumeState = null;
+        zobrazDomovskou();
+        zobrazModalDnesHotovo();
+        return;
+      }
       aktualniTema       = _resumeState.tema;
       aktualniUlohaIndex = _resumeState.index;
-      skore              = _resumeState.skore;
+      skore              = { ..._resumeState.skore };
       dialogLog          = [];
       _resumeState       = null;
       zobrazUlohu();
@@ -368,26 +377,12 @@ const App = (() => {
     const trida  = profil?.trida || 8;
     const userId = Auth.getSession()?.user?.id;
 
-    // Pokud uživatel kliknul Zpět na první úloze a vrátil se, cycle byl už zaregistrován —
-    // použij existující count a nevolej spustiSadu znovu.
-    let cyklusCount;
-    if (_resumeState && _resumeState.temaId === temaId) {
-      cyklusCount  = _resumeState.tema?._cyklusCount ?? SessionProgress.getDokonceniCount(temaId);
-      _resumeState = null;
-      if (SessionProgress.jeZamceno(temaId)) {
-        zobrazDomovskou();
-        zobrazModalDnesHotovo();
-        return;
-      }
-    } else {
-      _resumeState = null;
-      const { count, zamceno: uzamceno } = await SessionProgress.spustiSadu(temaId, userId);
-      if (uzamceno) {
-        zobrazDomovskou();
-        zobrazModalDnesHotovo();
-        return;
-      }
-      cyklusCount = count;
+    _resumeState = null;
+    const { count: cyklusCount, zamceno: uzamceno } = await SessionProgress.spustiSadu(temaId, userId);
+    if (uzamceno) {
+      zobrazDomovskou();
+      zobrazModalDnesHotovo();
+      return;
     }
 
     // ── Pokus o AI generování ─────────────────────────────────
