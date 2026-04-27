@@ -15,8 +15,10 @@ const MathRender = (() => {
     try {
       renderMathInElement(element, {
         delimiters: [
-          { left: '$$', right: '$$', display: true  },
-          { left: '$',  right: '$',  display: false }
+          { left: '$$',  right: '$$',  display: true  },
+          { left: '\\[', right: '\\]', display: true  },
+          { left: '$',   right: '$',   display: false },
+          { left: '\\(', right: '\\)', display: false }
         ],
         throwOnError: false,
         errorColor: 'var(--color-danger)',

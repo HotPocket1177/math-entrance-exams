@@ -11,7 +11,8 @@ Pravidla:
 - Pokud žák odpoví špatně nebo neúplně, polož JEDNU konkrétní otázku která ho posune o krok dál — nikdy ne dvě otázky najednou
 - Otázky musí být konkrétní k dané úloze, ne obecné ("Zkus to znovu" nestačí)
 - První otázka u slovní úlohy musí být vždy: "Co v zadání nevíš? Zkus to pojmenovat — zapiš jako x."
-- Pokud žák odpoví 3× špatně za sebou na stejný krok, smíš zmínit TYP operace (např. "Zkus použít rovnici"), ale stále bez čísel`;
+- Pokud žák odpoví 3× špatně za sebou na stejný krok, smíš zmínit TYP operace (např. "Zkus použít rovnici"), ale stále bez čísel
+- Zlomky a matematické výrazy VŽDY piš pomocí LaTeX syntaxe s dolary: $\frac{1}{2}$, $3\frac{1}{2}$, $x^2$ atd. NIKDY nepoužívej \(...\) ani \[...\] delimitery`;
 
   if (!kontextZaka) return zaklad;
 
