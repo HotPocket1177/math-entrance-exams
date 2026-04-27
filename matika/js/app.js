@@ -29,11 +29,6 @@ const App = (() => {
   // otevření stejného tématu, aby uživatel pokračoval tam, kde skončil.
   let _resumeState = null;  // { temaId, tema, index, skore } | null
 
-  // ─── Resume stav ─────────────────────────────────────────────
-  // Uloží se při kliknutí "Zpět" uprostřed sady; obnoví se při opětovném
-  // otevření stejného tématu, aby uživatel pokračoval tam, kde skončil.
-  let _resumeState = null;  // { temaId, tema, index, skore } | null
-
   // ─── Persistence konverzace (localStorage) ───────────────────
   // Klíč: matika_konv__{temaId}__{ulohaId}
   // Ukládá: dialogLog + engine stav + postup panel — vše potřebné pro obnovu.
@@ -341,33 +336,6 @@ const App = (() => {
     return vybrane;
   }
 
-<<<<<<< HEAD
-  // ─── Spuštění tématu ──────────────────────────────────────────
-  function spustTema(tema) {
-    const temaId = tema._temaId || tema.id;
-
-    // Pokud máme uložený stav pro toto téma (uživatel kliknul Zpět uprostřed sady),
-    // pokračuj tam, kde přestal — nevolej selectUlohyProCyklus (nezabere nové úlohy).
-    if (_resumeState && _resumeState.temaId === temaId && _resumeState.index > 0) {
-      aktualniTema       = _resumeState.tema;
-      aktualniUlohaIndex = _resumeState.index;
-      skore              = _resumeState.skore;
-      dialogLog          = [];
-      _resumeState       = null;
-      zobrazUlohu();
-      document.getElementById('uloha-tema-nazev').textContent = aktualniTema.nazev;
-      nactiUlohu(aktualniUlohaIndex);
-      return;
-    }
-
-    _resumeState = null;  // Smaž zastaralý resume stav jiného tématu
-
-    const trida = profil?.trida || 8;
-    const pool  = Syllabus.getUlohyProTridu(temaId, trida);
-    const zdroj = pool.length > 0 ? pool : (tema.ulohy || []);
-
-    const vybrane = selectUlohyProCyklus(temaId, zdroj);
-=======
   // ─── Loading overlay pro generování příkladů ─────────────────
   function zobrazNacitani(text) {
     const overlay = document.getElementById('generovani-overlay');
@@ -439,7 +407,6 @@ const App = (() => {
       const zdroj = pool.length > 0 ? pool : (tema.ulohy || []);
       vybrane = selectUlohyProCyklus(temaId, zdroj);
     }
->>>>>>> 07494efc415a2e031e3fce8a4875215ed9ec13d5
 
     aktualniTema       = { ...tema, ulohy: vybrane };
     aktualniUlohaIndex = 0;
@@ -455,11 +422,7 @@ const App = (() => {
   // ─── Dokončení celé sady ──────────────────────────────────────
   // Volá se z nactiUlohu() když index překročí délku sady.
   async function dokonceniSady() {
-<<<<<<< HEAD
     _resumeState = null;  // Sada dokončena — není co obnovit
-=======
-    _resumeState = null;
->>>>>>> 07494efc415a2e031e3fce8a4875215ed9ec13d5
     const temaId = aktualniTema._temaId || aktualniTema.id;
     const userId = Auth.getSession()?.user?.id;
     // Count byl inkrementován v spustTema() — tady jen čteme aktuální stav
@@ -808,13 +771,10 @@ const App = (() => {
 
     if (vysledek.typ === 'napoveda') {
       pridejZpravu('hint', vysledek.text);
-<<<<<<< HEAD
       odhalKrok('napoveda');
-      ulozKonverzaci();   // průběžný save po každé nápovědě
-=======
+      ulozKonverzaci();
       _pokusuNaUlohu++;
       aktualizujTlacitkoKroku();
->>>>>>> 07494efc415a2e031e3fce8a4875215ed9ec13d5
       setVstupDisabled(false);
       document.getElementById('vstup-pole').focus();
     } else if (vysledek.typ === 'uspech') {
@@ -1011,10 +971,7 @@ const App = (() => {
     });
 
     document.getElementById('btn-zpet-z-ulohy').addEventListener('click', () => {
-<<<<<<< HEAD
-      ulozKonverzaci();   // zachraň konverzaci před odchodem
-=======
->>>>>>> 07494efc415a2e031e3fce8a4875215ed9ec13d5
+      ulozKonverzaci();
       // Ulož pozici pro případ, že se uživatel vrátí ke stejnému tématu
       if (aktualniTema && aktualniUlohaIndex > 0) {
         _resumeState = {
@@ -1056,7 +1013,6 @@ const App = (() => {
       document.getElementById('vypocet-log').innerHTML = '';
     });
 
-<<<<<<< HEAD
     // Tlačítko "Nahlásit chybu" — zobrazí ID úlohy pro report
     document.getElementById('btn-nahlasit-chybu')?.addEventListener('click', () => {
       if (!aktualniTema) return;
@@ -1064,12 +1020,12 @@ const App = (() => {
       const temaId = aktualniTema._temaId || aktualniTema.id;
       const info   = `Téma: ${temaId} | Úloha ID: ${uloha?.id || '?'}\nZadání: ${uloha?.zadani || '?'}`;
       alert(`Díky za zpětnou vazbu! Pošli tuto informaci autorovi:\n\n${info}`);
-=======
+    });
+
     // Výpočetní panel — ukázat krok na požádání
     document.getElementById('btn-ukaz-krok')?.addEventListener('click', () => {
       odhalKrok('napoveda');
       aktualizujTlacitkoKroku();
->>>>>>> 07494efc415a2e031e3fce8a4875215ed9ec13d5
     });
 
     // Modal "Skvělá práce na dnes!" — zavřít
