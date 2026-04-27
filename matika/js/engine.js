@@ -2,14 +2,16 @@
 
 // ── System prompt ─────────────────────────────────────────────
 function buildSystemPrompt(kontextZaka) {
-  const zaklad = `Jsi přátelský matematik, který pomáhá žákovi 8.–9. třídy připravit se na přijímací zkoušky. Vedeš sokratovský dialog — NIKDY nedáváš rovnou správnou odpověď. Místo toho kladeš návodné otázky, které žáka dovedou k řešení vlastním myšlením.
+  const zaklad = `Jsi přísný, ale přátelský matematik-kouč, který pomáhá žákovi 8.–9. třídy připravit se na přijímací zkoušky. Vedeš sokratovský dialog — PŘÍSNĚ ZAKAZUJEŠ si říct výsledek nebo mezikrok přímo.
 Pravidla:
-- Vždy reaguj česky, přátelsky, stručně (2–4 věty max)
-- Nikdy neřekni přímo výsledek, dokud žák sám nedojde k správné odpovědi
-- Pokud žák odpoví správně, pochval ho a potvrď správnost
-- Pokud žák odpoví špatně nebo neúplně, nasměruj ho otázkou
+- Vždy reaguj česky, stručně — POUZE jednou otázkou nebo krátkým pokynem (max 2 věty)
+- NIKDY neuvádíš číselné mezivýsledky, vzorce ani kroky výpočtu — to musí žák napsat sám
+- Nikdy neřekni přímo výsledek ani jeho část, dokud žák sám nedojde k správné odpovědi
+- Pokud žák odpoví správně, pochval ho jednou větou a potvrď správnost
+- Pokud žák odpoví špatně nebo neúplně, polož JEDNU konkrétní otázku která ho posune o krok dál — nikdy ne dvě otázky najednou
+- Otázky musí být konkrétní k dané úloze, ne obecné ("Zkus to znovu" nestačí)
 - První otázka u slovní úlohy musí být vždy: "Co v zadání nevíš? Zkus to pojmenovat — zapiš jako x."
-- Pokud žák odpoví 3× špatně za sebou, dej konkrétnější nápovědu, ale stále ne celé řešení`;
+- Pokud žák odpoví 3× špatně za sebou na stejný krok, smíš zmínit TYP operace (např. "Zkus použít rovnici"), ale stále bez čísel`;
 
   if (!kontextZaka) return zaklad;
 
@@ -23,6 +25,7 @@ const Engine = (() => {
     krok: 0,              // index pro statický fallback
     dokonceno: false,
     pocetPokusu: 0,
+    limitPokusu: 4,       // náhodně 3 nebo 4 — nastaven v inicializuj()
     zobrazenaOdpoved: false,
     messages: []          // konverzační historie pro OpenAI
   };
@@ -35,6 +38,7 @@ const Engine = (() => {
       krok: 0,
       dokonceno: false,
       pocetPokusu: 0,
+      limitPokusu: Math.floor(Math.random() * 6) + 5,  // 5–10
       zobrazenaOdpoved: false,
       messages: [
         { role: 'system', content: buildSystemPrompt(kontextZaka) },
@@ -87,8 +91,8 @@ const Engine = (() => {
       return { typ: 'uspech', text: `Správně! ${stav.uloha.odpoved}`, hotovo: true };
     }
 
-    // Po 5 neúspěšných pokusech vždy zobraz řešení (zabrání softlocku)
-    if (stav.pocetPokusu >= 5) {
+    // Po limitPokusu neúspěšných pokusech zobraz řešení (zabrání softlocku)
+    if (stav.pocetPokusu >= stav.limitPokusu) {
       stav.zobrazenaOdpoved = true;
       stav.dokonceno = true;
       return {
@@ -149,6 +153,7 @@ const Engine = (() => {
       messages:         stav.messages.slice(),
       krok:             stav.krok,
       pocetPokusu:      stav.pocetPokusu,
+      limitPokusu:      stav.limitPokusu,
       zobrazenaOdpoved: stav.zobrazenaOdpoved,
       dokonceno:        stav.dokonceno
     };
@@ -159,9 +164,10 @@ const Engine = (() => {
   function obnovStav(savedStav, uloha) {
     stav = {
       uloha,
-      messages:         savedStav.messages || [],
+      messages:         savedStav.messages         || [],
       krok:             savedStav.krok             ?? 0,
       pocetPokusu:      savedStav.pocetPokusu      ?? 0,
+      limitPokusu:      savedStav.limitPokusu      ?? (Math.floor(Math.random() * 6) + 5),
       zobrazenaOdpoved: savedStav.zobrazenaOdpoved ?? false,
       dokonceno:        savedStav.dokonceno        ?? false
     };

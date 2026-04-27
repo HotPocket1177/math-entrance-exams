@@ -725,7 +725,7 @@ const App = (() => {
     const btn    = document.getElementById('btn-ukaz-krok');
     if (!wrap || !btn) return;
 
-    if (!zbyvaji || _pokusuNaUlohu < 2) {
+    if (!zbyvaji || _pokusuNaUlohu < 3) {
       wrap.classList.add('hidden');
       return;
     }
@@ -771,7 +771,6 @@ const App = (() => {
 
     if (vysledek.typ === 'napoveda') {
       pridejZpravu('hint', vysledek.text);
-      odhalKrok('napoveda');
       ulozKonverzaci();
       _pokusuNaUlohu++;
       aktualizujTlacitkoKroku();
