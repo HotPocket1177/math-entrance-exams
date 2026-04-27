@@ -365,18 +365,29 @@ const App = (() => {
       return;
     }
 
-    _resumeState = null;
-
     const trida  = profil?.trida || 8;
     const userId = Auth.getSession()?.user?.id;
 
-    // ── Zaregistruj cyklus hned při startu (zabrání bypass přes Zpět) ──
-    const { count: cyklusCount, zamceno: uzamceno } = await SessionProgress.spustiSadu(temaId, userId);
-    if (uzamceno) {
-      // Uživatel dosáhl denního limitu — ukaž home s modálem
-      zobrazDomovskou();
-      zobrazModalDnesHotovo();
-      return;
+    // Pokud uživatel kliknul Zpět na první úloze a vrátil se, cycle byl už zaregistrován —
+    // použij existující count a nevolej spustiSadu znovu.
+    let cyklusCount;
+    if (_resumeState && _resumeState.temaId === temaId) {
+      cyklusCount  = _resumeState.tema?._cyklusCount ?? SessionProgress.getDokonceniCount(temaId);
+      _resumeState = null;
+      if (SessionProgress.jeZamceno(temaId)) {
+        zobrazDomovskou();
+        zobrazModalDnesHotovo();
+        return;
+      }
+    } else {
+      _resumeState = null;
+      const { count, zamceno: uzamceno } = await SessionProgress.spustiSadu(temaId, userId);
+      if (uzamceno) {
+        zobrazDomovskou();
+        zobrazModalDnesHotovo();
+        return;
+      }
+      cyklusCount = count;
     }
 
     // ── Pokus o AI generování ─────────────────────────────────
@@ -971,17 +982,13 @@ const App = (() => {
 
     document.getElementById('btn-zpet-z-ulohy').addEventListener('click', () => {
       ulozKonverzaci();
-      // Ulož pozici pro případ, že se uživatel vrátí ke stejnému tématu
-      if (aktualniTema && aktualniUlohaIndex > 0) {
-        _resumeState = {
-          temaId: aktualniTema._temaId || aktualniTema.id,
-          tema:   aktualniTema,
-          index:  aktualniUlohaIndex,
-          skore:  { ...skore }
-        };
-      } else {
-        _resumeState = null;
-      }
+      // Vždy ulož stav — i na první úloze. Zabrání dvojímu nabití cycle charge při návratu.
+      _resumeState = aktualniTema ? {
+        temaId: aktualniTema._temaId || aktualniTema.id,
+        tema:   aktualniTema,
+        index:  aktualniUlohaIndex,
+        skore:  { ...skore }
+      } : null;
       zobrazDomovskou();
     });
     document.getElementById('btn-zpet-z-vysledku').addEventListener('click', () => {
