@@ -26,6 +26,40 @@ const App = (() => {
   // otevření stejného tématu, aby uživatel pokračoval tam, kde skončil.
   let _resumeState = null;  // { temaId, tema, index, skore } | null
 
+  // ─── Persistence konverzace (localStorage) ───────────────────
+  // Klíč: matika_konv__{temaId}__{ulohaId}
+  // Ukládá: dialogLog + engine stav + postup panel — vše potřebné pro obnovu.
+  function _konvKlic(temaId, ulohaId) {
+    return `matika_konv__${temaId}__${ulohaId}`;
+  }
+
+  function ulozKonverzaci() {
+    if (!aktualniTema || aktualniUlohaIndex == null) return;
+    const uloha  = aktualniTema.ulohy[aktualniUlohaIndex];
+    if (!uloha) return;
+    const temaId = aktualniTema._temaId || aktualniTema.id;
+    try {
+      const data = {
+        dialogLog:   dialogLog.slice(),
+        engineStav:  Engine.ulozStav(),
+        postupIndex: postupIndex,
+        postup:      uloha.postup || []
+      };
+      localStorage.setItem(_konvKlic(temaId, uloha.id), JSON.stringify(data));
+    } catch { /* localStorage plný — tiše ignoruj */ }
+  }
+
+  function obnovKonverzaci(temaId, ulohaId) {
+    try {
+      const raw = localStorage.getItem(_konvKlic(temaId, ulohaId));
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+
+  function smazKonverzaci(temaId, ulohaId) {
+    localStorage.removeItem(_konvKlic(temaId, ulohaId));
+  }
+
   // ─── Správa obrazovek ─────────────────────────────────────────
   const SCREENS = ['screen-auth', 'screen-home', 'screen-apikey', 'screen-uloha', 'screen-vysledky'];
 
@@ -344,18 +378,52 @@ const App = (() => {
       odemcenaTemata: odemcenaTemata || TEMATA.map(t => t.id)
     } : null;
 
-    const uvod = Engine.inicializuj(uloha, kontextZaka);
-
     // Vyčisti dialog i výpočetní panel
     document.getElementById('dialog-log').innerHTML  = '';
     document.getElementById('vypocet-log').innerHTML = '';
+    document.getElementById('btn-dalsi').classList.add('hidden');
 
+    // Zkus obnovit uloženou konverzaci pro tuto úlohu
+    const temaId  = aktualniTema._temaId || aktualniTema.id;
+    const ulozena = obnovKonverzaci(temaId, uloha.id);
+
+    if (ulozena && ulozena.dialogLog?.length > 1) {
+      // ── Obnova uložené konverzace ─────────────────────────────
+      Engine.obnovStav(ulozena.engineStav, uloha);
+      postupIndex = ulozena.postupIndex ?? -1;
+
+      // Znovu vyrenderuj uloženou konverzaci
+      ulozena.dialogLog.forEach(m => {
+        dialogLog.push(m);
+        _renderZprava(m.typ, m.text);
+      });
+
+      // Znovu vyrenderuj odhalené kroky postupu
+      if (ulozena.postup?.length) {
+        for (let i = 0; i <= postupIndex; i++) {
+          if (ulozena.postup[i]) pridejKrokDoVypoctu(ulozena.postup[i], 'napoveda');
+        }
+      }
+
+      pridejZpravu('info', '↩ Pokračuješ v rozpracované úloze.');
+
+      // Pokud úloha již byla dokončena, zobraz tlačítko Další
+      if (Engine.jeDokonceno()) {
+        dokoncUlohu();
+      } else {
+        setVstupDisabled(false);
+        document.getElementById('vstup-pole').value = '';
+        document.getElementById('vstup-pole').focus();
+      }
+      return;
+    }
+
+    // ── Normální inicializace ─────────────────────────────────────
+    const uvod = Engine.inicializuj(uloha, kontextZaka);
     pridejZpravu('system', uvod.text);
 
     setVstupDisabled(true);
-    document.getElementById('btn-dalsi').classList.add('hidden');
 
-    // Načti úvodní otázku (AI nebo statická)
     pokazLoadingIndikator();
     const uvodniOtazka = await Engine.getUvodniOtazka();
     skrejLoadingIndikator();
@@ -367,6 +435,27 @@ const App = (() => {
     setVstupDisabled(false);
     document.getElementById('vstup-pole').value = '';
     document.getElementById('vstup-pole').focus();
+  }
+
+  // Renderuje zprávu do DOM bez přidání do dialogLog (pro obnovu uložené konverzace)
+  function _renderZprava(typ, text) {
+    const logEl = document.getElementById('dialog-log');
+    const msg   = document.createElement('div');
+    msg.className = `msg msg-${typ} msg-visible`;
+
+    const ikona = { system: '📋', student: '✏️', hint: '💡', uspech: '✅', reseni: '📖', chyba: '⚠️', info: 'ℹ️', apierror: '🔌' };
+    const label = { system: 'Zadání', student: 'Ty', hint: 'Nápověda', uspech: 'Správně', reseni: 'Řešení', chyba: 'Upozornění', info: 'Info', apierror: 'Chyba API' };
+
+    msg.innerHTML = `
+      <span class="msg-ikona" aria-hidden="true">${ikona[typ] || '•'}</span>
+      <div class="msg-obsah">
+        <span class="msg-label">${label[typ] || typ}</span>
+        <p class="msg-text math-text">${escapujHtml(text)}</p>
+      </div>
+    `;
+    logEl.appendChild(msg);
+    MathRender.renderMath(msg);
+    logEl.scrollTop = logEl.scrollHeight;
   }
 
   // ─── Loading indikátor ────────────────────────────────────────
@@ -499,6 +588,7 @@ const App = (() => {
     if (vysledek.typ === 'napoveda') {
       pridejZpravu('hint', vysledek.text);
       odhalKrok('napoveda');
+      ulozKonverzaci();   // průběžný save po každé nápovědě
       setVstupDisabled(false);
       document.getElementById('vstup-pole').focus();
     } else if (vysledek.typ === 'uspech') {
@@ -528,7 +618,14 @@ const App = (() => {
 
   function dokoncUlohu() {
     setVstupDisabled(true);
-    const btnDalsi  = document.getElementById('btn-dalsi');
+
+    // Ulož konverzaci (pro případ, že by uživatel chtěl vidět co si psal)
+    // a zároveň smaž, protože úloha je dokončena — při dalším spuštění téma začíná čerstvě
+    const temaId = aktualniTema._temaId || aktualniTema.id;
+    const uloha  = aktualniTema.ulohy[aktualniUlohaIndex];
+    if (uloha) smazKonverzaci(temaId, uloha.id);
+
+    const btnDalsi   = document.getElementById('btn-dalsi');
     btnDalsi.classList.remove('hidden');
     const jePosledni = aktualniUlohaIndex >= aktualniTema.ulohy.length - 1;
     btnDalsi.textContent = jePosledni ? 'Zobrazit výsledky' : 'Další úloha →';
@@ -686,6 +783,7 @@ const App = (() => {
     });
 
     document.getElementById('btn-zpet-z-ulohy').addEventListener('click', () => {
+      ulozKonverzaci();   // zachraň konverzaci před odchodem
       // Ulož pozici pro případ, že se uživatel vrátí ke stejnému tématu
       if (aktualniTema && aktualniUlohaIndex > 0) {
         _resumeState = {
@@ -727,15 +825,26 @@ const App = (() => {
       document.getElementById('vypocet-log').innerHTML = '';
     });
 
+    // Tlačítko "Nahlásit chybu" — zobrazí ID úlohy pro report
+    document.getElementById('btn-nahlasit-chybu')?.addEventListener('click', () => {
+      if (!aktualniTema) return;
+      const uloha  = aktualniTema.ulohy[aktualniUlohaIndex];
+      const temaId = aktualniTema._temaId || aktualniTema.id;
+      const info   = `Téma: ${temaId} | Úloha ID: ${uloha?.id || '?'}\nZadání: ${uloha?.zadani || '?'}`;
+      alert(`Díky za zpětnou vazbu! Pošli tuto informaci autorovi:\n\n${info}`);
+    });
+
     // Modal "Skvělá práce na dnes!" — zavřít
     document.getElementById('btn-modal-zpet')?.addEventListener('click', zavriModalDnesHotovo);
     document.getElementById('modal-dnes-hotovo')?.addEventListener('click', e => {
       if (e.target === e.currentTarget) zavriModalDnesHotovo();
     });
 
-    // Obnoví home screen % při návratu do tabu (řeší problém neaktualizace karet)
+    // Záchranný save konverzace při opuštění tabu + obnova home screen %
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && Auth.jeAuthenticated()) {
+      if (document.hidden) {
+        ulozKonverzaci();  // tab se skryl — ulož pro případ nehody
+      } else if (Auth.jeAuthenticated()) {
         const homeVisible = !document.getElementById('screen-home').classList.contains('hidden');
         if (homeVisible) renderTemata();
       }

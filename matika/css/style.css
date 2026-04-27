@@ -1016,6 +1016,23 @@ select.apikey-input {
   font-size: .97rem;
 }
 
+/* ── Tlačítko nahlášení chyby ── */
+.btn-nahlasit {
+  margin-left: auto;
+  font-size: .75rem;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: .25rem .6rem;
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition);
+}
+.btn-nahlasit:hover {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
 /* ── Cykly (denní progres na kartě tématu) ── */
 .tema-cykly {
   display: flex;

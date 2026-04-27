@@ -131,5 +131,29 @@ const Engine = (() => {
   function jeDokonceno()  { return stav.dokonceno; }
   function aktualniKrok() { return stav.krok; }
 
-  return { inicializuj, getUvodniOtazka, vyhodnotVstup, getStav, jeDokonceno, aktualniKrok };
+  // ── Uložení / obnova stavu (pro persistenci konverzace) ──────
+  function ulozStav() {
+    return {
+      messages:         stav.messages.slice(),
+      krok:             stav.krok,
+      pocetPokusu:      stav.pocetPokusu,
+      zobrazenaOdpoved: stav.zobrazenaOdpoved,
+      dokonceno:        stav.dokonceno
+    };
+  }
+
+  // Obnoví engine do uloženého stavu — přeskočí inicializuj/getUvodniOtazka.
+  // Volající musí předat ulohu (objekt úlohy) pro případný statický fallback.
+  function obnovStav(savedStav, uloha) {
+    stav = {
+      uloha,
+      messages:         savedStav.messages || [],
+      krok:             savedStav.krok             ?? 0,
+      pocetPokusu:      savedStav.pocetPokusu      ?? 0,
+      zobrazenaOdpoved: savedStav.zobrazenaOdpoved ?? false,
+      dokonceno:        savedStav.dokonceno        ?? false
+    };
+  }
+
+  return { inicializuj, getUvodniOtazka, vyhodnotVstup, getStav, jeDokonceno, aktualniKrok, ulozStav, obnovStav };
 })();
