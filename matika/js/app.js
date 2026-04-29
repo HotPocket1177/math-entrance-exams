@@ -7,8 +7,6 @@ const App = (() => {
   let skore              = { spravne: 0, celkem: 0 };
   let dialogLog          = [];
   let cekaNaApi          = false;
-  let postupIndex        = -1;  // index posledního odhaleného kroku z postup[]
-  let _pokusuNaUlohu     = 0;   // špatné odpovědi na aktuální úlohu (pro postup nápovědu)
 
   // Stav žáka (vyplní se po přihlášení)
   let profil           = null;   // { trida: 8 }
@@ -43,10 +41,8 @@ const App = (() => {
     const temaId = aktualniTema._temaId || aktualniTema.id;
     try {
       const data = {
-        dialogLog:   dialogLog.slice(),
-        engineStav:  Engine.ulozStav(),
-        postupIndex: postupIndex,
-        postup:      uloha.postup || []
+        dialogLog:  dialogLog.slice(),
+        engineStav: Engine.ulozStav(),
       };
       localStorage.setItem(_konvKlic(temaId, uloha.id), JSON.stringify(data));
     } catch { /* localStorage plný — tiše ignoruj */ }
@@ -500,10 +496,7 @@ const App = (() => {
     }
     aktualniUlohaIndex = index;
     const uloha = aktualniTema.ulohy[index];
-    dialogLog      = [];
-    postupIndex    = -1;
-    _pokusuNaUlohu = 0;
-    aktualizujTlacitkoKroku();
+    dialogLog = [];
 
     // Progress bar — ukazuje (index+1)/celkem, tj. 100 % na poslední úloze
     const procent = Math.round(((index + 1) / aktualniTema.ulohy.length) * 100);
@@ -517,10 +510,10 @@ const App = (() => {
       odemcenaTemata: odemcenaTemata || TEMATA.map(t => t.id)
     } : null;
 
-    // Vyčisti dialog i výpočetní panel
-    document.getElementById('dialog-log').innerHTML  = '';
-    document.getElementById('vypocet-log').innerHTML = '';
+    // Vyčisti dialog; výpočetní panel dostane placeholder (zobrazí se po dokončení)
+    document.getElementById('dialog-log').innerHTML = '';
     document.getElementById('btn-dalsi').classList.add('hidden');
+    zobrazPlaceholderPostupu();
 
     // Zkus obnovit uloženou konverzaci pro tuto úlohu
     const temaId  = aktualniTema._temaId || aktualniTema.id;
@@ -529,24 +522,14 @@ const App = (() => {
     if (ulozena && ulozena.dialogLog?.length > 1) {
       // ── Obnova uložené konverzace ─────────────────────────────
       Engine.obnovStav(ulozena.engineStav, uloha);
-      postupIndex = ulozena.postupIndex ?? -1;
 
-      // Znovu vyrenderuj uloženou konverzaci
       ulozena.dialogLog.forEach(m => {
         dialogLog.push(m);
         _renderZprava(m.typ, m.text);
       });
 
-      // Znovu vyrenderuj odhalené kroky postupu
-      if (ulozena.postup?.length) {
-        for (let i = 0; i <= postupIndex; i++) {
-          if (ulozena.postup[i]) pridejKrokDoVypoctu(ulozena.postup[i], 'napoveda');
-        }
-      }
-
       pridejZpravu('info', '↩ Pokračuješ v rozpracované úloze.');
 
-      // Pokud úloha již byla dokončena, zobraz tlačítko Další
       if (Engine.jeDokonceno()) {
         dokoncUlohu();
       } else {
@@ -666,85 +649,57 @@ const App = (() => {
   }
 
   // ─── Výpočetní panel ─────────────────────────────────────────
-  // krok = { latex, stav } z postup[] dané úlohy
-  // tipTyp = 'spravne' | 'napoveda' (barva; přebito na 'vysledek' pokud krok.stav === 'vysledek')
-  function pridejKrokDoVypoctu(krok, tipTyp) {
+
+  // Placeholder v pravém panelu během řešení (postup se zobrazí po dokončení)
+  function zobrazPlaceholderPostupu() {
+    const log = document.getElementById('vypocet-log');
+    if (!log) return;
+    log.innerHTML = '<div class="vypocet-placeholder">Podrobné řešení se zobrazí po dokončení příkladu.</div>';
+  }
+
+  // Přidá jeden krok (LaTeX + popis) do výpočetního panelu.
+  // krok = { latex, popis?, stav } z postup[] dané úlohy
+  // cssTyp = 'krok' | 'vysledek'
+  function pridejKrokDoVypoctu(krok, cssTyp) {
     const log = document.getElementById('vypocet-log');
     const el  = document.createElement('div');
-    const cssTyp = krok.stav === 'vysledek' ? 'vysledek' : tipTyp;
-    el.className = `vypocet-krok vypocet-krok--${cssTyp}`;
-    el.innerHTML = MathRender.renderStep(`$${krok.latex}$`);
+    const typ = krok.stav === 'vysledek' ? 'vysledek' : cssTyp;
+    el.className = `vypocet-krok vypocet-krok--${typ}`;
+    let html = '';
+    if (krok.popis) html += `<p class="krok-popis">${escapujHtml(krok.popis)}</p>`;
+    html += `<div class="krok-latex">${MathRender.renderStep(`$${krok.latex}$`)}</div>`;
+    el.innerHTML = html;
     log.appendChild(el);
+    MathRender.renderMath(el);
     log.scrollTop = log.scrollHeight;
   }
 
-  // Text hint (z kroky[] fallback) — zobrazí v pravém panelu jako nápovědný text
-  function pridejTextHintDoVypoctu(text, tipTyp) {
-    const log = document.getElementById('vypocet-log');
-    const el  = document.createElement('div');
-    el.className = `vypocet-krok vypocet-krok--${tipTyp} vypocet-krok--text`;
-    el.textContent = text;
-    log.appendChild(el);
-    requestAnimationFrame(() => MathRender.renderMath(el));
-    log.scrollTop = log.scrollHeight;
-  }
-
-  // ── Pomocná: unified pool kroků (postup LaTeX nebo kroky text) ──
-  // Vrací pole objektů { latex, text, stav } pro aktuální úlohu.
-  function _getKrokyPool(uloha) {
-    if (!uloha) return [];
-    if (uloha.postup?.length > 0) return uloha.postup;  // preferuj LaTeX postup
-    // Fallback: kroky[] jako textové nápovědy
-    return (uloha.kroky || []).map(k => ({ latex: null, text: k, stav: 'krok' }));
-  }
-
-  // Odhal další krok (LaTeX nebo text) z aktuální úlohy
-  function odhalKrok(tipTyp) {
+  // Zobrazí celý postup po dokončení příkladu (správná odpověď nebo řešení).
+  // Postup se zobrazí vždy — buď LaTeX kroky z postup[], nebo textové nápovědy z kroky[].
+  function zobrazPostupPoDokonceni() {
     const uloha = aktualniTema?.ulohy?.[aktualniUlohaIndex];
-    const pool  = _getKrokyPool(uloha);
-    postupIndex++;
-    if (postupIndex >= pool.length) return;
-    const krok = pool[postupIndex];
-    if (krok.latex) {
-      pridejKrokDoVypoctu(krok, tipTyp);
+    const log   = document.getElementById('vypocet-log');
+    if (!log) return;
+    log.innerHTML = '';
+
+    if (!uloha) return;
+
+    if (uloha.postup?.length > 0) {
+      uloha.postup.forEach(krok => pridejKrokDoVypoctu(krok, 'krok'));
+    } else if (uloha.kroky?.length > 0) {
+      // Fallback pro statické příklady bez LaTeX postupu
+      uloha.kroky.forEach(k => {
+        const el = document.createElement('div');
+        el.className = 'vypocet-krok vypocet-krok--krok vypocet-krok--text';
+        el.textContent = k;
+        log.appendChild(el);
+        MathRender.renderMath(el);
+      });
     } else {
-      pridejTextHintDoVypoctu(krok.text, tipTyp);
-    }
-  }
-
-  // Odhal všechny zbývající kroky najednou (po zobrazení řešení)
-  function odhalZbytek() {
-    const uloha = aktualniTema?.ulohy?.[aktualniUlohaIndex];
-    const pool  = _getKrokyPool(uloha);
-    while (postupIndex + 1 < pool.length) {
-      odhalKrok('napoveda');
-    }
-    skrejTlacitkoKroku();
-  }
-
-  // ── Tlačítko "Ukázat nápovědu ke kroku" ───────────────────────
-  function aktualizujTlacitkoKroku() {
-    const uloha  = aktualniTema?.ulohy?.[aktualniUlohaIndex];
-    const pool   = _getKrokyPool(uloha);
-    const zbyvaji = pool.length > 0 && (postupIndex + 1 < pool.length);
-    const wrap   = document.getElementById('vypocet-napoveda-wrap');
-    const btn    = document.getElementById('btn-ukaz-krok');
-    if (!wrap || !btn) return;
-
-    if (!zbyvaji || _pokusuNaUlohu < 3) {
-      wrap.classList.add('hidden');
-      return;
+      log.innerHTML = '<div class="vypocet-placeholder">Postup řešení není k dispozici.</div>';
     }
 
-    wrap.classList.remove('hidden');
-    const zbyvajiciKroku = pool.length - (postupIndex + 1);
-    btn.textContent = postupIndex === -1
-      ? '💡 Ukázat nápovědu ke kroku'
-      : `💡 Ukázat další krok (${zbyvajiciKroku} zbývají)`;
-  }
-
-  function skrejTlacitkoKroku() {
-    document.getElementById('vypocet-napoveda-wrap')?.classList.add('hidden');
+    log.scrollTop = 0;
   }
 
   // ─── Odeslání odpovědi (async) ────────────────────────────────
@@ -778,14 +733,10 @@ const App = (() => {
     if (vysledek.typ === 'napoveda') {
       pridejZpravu('hint', vysledek.text);
       ulozKonverzaci();
-      _pokusuNaUlohu++;
-      aktualizujTlacitkoKroku();
       setVstupDisabled(false);
       document.getElementById('vstup-pole').focus();
     } else if (vysledek.typ === 'uspech') {
-      skrejTlacitkoKroku();
       pridejZpravu('uspech', vysledek.text);
-      odhalKrok('spravne');
       ulozProgress(
         aktualniTema._temaId || aktualniTema.id,
         aktualniTema.ulohy[aktualniUlohaIndex].id,
@@ -794,9 +745,7 @@ const App = (() => {
       skore.spravne++;
       dokoncUlohu();
     } else if (vysledek.typ === 'reseni') {
-      skrejTlacitkoKroku();
       pridejZpravu('reseni', vysledek.text);
-      odhalZbytek();
       ulozProgress(
         aktualniTema._temaId || aktualniTema.id,
         aktualniTema.ulohy[aktualniUlohaIndex].id,
@@ -812,11 +761,12 @@ const App = (() => {
   function dokoncUlohu() {
     setVstupDisabled(true);
 
-    // Ulož konverzaci (pro případ, že by uživatel chtěl vidět co si psal)
-    // a zároveň smaž, protože úloha je dokončena — při dalším spuštění téma začíná čerstvě
     const temaId = aktualniTema._temaId || aktualniTema.id;
     const uloha  = aktualniTema.ulohy[aktualniUlohaIndex];
     if (uloha) smazKonverzaci(temaId, uloha.id);
+
+    // Zobraz celý postup řešení v pravém panelu
+    zobrazPostupPoDokonceni();
 
     const btnDalsi   = document.getElementById('btn-dalsi');
     btnDalsi.classList.remove('hidden');
@@ -1021,12 +971,6 @@ const App = (() => {
       const temaId = aktualniTema._temaId || aktualniTema.id;
       const info   = `Téma: ${temaId} | Úloha ID: ${uloha?.id || '?'}\nZadání: ${uloha?.zadani || '?'}`;
       alert(`Díky za zpětnou vazbu! Pošli tuto informaci autorovi:\n\n${info}`);
-    });
-
-    // Výpočetní panel — ukázat krok na požádání
-    document.getElementById('btn-ukaz-krok')?.addEventListener('click', () => {
-      odhalKrok('napoveda');
-      aktualizujTlacitkoKroku();
     });
 
     // Modal "Skvělá práce na dnes!" — zavřít

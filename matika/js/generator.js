@@ -67,14 +67,20 @@ Vrať VÝHRADNĚ validní JSON (žádný text mimo JSON):
   "kroky": ["nápovědná otázka 1", "nápovědná otázka 2", "nápovědná otázka 3"],
   "odpoved": "text správné odpovědi (krátce)",
   "postup": [
-    {"latex": "první výpočetní krok v LaTeX", "stav": "krok"},
-    {"latex": "druhý výpočetní krok", "stav": "krok"},
-    {"latex": "finální výsledek = answerValue", "stav": "vysledek"}
+    {"latex": "první výpočetní krok v LaTeX", "popis": "Co v tomto kroku děláme a proč — 1 věta česky, srozumitelně pro 8. třídu", "stav": "krok"},
+    {"latex": "druhý výpočetní krok", "popis": "Vysvětlení operace — pojmenuj co se dělá (odečítáme, dosazujeme, vydělíme...)", "stav": "krok"},
+    {"latex": "finální výsledek = answerValue", "popis": "Výsledek — co jsme vypočítali a co to znamená v kontextu zadání", "stav": "vysledek"}
   ],
   "answerType": "number",
   "answerValue": 42.5,
   "tolerance": 0.05
 }
+
+PRAVIDLA PRO postup[]:
+- Každý krok MUSÍ mít pole "popis" — krátké (max 2 věty) česky psané vysvětlení
+- Popis vysvětluje CO děláme (pojmenuj operaci: "Odečteme...", "Dosadíme...", "Vydělíme obě strany...") a PROČ
+- Popis musí být pochopitelný žákovi 8.–9. třídy bez dalšího vysvětlení
+- Poslední krok má stav "vysledek" a jeho latex obsahuje finální číslo
 
 Pro slovní úlohy s více hodnotami (soustava) použij "answerType": "keywords", "keywords": ["hodnota1", "hodnota2"].
 Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;
