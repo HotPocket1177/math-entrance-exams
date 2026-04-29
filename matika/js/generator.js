@@ -82,7 +82,9 @@ PRAVIDLA PRO postup[]:
 - Popis musí být pochopitelný žákovi 8.–9. třídy bez dalšího vysvětlení
 - Poslední krok má stav "vysledek" a jeho latex obsahuje finální číslo
 - V poli "latex" NIKDY nepíš $ ani $$ — piš čistý LaTeX bez delimitérů (např. "x = 5", ne "$x = 5$")
-- Desetinná čárka v LaTeX: piš {,} místo , (např. "4{,}5" ne "4,5") — jinak se vykreslí mezera
+- Desetinná čárka v poli "latex": piš {,} místo , (např. "4{,}5" ne "4,5") — jinak se vykreslí mezera
+- V polích "odpoved", "popis" a "zadani" (mimo $...$) piš normální čárku (,) — NIKDY nepíš {,} v běžném textu
+- Pro "answerType": "keywords" musí poslední krok v postup[] obsahovat výpočet s čísly z "keywords" — ne jiné hodnoty
 
 Pro slovní úlohy s více hodnotami (soustava) použij "answerType": "keywords", "keywords": ["hodnota1", "hodnota2"].
 Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;
@@ -110,18 +112,40 @@ Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;
     // Validace povinných polí
     if (!prob.zadani || !prob.odpoved) throw new Error('Neúplný JSON od AI');
 
-    // Ověř postup: poslední krok musí obsahovat answerValue (jinak kroky odstraníme)
+    // Odstraň {,} z textových polí — tam patří jen normální čárka
+    prob.odpoved = prob.odpoved.replace(/\{,\}/g, ',');
+
+    // Ověř postup: poslední krok musí odpovídat výsledku (jinak kroky odstraníme)
     let postupOvereny = Array.isArray(prob.postup) ? prob.postup : [];
-    if (postupOvereny.length > 0 && prob.answerType === 'number' && prob.answerValue != null) {
-      const posledniKrok = (postupOvereny[postupOvereny.length - 1]?.latex || '').toLowerCase();
-      const num = String(prob.answerValue);
-      // Přijmeme: "42.5", "42,5", "42{,}5" (LaTeX čárka), nebo samotnou celou část
-      const intPart = num.split('.')[0];
-      const sedí = posledniKrok.includes(num) ||
-                   posledniKrok.includes(num.replace('.', ',')) ||
-                   posledniKrok.includes(num.replace('.', '{,}')) ||
-                   (intPart.length >= 3 && posledniKrok.includes(intPart));
-      if (!sedí) postupOvereny = [];  // kroky neodpovídají výsledku — nevypisuj je
+    if (postupOvereny.length > 0) {
+      const posledniLatex = (postupOvereny[postupOvereny.length - 1]?.latex || '').toLowerCase();
+
+      if (prob.answerType === 'number' && prob.answerValue != null) {
+        const num = String(prob.answerValue);
+        const intPart = num.split('.')[0];
+        const sedí = posledniLatex.includes(num) ||
+                     posledniLatex.includes(num.replace('.', ',')) ||
+                     posledniLatex.includes(num.replace('.', '{,}')) ||
+                     (intPart.length >= 3 && posledniLatex.includes(intPart));
+        if (!sedí) postupOvereny = [];
+      } else if (prob.answerType === 'keywords' && Array.isArray(prob.keywords) && prob.keywords.length > 0) {
+        // Alespoň jedno klíčové číslo musí být v posledním kroku
+        const nekteréKW = prob.keywords.some(kw => {
+          const s = String(kw).replace(',', '.').toLowerCase();
+          const intP = s.split('.')[0];
+          return posledniLatex.includes(s) ||
+                 posledniLatex.includes(s.replace('.', ',')) ||
+                 posledniLatex.includes(s.replace('.', '{,}')) ||
+                 (intP.length >= 2 && posledniLatex.includes(intP));
+        });
+        if (!nekteréKW) postupOvereny = [];
+      }
+
+      // Odstraň {,} z popis polí — zobrazují se jako plain text
+      postupOvereny = postupOvereny.map(k => ({
+        ...k,
+        popis: (k.popis || '').replace(/\{,\}/g, ','),
+      }));
     }
 
     return {
@@ -134,6 +158,7 @@ Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;
       jednotka: prob.jednotka || '',
       postup:   postupOvereny,
       kontrola: makeKontrola(prob),
+      _meta:    { answerType: prob.answerType, answerValue: prob.answerValue, tolerance: prob.tolerance ?? 0.05, keywords: prob.keywords || [] },
     };
   }
 
@@ -160,5 +185,5 @@ Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;
     return uspesne;
   }
 
-  return { generujSadu };
+  return { generujSadu, makeKontrola };
 })();

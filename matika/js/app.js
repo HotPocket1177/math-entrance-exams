@@ -27,6 +27,7 @@ const App = (() => {
   // ─── Per-cyklus výběr úloh ───────────────────────────────────
   const TASKS_PER_CYCLE    = 5;
   const HISTORY_KEY        = 'matika_history';           // { temaId: { taskId: timestampMs } }
+  const SESSION_KEY        = 'matika_session_stav';      // sessionStorage: obnova po hard refresh
   const COOLDOWN_PRIMARY   = 30 * 24 * 60 * 60 * 1000;  // 30 dní (ideál)
   const COOLDOWN_SECONDARY =  7 * 24 * 60 * 60 * 1000;  // 7 dní (fallback)
 
@@ -65,6 +66,63 @@ const App = (() => {
 
   function smazKonverzaci(temaId, ulohaId) {
     localStorage.removeItem(_konvKlic(temaId, ulohaId));
+  }
+
+  // ─── Session stav (obnova po hard refresh) ────────────────────
+  // Ukládá se do sessionStorage (přežije Ctrl+Shift+R ve stejném tabu,
+  // ale ne zavření tabu). Maže se při Zpět na home nebo dokončení cyklu.
+
+  function ulozSessionStav() {
+    if (!aktualniTema?.ulohy?.length) return;
+    const temaId = aktualniTema._temaId || aktualniTema.id;
+    try {
+      // kontrola je funkce — nelze serializovat; obnoví se přes _rekonstruujKontrola
+      const ulohySerial = aktualniTema.ulohy.map(({ kontrola, ...rest }) => rest);
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+        temaId,
+        tema:  { ...aktualniTema, ulohy: ulohySerial },
+        index: aktualniUlohaIndex,
+        skore: { ...skore }
+      }));
+    } catch {}
+  }
+
+  function smazSessionStav() {
+    sessionStorage.removeItem(SESSION_KEY);
+  }
+
+  function _rekonstruujKontrola(u) {
+    // Statické příklady: kontrola funkce je uložena v TEMATA
+    if (!u.id.startsWith('gen_')) {
+      for (const t of TEMATA) {
+        const nalezena = (t.ulohy || []).find(s => s.id === u.id);
+        if (nalezena?.kontrola) return nalezena.kontrola;
+      }
+    }
+    // AI-generované: _meta obsahuje answerType/answerValue/tolerance/keywords
+    if (u._meta) return Generator.makeKontrola(u._meta);
+    // Poslední záchrana — volná shoda s odpovědí
+    return (vstup) => {
+      const n = vstup.trim().toLowerCase();
+      const a = (u.odpoved || '').toLowerCase();
+      return n.length > 0 && (n.includes(a.substring(0, 6)) || a.includes(n.substring(0, 6)));
+    };
+  }
+
+  function obnovSessionStav() {
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (!data?.temaId || !data?.tema?.ulohy?.length) return null;
+      const ulohy = data.tema.ulohy.map(u => ({ ...u, kontrola: _rekonstruujKontrola(u) }));
+      return {
+        temaId: data.temaId,
+        tema:   { ...data.tema, ulohy },
+        index:  data.index ?? 0,
+        skore:  data.skore ?? { spravne: 0, celkem: ulohy.length }
+      };
+    } catch { return null; }
   }
 
   // ─── Správa obrazovek ─────────────────────────────────────────
@@ -122,6 +180,17 @@ const App = (() => {
     document.getElementById('dropdown-email').textContent  = email;
     document.getElementById('user-dropdown-wrap').classList.remove('hidden');
     renderDropdownTridy();
+
+    // Obnova po hard refresh — pokud byl uživatel uprostřed sady, vrátíme ho tam
+    const savedStav = obnovSessionStav();
+    if (savedStav && !SessionProgress.jeZamceno(savedStav.temaId)) {
+      const temaObj = TEMATA.find(t => t.id === savedStav.temaId);
+      if (temaObj) {
+        _resumeState = savedStav;
+        await spustTema(temaObj);
+        return;
+      }
+    }
 
     zobrazDomovskou();
   }
@@ -461,6 +530,7 @@ const App = (() => {
 
   async function _dokonceniSadyImpl() {
     _resumeState = null;
+    smazSessionStav();  // cyklus dokončen — obnova po refreshi by nezměnila stav
     const temaId = aktualniTema._temaId || aktualniTema.id;
     const userId = Auth.getSession()?.user?.id;
 
@@ -525,6 +595,7 @@ const App = (() => {
       return;
     }
     aktualniUlohaIndex = index;
+    ulozSessionStav();  // přežije hard refresh (Ctrl+Shift+R) ve stejném tabu
     const uloha = aktualniTema.ulohy[index];
     dialogLog = [];
 
@@ -941,6 +1012,7 @@ const App = (() => {
     // Odhlášení
     document.getElementById('btn-logout').addEventListener('click', async () => {
       zavriDropdown();
+      smazSessionStav();  // po odhlášení nechceme obnovovat stav jiného uživatele
       await Auth.odhlas();
       profil         = null;
       odemcenaTemata = null;
@@ -971,6 +1043,7 @@ const App = (() => {
 
     document.getElementById('btn-zpet-z-ulohy').addEventListener('click', () => {
       ulozKonverzaci();
+      smazSessionStav();  // hard refresh z home screenu = bez obnovy rozpracované sady
       // Ulož stav jen pokud jsou úlohy skutečně načteny (ne uprostřed generování).
       // Bez tohoto guardu by Zpět během generování zachytil prázdné aktualniTema.ulohy
       // a při návratu by nactiUlohu(0) skočilo rovnou na dokonceniSady.
