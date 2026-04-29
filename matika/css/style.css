@@ -544,6 +544,20 @@ a { color: var(--color-primary); text-decoration: none; }
 }
 .dropdown-odhlasit:hover { background: var(--color-surface2); }
 
+.dropdown-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .38rem 1rem;
+  font-size: .85rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  user-select: none;
+  transition: background .1s;
+}
+.dropdown-checkbox-label:hover { background: var(--color-surface2); }
+.dropdown-checkbox-label input[type="checkbox"] { accent-color: var(--color-primary); cursor: pointer; }
+
 /* ── Home header ── */
 .home-header {
   display: flex;

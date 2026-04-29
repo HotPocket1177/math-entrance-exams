@@ -63,14 +63,33 @@ const Auth = (() => {
     if (!_session) return null;
     const { data, error } = await _supabase
       .from('profiles')
-      .select('trida')
+      .select('trida, last_seen_version, email_updates')
       .eq('id', _session.user.id)
       .maybeSingle();
     if (error) {
       console.warn('Nepodařilo se načíst profil:', error.message);
       return null;
     }
-    return data ?? null; // { trida: 8 } nebo null pokud profil neexistuje
+    return data ?? null;
+  }
+
+  // ── Novinky: zaznamenej že uživatel viděl aktuální verzi ─────
+  async function ulozVerziZobrazeni(verze) {
+    if (!_session) return;
+    await _supabase
+      .from('profiles')
+      .update({ last_seen_version: verze })
+      .eq('id', _session.user.id);
+  }
+
+  // ── E-mail preference (opt-in / opt-out) ─────────────────────
+  async function ulozEmailPreferenci(hodnota) {
+    if (!_session) return;
+    const { error } = await _supabase
+      .from('profiles')
+      .update({ email_updates: hodnota })
+      .eq('id', _session.user.id);
+    if (error) console.warn('Chyba uložení email preference:', error.message);
   }
 
   // ── Gettery ───────────────────────────────────────────────────
@@ -86,6 +105,8 @@ const Auth = (() => {
     prihlasuj,
     odhlas,
     getProfil,
+    ulozVerziZobrazeni,
+    ulozEmailPreferenci,
     getJwt,
     getSession,
     jeAuthenticated,

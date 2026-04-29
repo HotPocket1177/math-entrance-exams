@@ -19,5 +19,10 @@ const CONFIG = {
   // ── Feature flags ─────────────────────────────────────────────
   // true  = volání přes Supabase Edge Function (JWT auth, klíč v secrets)
   // false = přímé volání OpenAI z prohlížeče (dev mód bez Supabase)
-  useEdgeFunction: true
+  useEdgeFunction: true,
+
+  // ── Verze aplikace (novinky) ──────────────────────────────────
+  // Při vydání nové verze změň appVersion — uživatelům se zobrazí modal "Co je nového".
+  appVersion:   'v1.5',
+  appChangelog: 'Obnova konverzace po kliknutí Zpět, přísnější AI kouč (méně napovídá), opravy denního limitu cyklů, zlomky se zobrazují správně.'
 };

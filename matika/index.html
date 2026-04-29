@@ -31,6 +31,11 @@
             <div class="dropdown-label">Třída</div>
             <div id="dropdown-tridy" class="dropdown-tridy"></div>
             <div class="dropdown-divider"></div>
+            <label class="dropdown-checkbox-label" role="menuitemcheckbox">
+              <input type="checkbox" id="chk-email-updates" autocomplete="off">
+              <span>Novinky e-mailem</span>
+            </label>
+            <div class="dropdown-divider"></div>
             <button id="btn-logout" class="dropdown-odhlasit" role="menuitem">Odhlásit</button>
           </div>
         </div>
@@ -267,6 +272,18 @@
         <p class="modal-text">Dokončil/a jsi toto téma 3×.<br>To je pro dnešek maximum —<br>mozek potřebuje čas na zpracování.</p>
         <p class="modal-text modal-text--accent">Zítra na tebe čeká nová sada.</p>
         <button id="btn-modal-zpet" class="btn-primary">Zpět na témata</button>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         MODAL — Co je nového
+    ═══════════════════════════════════════════════════════ -->
+    <div id="modal-novinky" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-novinky-title">
+      <div class="modal-karta">
+        <div class="modal-ikona">🚀</div>
+        <h2 id="modal-novinky-title" class="modal-nadpis">Co je nového</h2>
+        <p id="modal-novinky-text" class="modal-text"></p>
+        <button id="btn-modal-novinky-ok" class="btn-primary">Rozumím</button>
       </div>
     </div>
 

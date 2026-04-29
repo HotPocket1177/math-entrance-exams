@@ -193,6 +193,7 @@ const App = (() => {
     }
 
     zobrazDomovskou();
+    zkontrolujNovinky();
   }
 
   // ─── Dropdown: výběr třídy ────────────────────────────────────
@@ -209,6 +210,10 @@ const App = (() => {
       item.addEventListener('click', () => zmenTridu(t));
       wrap.appendChild(item);
     });
+
+    // Nastav checkbox pro e-mail novinky
+    const chk = document.getElementById('chk-email-updates');
+    if (chk) chk.checked = profil?.email_updates === true;
   }
 
   async function zmenTridu(novaTrida) {
@@ -231,6 +236,19 @@ const App = (() => {
   function zavriDropdown() {
     document.getElementById('user-dropdown').classList.add('hidden');
     document.getElementById('btn-user-avatar').setAttribute('aria-expanded', 'false');
+  }
+
+  // ─── Novinky: modal "Co je nového" ───────────────────────────
+  async function zkontrolujNovinky() {
+    if (profil?.last_seen_version === CONFIG.appVersion) return;
+    document.getElementById('modal-novinky-text').textContent = CONFIG.appChangelog;
+    document.getElementById('modal-novinky').classList.remove('hidden');
+  }
+
+  function zavriModalNovinky() {
+    document.getElementById('modal-novinky').classList.add('hidden');
+    Auth.ulozVerziZobrazeni(CONFIG.appVersion);
+    profil = { ...profil, last_seen_version: CONFIG.appVersion };
   }
 
   // ─── localStorage helpers ────────────────────────────────────
@@ -1096,6 +1114,19 @@ const App = (() => {
     document.getElementById('btn-modal-zpet')?.addEventListener('click', zavriModalDnesHotovo);
     document.getElementById('modal-dnes-hotovo')?.addEventListener('click', e => {
       if (e.target === e.currentTarget) zavriModalDnesHotovo();
+    });
+
+    // Modal "Co je nového" — zavřít
+    document.getElementById('btn-modal-novinky-ok')?.addEventListener('click', zavriModalNovinky);
+    document.getElementById('modal-novinky')?.addEventListener('click', e => {
+      if (e.target === e.currentTarget) zavriModalNovinky();
+    });
+
+    // Checkbox "Novinky e-mailem"
+    document.getElementById('chk-email-updates')?.addEventListener('change', async e => {
+      const hodnota = e.target.checked;
+      profil = { ...profil, email_updates: hodnota };
+      await Auth.ulozEmailPreferenci(hodnota);
     });
 
     // Záchranný save konverzace při opuštění tabu + obnova home screen %
