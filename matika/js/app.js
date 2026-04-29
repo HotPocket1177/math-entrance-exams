@@ -16,6 +16,14 @@ const App = (() => {
   let _signOutTimer    = null;   // debounce timer — zabraňuje falešnému odhlášení při obnově tokenu
   let _pokracujBezi    = false;  // guard proti souběžným voláním pokracujPoLoginu
 
+  // ─── Concurrency guards ───────────────────────────────────────
+  // INVARIANT: spustiSadu() (count++) se volá VÝHRADNĚ z dokonceniSady(),
+  // nikdy z spustTema(). Tím se count přičítá jen při skutečném dokončení.
+  // Tyto guardy zajišťují, že spustTema ani dokonceniSady nemohou běžet
+  // souběžně (dvojklik, race condition) a tím double-chargovat cycle.
+  let _spustTemaBeziPro = false;  // brání souběžnému spouštění (dvojklik, race)
+  let _sadaSeKonci      = false;  // brání double-volání dokonceniSady
+
   // ─── Per-cyklus výběr úloh ───────────────────────────────────
   const TASKS_PER_CYCLE    = 5;
   const HISTORY_KEY        = 'matika_history';           // { temaId: { taskId: timestampMs } }
@@ -345,6 +353,16 @@ const App = (() => {
 
   // ─── Spuštění tématu ──────────────────────────────────────────
   async function spustTema(tema) {
+    if (_spustTemaBeziPro) return;   // dvojklik nebo souběžné volání → ignoruj
+    _spustTemaBeziPro = true;
+    try {
+      await _spustTemaImpl(tema);
+    } finally {
+      _spustTemaBeziPro = false;
+    }
+  }
+
+  async function _spustTemaImpl(tema) {
     const temaId = tema._temaId || tema.id;
 
     // Pokud máme uložený stav pro toto téma (uživatel kliknul Zpět uprostřed sady),
@@ -374,8 +392,9 @@ const App = (() => {
     const userId = Auth.getSession()?.user?.id;
 
     _resumeState = null;
-    const { count: cyklusCount, zamceno: uzamceno } = await SessionProgress.spustiSadu(temaId, userId);
-    if (uzamceno) {
+
+    // Cycle se počítá při DOKONČENÍ sady (ne při spuštění) — jen zkontroluj zámek
+    if (SessionProgress.jeZamceno(temaId)) {
       zobrazDomovskou();
       zobrazModalDnesHotovo();
       return;
@@ -385,6 +404,12 @@ const App = (() => {
     let vybrane = null;
 
     if (Api.jeAiDostupne()) {
+      // Nastav aktualniTema ihned s prázdnými úlohami — Zpět tak zachytí správné temaId
+      // i když generování ještě neskončilo.
+      aktualniTema       = { ...tema, ulohy: [] };
+      aktualniUlohaIndex = 0;
+      skore              = { spravne: 0, celkem: 0 };
+
       zobrazUlohu();
       document.getElementById('uloha-tema-nazev').textContent = tema.nazev;
       zobrazNacitani('Generuji nové příklady… ⏳');
@@ -401,6 +426,9 @@ const App = (() => {
       }
 
       zobrazNacitani(null);
+
+      // Uživatel přešel jinam během generování → tiše storno, žádný cyklus se nezapočítá
+      if (document.getElementById('screen-uloha').classList.contains('hidden')) return;
     }
 
     // ── Fallback: statický pool ───────────────────────────────
@@ -414,8 +442,6 @@ const App = (() => {
     aktualniUlohaIndex = 0;
     skore              = { spravne: 0, celkem: vybrane.length };
     dialogLog          = [];
-    // Ulož count pro dokonceniSady (ví kolik cyklů dnes proběhlo)
-    aktualniTema._cyklusCount = cyklusCount;
     zobrazUlohu();
     document.getElementById('uloha-tema-nazev').textContent = tema.nazev;
     nactiUlohu(0);
@@ -424,58 +450,62 @@ const App = (() => {
   // ─── Dokončení celé sady ──────────────────────────────────────
   // Volá se z nactiUlohu() když index překročí délku sady.
   async function dokonceniSady() {
-    _resumeState = null;  // Sada dokončena — není co obnovit
+    if (_sadaSeKonci) return;  // dvojklik na "Další" nebo race → ignoruj
+    _sadaSeKonci = true;
+    try {
+      await _dokonceniSadyImpl();
+    } finally {
+      _sadaSeKonci = false;
+    }
+  }
+
+  async function _dokonceniSadyImpl() {
+    _resumeState = null;
     const temaId = aktualniTema._temaId || aktualniTema.id;
     const userId = Auth.getSession()?.user?.id;
-    // Count byl inkrementován v spustTema() — tady jen čteme aktuální stav
-    const count   = aktualniTema._cyklusCount || SessionProgress.getDokonceniCount(temaId);
-    const zamceno = count >= 3;
 
-    if (zamceno) {
+    // Zaregistruj dokončení tohoto cyklu — count++ se děje TEĎ (ne při startu)
+    const { count, zamceno } = await SessionProgress.spustiSadu(temaId, userId);
+
+    if (zamceno || count >= 3) {
+      // Třetí cyklus dokončen → uzamkni do půlnoci
       await SessionProgress.uzamkniSadu(temaId, userId);
       zobrazDomovskou();
       zobrazModalDnesHotovo();
-    } else {
-      // Zaregistruj nový cyklus hned při startu (stejný princip jako v spustTema)
-      const { count: novyCount, zamceno: uzamceno2 } = await SessionProgress.spustiSadu(temaId, userId);
-      if (uzamceno2) {
-        zobrazDomovskou();
-        zobrazModalDnesHotovo();
-        return;
-      }
-
-      const zbyvaPocet = 3 - novyCount;  // kolik cyklů zbývá po tomto
-      const trida      = profil?.trida || 8;
-
-      let vybrane = null;
-
-      if (Api.jeAiDostupne()) {
-        zobrazNacitani('Připravuji další příklady…');
-        try {
-          vybrane = await Generator.generujSadu(temaId, trida, TASKS_PER_CYCLE);
-        } catch {
-          vybrane = null;
-        }
-        zobrazNacitani(null);
-      }
-
-      if (!vybrane) {
-        const pool  = Syllabus.getUlohyProTridu(temaId, trida);
-        const zdroj = pool.length > 0 ? pool : (TEMATA.find(t => t.id === temaId)?.ulohy || []);
-        vybrane = selectUlohyProCyklus(temaId, zdroj);
-      }
-
-      aktualniTema = { ...aktualniTema, ulohy: vybrane, _cyklusCount: novyCount };
-      skore        = { spravne: 0, celkem: vybrane.length };
-      dialogLog    = [];
-
-      zobrazUlohu();
-      document.getElementById('uloha-tema-nazev').textContent = aktualniTema.nazev;
-      const introText = zbyvaPocet === 0
-        ? 'Sada dokončena! Tohle je tvůj poslední cyklus na dnes.'
-        : `Sada dokončena! Ještě ${zbyvaPocet}× a máš dnešní limit.`;
-      nactiUlohu(0, introText);
+      return;
     }
+
+    const zbyvaPocet = 3 - count;
+    const trida      = profil?.trida || 8;
+
+    let vybrane = null;
+
+    if (Api.jeAiDostupne()) {
+      zobrazNacitani('Připravuji další příklady…');
+      try {
+        vybrane = await Generator.generujSadu(temaId, trida, TASKS_PER_CYCLE);
+      } catch {
+        vybrane = null;
+      }
+      zobrazNacitani(null);
+    }
+
+    if (!vybrane) {
+      const pool  = Syllabus.getUlohyProTridu(temaId, trida);
+      const zdroj = pool.length > 0 ? pool : (TEMATA.find(t => t.id === temaId)?.ulohy || []);
+      vybrane = selectUlohyProCyklus(temaId, zdroj);
+    }
+
+    aktualniTema = { ...aktualniTema, ulohy: vybrane };
+    skore        = { spravne: 0, celkem: vybrane.length };
+    dialogLog    = [];
+
+    zobrazUlohu();
+    document.getElementById('uloha-tema-nazev').textContent = aktualniTema.nazev;
+    const introText = zbyvaPocet === 0
+      ? 'Sada dokončena! Tohle je tvůj poslední cyklus na dnes.'
+      : `Sada dokončena! Ještě ${zbyvaPocet}× a máš dnešní limit.`;
+    nactiUlohu(0, introText);
   }
 
   // ─── Modal "Skvělá práce na dnes!" ────────────────────────────
@@ -915,20 +945,24 @@ const App = (() => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); odeslat(); }
     });
 
-    document.getElementById('btn-dalsi').addEventListener('click', async () => {
+    document.getElementById('btn-dalsi').addEventListener('click', async (e) => {
+      e.currentTarget.disabled = true;  // zabráň dvojkliku
       const jePosledni = aktualniUlohaIndex >= aktualniTema.ulohy.length - 1;
       if (jePosledni) {
-        // Poslední úloha sady — spusť flow dokončení (počítadlo + případné uzamčení)
         await dokonceniSady();
       } else {
         nactiUlohu(aktualniUlohaIndex + 1);
       }
+      // Re-enable pokud stránka zůstala na screen-uloha (nactiUlohu ji skryje/znovuzobrazí)
+      e.currentTarget.disabled = false;
     });
 
     document.getElementById('btn-zpet-z-ulohy').addEventListener('click', () => {
       ulozKonverzaci();
-      // Vždy ulož stav — i na první úloze. Zabrání dvojímu nabití cycle charge při návratu.
-      _resumeState = aktualniTema ? {
+      // Ulož stav jen pokud jsou úlohy skutečně načteny (ne uprostřed generování).
+      // Bez tohoto guardu by Zpět během generování zachytil prázdné aktualniTema.ulohy
+      // a při návratu by nactiUlohu(0) skočilo rovnou na dokonceniSady.
+      _resumeState = (aktualniTema?.ulohy?.length > 0) ? {
         temaId: aktualniTema._temaId || aktualniTema.id,
         tema:   aktualniTema,
         index:  aktualniUlohaIndex,
