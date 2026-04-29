@@ -81,6 +81,8 @@ PRAVIDLA PRO postup[]:
 - Popis vysvětluje CO děláme (pojmenuj operaci: "Odečteme...", "Dosadíme...", "Vydělíme obě strany...") a PROČ
 - Popis musí být pochopitelný žákovi 8.–9. třídy bez dalšího vysvětlení
 - Poslední krok má stav "vysledek" a jeho latex obsahuje finální číslo
+- V poli "latex" NIKDY nepíš $ ani $$ — piš čistý LaTeX bez delimitérů (např. "x = 5", ne "$x = 5$")
+- Desetinná čárka v LaTeX: piš {,} místo , (např. "4{,}5" ne "4,5") — jinak se vykreslí mezera
 
 Pro slovní úlohy s více hodnotami (soustava) použij "answerType": "keywords", "keywords": ["hodnota1", "hodnota2"].
 Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;

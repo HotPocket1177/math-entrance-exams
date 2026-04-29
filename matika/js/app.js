@@ -695,12 +695,24 @@ const App = (() => {
     const el  = document.createElement('div');
     const typ = krok.stav === 'vysledek' ? 'vysledek' : cssTyp;
     el.className = `vypocet-krok vypocet-krok--${typ}`;
-    let html = '';
-    if (krok.popis) html += `<p class="krok-popis">${escapujHtml(krok.popis)}</p>`;
-    html += `<div class="krok-latex">${MathRender.renderStep(`$${krok.latex}$`)}</div>`;
-    el.innerHTML = html;
+
+    if (krok.popis) {
+      const popisEl = document.createElement('p');
+      popisEl.className = 'krok-popis';
+      popisEl.textContent = krok.popis;  // textContent → $ v textu zpracuje renderMath níže
+      el.appendChild(popisEl);
+    }
+
+    // Odstraň případné $ které AI přidala, pak přidej $ pro renderMath — stejný přístup
+    // jako v dialog nápovědách (textContent + renderMath, bez double-rendering přes renderStep).
+    const latexEl = document.createElement('div');
+    latexEl.className = 'krok-latex';
+    const latex = (krok.latex || '').replace(/^\$+|\$+$/g, '').trim();
+    if (latex) latexEl.textContent = `$${latex}$`;
+    el.appendChild(latexEl);
+
     log.appendChild(el);
-    MathRender.renderMath(el);
+    MathRender.renderMath(el);  // jeden průchod, zpracuje popis i latex
     log.scrollTop = log.scrollHeight;
   }
 
