@@ -136,16 +136,59 @@ const App = (() => {
 
   function zobrazDomovskou()  { zobrazScreen('screen-home');    renderTemata(); }
   function zobrazProfil()     {
-    // Naplň profil hodnoty před zobrazením
     const email = Auth.getSession()?.user?.email || '';
-    document.getElementById('profil-avatar-inicialy').textContent = email.charAt(0).toUpperCase() || '?';
     document.getElementById('profil-email-text').textContent = email;
+    renderProfilAvatar(email);
     renderProfilTridy();
     document.getElementById('profil-chk-email').checked = profil?.email_updates === true;
     document.getElementById('profil-chk-dark').checked  = document.documentElement.getAttribute('data-theme') === 'dark';
     document.getElementById('profil-zprava').classList.add('hidden');
     zavriDropdown();
     zobrazScreen('screen-profil');
+  }
+
+  // ─── Avatar: zobrazení + upload ──────────────────────────────
+  function renderProfilAvatar(email) {
+    const el       = document.getElementById('profil-avatar-inicialy');
+    const saved    = localStorage.getItem('matika_avatar');
+    if (saved) {
+      el.innerHTML = `<img src="${saved}" alt="Profilovka" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+      // Synchronizuj i header avatar
+      const hdr = document.getElementById('avatar-inicialy');
+      if (hdr) hdr.innerHTML = `<img src="${saved}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+    } else {
+      const ini = (email || '?').charAt(0).toUpperCase();
+      el.textContent = ini;
+      const hdr = document.getElementById('avatar-inicialy');
+      if (hdr) hdr.textContent = ini;
+    }
+  }
+
+  function initAvatarUpload() {
+    const btnZmenit = document.getElementById('btn-avatar-zmenit');
+    const input     = document.getElementById('input-avatar');
+    if (!btnZmenit || !input) return;
+
+    btnZmenit.addEventListener('click', () => input.click());
+
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) {
+        alert('Fotka je příliš velká. Vyber obrázek do 2 MB.');
+        input.value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target.result;
+        localStorage.setItem('matika_avatar', dataUrl);
+        const email = Auth.getSession()?.user?.email || '';
+        renderProfilAvatar(email);
+      };
+      reader.readAsDataURL(file);
+      input.value = '';
+    });
   }
 
   // ─── Profil: výběr třídy ─────────────────────────────────────
@@ -201,10 +244,12 @@ const App = (() => {
       zpravaEl.textContent = '✓ Změny uloženy';
       zpravaEl.className   = 'profil-zprava profil-zprava--ok';
       // Aplikuj dark mode
-      const newTheme = darkMode ? 'dark' : 'light';
-      document.documentElement.setAttribute('data-theme', newTheme);
+      if (darkMode) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
       localStorage.setItem('matika_darkmode', darkMode ? '1' : '0');
-      document.getElementById('btn-dark-mode').textContent = darkMode ? '☀️' : '🌙';
     }
     zpravaEl.classList.remove('hidden');
     setTimeout(() => zpravaEl.classList.add('hidden'), 3000);
@@ -250,9 +295,9 @@ const App = (() => {
 
     // Hlavička — zobraz avatar dropdown
     const email = session?.user?.email || Auth.getSession()?.user?.email || '';
-    document.getElementById('avatar-inicialy').textContent = email.charAt(0).toUpperCase() || '?';
     document.getElementById('dropdown-email').textContent  = email;
     document.getElementById('user-dropdown-wrap').classList.remove('hidden');
+    renderProfilAvatar(email);
     renderDropdownTridy();
 
     // Obnova po hard refresh — pokud byl uživatel uprostřed sady, vrátíme ho tam
@@ -1008,22 +1053,10 @@ const App = (() => {
 
   // ─── Dark mode ────────────────────────────────────────────────
   function initDarkMode() {
-    const btn       = document.getElementById('btn-dark-mode');
     const ulozene   = localStorage.getItem('matika_darkmode');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const dark      = ulozene !== null ? ulozene === '1' : prefersDark;
     if (dark) document.documentElement.setAttribute('data-theme', 'dark');
-
-    btn.addEventListener('click', () => {
-      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      if (isDark) {
-        document.documentElement.removeAttribute('data-theme');
-        localStorage.setItem('matika_darkmode', '0');
-      } else {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        localStorage.setItem('matika_darkmode', '1');
-      }
-    });
   }
 
   // ─── Auth event listenery ─────────────────────────────────────
@@ -1216,6 +1249,7 @@ const App = (() => {
   // ─── Inicializace ─────────────────────────────────────────────
   async function init() {
     initDarkMode();
+    initAvatarUpload();
 
     // Zaregistruj callback PŘED Auth.init() (race condition prevence)
     Auth.onSessionChange((event, session) => {

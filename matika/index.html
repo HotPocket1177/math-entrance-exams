@@ -33,7 +33,6 @@
             <button id="btn-logout" class="dropdown-odhlasit" role="menuitem">Odhlásit</button>
           </div>
         </div>
-        <button id="btn-dark-mode" class="btn-icon" title="Tmavý/světlý režim" aria-label="Přepnout tmavý/světlý režim">🌙</button>
       </div>
     </div>
   </header>
@@ -280,8 +279,13 @@
 
           <!-- Avatar + e-mail -->
           <div class="profil-avatar-sekce">
-            <div id="profil-avatar-inicialy" class="profil-avatar">?</div>
+            <div class="profil-avatar-wrap">
+              <div id="profil-avatar-inicialy" class="profil-avatar">?</div>
+              <button id="btn-avatar-zmenit" class="btn-avatar-zmenit" type="button" title="Změnit profilovku" aria-label="Nahrát profilovku">📷</button>
+              <input type="file" id="input-avatar" accept="image/*" class="hidden" aria-hidden="true" tabindex="-1">
+            </div>
             <div id="profil-email-text" class="profil-email-text"></div>
+            <p class="profil-avatar-hint">Klikni na 📷 pro nahrání fotky</p>
           </div>
 
           <!-- Třída -->
