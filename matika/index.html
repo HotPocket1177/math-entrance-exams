@@ -83,10 +83,15 @@
             <label class="apikey-label" for="reg-password">Heslo</label>
             <input id="reg-password" type="password" class="apikey-input" placeholder="Min. 8 znaků"  autocomplete="new-password">
 
+            <label class="gdpr-souhlas-label">
+              <input type="checkbox" id="chk-gdpr-souhlas" autocomplete="off">
+              <span>Souhlasím se <a href="docs/privacy.html" target="_blank" class="gdpr-link">zpracováním osobních údajů</a>. Je mi 16+ let nebo mám souhlas zákonného zástupce.</span>
+            </label>
+
             <p id="reg-chyba" class="apikey-chyba hidden" role="alert"></p>
 
             <div class="apikey-akce">
-              <button id="btn-registrovat" class="btn-primary">Vytvořit účet</button>
+              <button id="btn-registrovat" class="btn-primary" disabled>Vytvořit účet</button>
             </div>
           </div>
 
@@ -323,6 +328,19 @@
           <p id="profil-zprava" class="profil-zprava hidden"></p>
           <div class="profil-akce">
             <button id="btn-profil-ulozit" class="btn-primary">Uložit změny</button>
+          </div>
+
+          <!-- Správa účtu (GDPR) -->
+          <div class="profil-sekce profil-gdpr-sekce">
+            <h2 class="profil-sekce-nadpis">Správa účtu</h2>
+            <div class="profil-gdpr-akce">
+              <button id="btn-export-dat" class="btn-secondary" type="button">⬇ Stáhnout moje data</button>
+              <button id="btn-smazat-ucet" class="btn-danger" type="button">Smazat účet</button>
+            </div>
+            <p class="profil-sekce-popis">
+              Stažením získáš kopii všech svých dat (JSON). Smazáním účtu se trvale odstraní veškerá tvá data. Akce je nevratná.
+            </p>
+            <p id="profil-gdpr-zprava" class="profil-zprava hidden"></p>
           </div>
 
         </div>

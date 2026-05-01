@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ochrana osobních údajů — Matika přijímačky</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📐</text></svg>">
+  <style>
+    .privacy-container {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 0 1rem 4rem;
+    }
+    .privacy-zpet {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      margin: 1.5rem 0;
+      color: var(--color-primary);
+      text-decoration: none;
+      font-size: .9rem;
+      font-weight: 600;
+    }
+    .privacy-zpet:hover { text-decoration: underline; }
+    .privacy-nadpis {
+      font-family: var(--font-head);
+      font-size: 2rem;
+      font-weight: 900;
+      color: var(--color-text);
+      margin: 0 0 .4rem;
+    }
+    .privacy-datum {
+      font-size: .85rem;
+      color: var(--color-text-muted);
+      margin-bottom: 2.5rem;
+    }
+    .privacy-sekce {
+      margin-bottom: 2rem;
+    }
+    .privacy-sekce h2 {
+      font-family: var(--font-head);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--color-text);
+      margin: 0 0 .75rem;
+      padding-bottom: .4rem;
+      border-bottom: 2px solid var(--color-border);
+    }
+    .privacy-sekce p, .privacy-sekce li {
+      font-size: .95rem;
+      color: var(--color-text);
+      line-height: 1.7;
+    }
+    .privacy-sekce ul {
+      padding-left: 1.4rem;
+      margin: .5rem 0;
+    }
+    .privacy-sekce li { margin-bottom: .3rem; }
+    .privacy-tabulka {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .9rem;
+      margin: .75rem 0;
+    }
+    .privacy-tabulka th, .privacy-tabulka td {
+      text-align: left;
+      padding: .55rem .75rem;
+      border: 1px solid var(--color-border);
+    }
+    .privacy-tabulka th {
+      background: var(--color-surface2);
+      font-weight: 700;
+      color: var(--color-text);
+    }
+    .privacy-tabulka td { color: var(--color-text); }
+    .privacy-kontakt {
+      background: var(--color-surface2);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.25rem;
+      font-size: .9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="privacy-container">
+
+    <a href="../index.html" class="privacy-zpet">← Zpět do aplikace</a>
+
+    <h1 class="privacy-nadpis">Ochrana osobních údajů</h1>
+    <p class="privacy-datum">Platnost od: 1. 5. 2026 &nbsp;·&nbsp; Verze 1.0</p>
+
+    <div class="privacy-sekce">
+      <h2>1. Správce osobních údajů</h2>
+      <p>
+        Správcem osobních údajů zpracovávaných v aplikaci <strong>Matika přijímačky</strong> je fyzická osoba
+        provozující tuto aplikaci (dále jen „správce"). Kontakt pro záležitosti ochrany osobních údajů:
+      </p>
+      <div class="privacy-kontakt">
+        E-mail: <strong>simon@bischofstein.cz</strong>
+      </div>
+    </div>
+
+    <div class="privacy-sekce">
+      <h2>2. Jaké osobní údaje zpracováváme</h2>
+      <table class="privacy-tabulka">
+        <thead>
+          <tr><th>Údaj</th><th>Účel</th><th>Právní základ</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>E-mailová adresa</td><td>Přihlášení a identifikace účtu</td><td>Souhlas (čl. 6 odst. 1 písm. a) GDPR)</td></tr>
+          <tr><td>Heslo (hashované)</td><td>Ověření identity</td><td>Souhlas</td></tr>
+          <tr><td>Ročník (třída 6–9)</td><td>Přizpůsobení obsahu</td><td>Souhlas</td></tr>
+          <tr><td>Výsledky úloh a postup</td><td>Zobrazení statistik a odemykání témat</td><td>Souhlas</td></tr>
+          <tr><td>Preference e-mailových novinek</td><td>Zasílání informací o novinkách (jen s opt-in)</td><td>Souhlas</td></tr>
+          <tr><td>Profilovka (foto)</td><td>Personalizace uživatelského rozhraní</td><td>Souhlas — uloženo lokálně v prohlížeči</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Zpracováváme pouze údaje nezbytně nutné pro fungování aplikace. <strong>Neshromažďujeme</strong>
+        jméno, adresu, telefonní číslo ani žádné jiné citlivé osobní údaje.
+      </p>
+    </div>
+
+    <div class="privacy-sekce">
+      <h2>3. Kde jsou data uložena</h2>
+      <ul>
+        <li><strong>Supabase (Irsko / EU)</strong> — e-mail, hashované heslo, ročník, výsledky úloh, preference.
+          Supabase je GDPR-compliantní poskytovatel se serverovými farmami v EU.</li>
+        <li><strong>Tvůj prohlížeč (localStorage)</strong> — profilovka, preference tmavého režimu, cache výsledků.
+          Tato data neopouštějí tvůj počítač.</li>
+      </ul>
+    </div>
+
+    <div class="privacy-sekce">
+      <h2>4. Zpracovatelé a třetí strany</h2>
+      <table class="privacy-tabulka">
+        <thead>
+          <tr><th>Poskytovatel</th><th>Co zpracovává</th><th>Sídlo</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Supabase Inc.</strong></td>
+            <td>Autentizace, databáze (e-mail, výsledky, preference)</td>
+            <td>USA / servery EU (Irsko)</td>
+          </tr>
+          <tr>
+            <td><strong>Anthropic / OpenAI</strong></td>
+            <td>AI kouč — obsah konverzace (text otázek a odpovědí). <em>Neobsahuje osobní údaje.</em></td>
+            <td>USA (Standard Contractual Clauses)</td>
+          </tr>
+          <tr>
+            <td><strong>Resend Inc.</strong></td>
+            <td>Rozesílání novinek — e-mailová adresa (pouze opt-in uživatelé)</td>
+            <td>USA (Standard Contractual Clauses)</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>Se všemi zpracovateli máme uzavřenu smlouvu o zpracování osobních údajů (DPA).</p>
+    </div>
+
+    <div class="privacy-sekce">
+      <h2>5. Doba uchovávání dat</h2>
+      <ul>
+        <li><strong>Účet a osobní údaje</strong> — po dobu existence účtu. Po smazání účtu jsou všechna data okamžitě odstraněna.</li>
+        <li><strong>Výsledky úloh</strong> — po dobu existence účtu.</li>
+        <li><strong>Lokální data (localStorage)</strong> — do odhlášení nebo do smazání dat v prohlížeči.</li>
+        <li><strong>Zálohy Supabase</strong> — automaticky mazány do 30 dnů.</li>
+      </ul>
+    </div>
+
+    <div class="privacy-sekce">
+      <h2>6. Věkové omezení</h2>
+      <p>
+        Aplikace je přístupná osobám <strong>od 16 let</strong>. Mladší uživatelé se mohou registrovat
+        pouze se souhlasem zákonného zástupce. Souhlasem při registraci stvrzuješ, že splňuješ tuto podmínku.
+        Pokud zjistíme, že registraci provedla osoba mladší 16 let bez souhlasu zákonného zástupce, účet
+        bezodkladně smažeme.
+      </p>
+    </div>
+
+    <div class="privacy-sekce">
+      <h2>7. Tvá práva (GDPR)</h2>
+      <ul>
+        <li><strong>Právo na přístup</strong> — kdykoli si stáhneš kopii všech svých dat tlačítkem „Stáhnout moje data" v nastavení profilu.</li>
+        <li><strong>Právo na opravu</strong> — ročník a preference upravíš přímo v profilu.</li>
+        <li><strong>Právo na výmaz („být zapomenut")</strong> — smazáním účtu v profilu (sekce „Správa účtu") se okamžitě odstraní všechna tvá data ze všech systémů.</li>
+        <li><strong>Právo na přenositelnost</strong> — data ke stažení jsou ve formátu JSON (strojově čitelný).</li>
+        <li><strong>Právo odvolat souhlas</strong> — odvoláním souhlasu (smazáním účtu) přestane zpracování. Odvolání nemá vliv na zákonnost zpracování před jeho odvoláním.</li>
+        <li><strong>Právo podat stížnost</strong> — u Úřadu pro ochranu osobních údajů (uoou.cz).</li>
+      </ul>
+    </div>
+
+    <div class="privacy-sekce">
+      <h2>8. Cookies a localStorage</h2>
+      <p>
+        Aplikace <strong>nepoužívá tracking cookies</strong> ani analytické nástroje třetích stran.
+        Používáme výhradně technicky nezbytné záznamy v <code>localStorage</code> prohlížeče:
+      </p>
+      <ul>
+        <li>Session token (přihlášení) — technická nutnost</li>
+        <li>Preference tmavého režimu — uživatelské nastavení</li>
+        <li>Cache výsledků — zrychlení načítání</li>
+        <li>Profilovka — personalizace rozhraní</li>
+      </ul>
+      <p>Tato data jsou uložena pouze ve tvém prohlížeči a při odhlášení jsou smazána.</p>
+    </div>
+
+    <div class="privacy-sekce">
+      <h2>9. Kontakt a DPO</h2>
+      <div class="privacy-kontakt">
+        <p style="margin:0">
+          V otázkách ochrany osobních údajů nás kontaktuj na:<br>
+          <strong>simon@bischofstein.cz</strong><br>
+          Na žádosti odpovídáme do 30 dnů.
+        </p>
+      </div>
+    </div>
+
+    <div class="privacy-sekce">
+      <h2>10. Změny tohoto dokumentu</h2>
+      <p>
+        O podstatných změnách budeme registrované uživatele informovat e-mailem (pokud mají zapnuty novinky)
+        nebo in-app notifikací. Datum poslední aktualizace je vždy uvedeno v záhlaví dokumentu.
+      </p>
+    </div>
+
+  </div>
+</body>
+</html>

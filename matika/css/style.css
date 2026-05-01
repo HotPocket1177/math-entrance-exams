@@ -720,6 +720,65 @@ a { color: var(--color-primary); text-decoration: none; }
 
 .profil-akce { display: flex; justify-content: flex-end; }
 
+/* ── GDPR sekce v profilu ── */
+.profil-gdpr-sekce {
+  border-top: 2px solid var(--color-border);
+  padding-top: 1.5rem;
+}
+
+.profil-gdpr-akce {
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+
+.btn-danger {
+  padding: .55rem 1.1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-danger);
+  background: transparent;
+  color: var(--color-danger);
+  font-size: .9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.btn-danger:hover {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.btn-danger:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── GDPR consent checkbox na registraci ── */
+.gdpr-souhlas-label {
+  display: flex;
+  align-items: flex-start;
+  gap: .6rem;
+  font-size: .85rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin-bottom: .25rem;
+  cursor: pointer;
+}
+
+.gdpr-souhlas-label input[type="checkbox"] {
+  margin-top: .15rem;
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-primary);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.gdpr-link {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.gdpr-link:hover { opacity: .8; }
+
 .profil-zprava {
   font-size: .88rem;
   font-weight: 500;

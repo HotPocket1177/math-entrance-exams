@@ -91,6 +91,19 @@ const App = (() => {
     sessionStorage.removeItem(SESSION_KEY);
   }
 
+  function vycistiLocalStorage() {
+    const zachovat = new Set(['matika_darkmode', 'matika_openai_key']);
+    const smazat   = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('matika_') && !zachovat.has(key)) {
+        smazat.push(key);
+      }
+    }
+    smazat.forEach(k => localStorage.removeItem(k));
+    sessionStorage.removeItem(SESSION_KEY);
+  }
+
   function _rekonstruujKontrola(u) {
     // Statické příklady: kontrola funkce je uložena v TEMATA
     if (!u.id.startsWith('gen_')) {
@@ -386,6 +399,75 @@ const App = (() => {
     zpravaEl.classList.remove('hidden');
     setTimeout(() => zpravaEl.classList.add('hidden'), 3000);
   }
+
+  // ─── GDPR: export dat ─────────────────────────────────────────
+  async function exportDat() {
+    const sb     = Auth.getSupabase();
+    const userId = Auth.getSession()?.user?.id;
+    const email  = Auth.getSession()?.user?.email;
+
+    const [profilRes, progressRes, sessionRes] = await Promise.all([
+      sb.from('profiles').select('*').eq('id', userId).single(),
+      sb.from('progress').select('*').eq('user_id', userId),
+      sb.from('session_progress').select('*').eq('user_id', userId),
+    ]);
+
+    const exportData = {
+      exportDatum: new Date().toISOString(),
+      uzivatel:    { id: userId, email },
+      profil:      profilRes.data,
+      progress:    progressRes.data,
+      sessionProgress: sessionRes.data,
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `matika-moje-data-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ─── GDPR: smazání účtu ───────────────────────────────────────
+  async function smazatUcet() {
+    const potvrzeni = confirm(
+      'Opravdu chceš smazat svůj účet?\n\nBudou trvale odstraněna všechna tvá data (výsledky, postup, nastavení). Tuto akci nelze vrátit.'
+    );
+    if (!potvrzeni) return;
+
+    const zpravaEl = document.getElementById('profil-gdpr-zprava');
+    const btnSmazat = document.getElementById('btn-smazat-ucet');
+    btnSmazat.disabled = true;
+    btnSmazat.textContent = 'Mažu…';
+
+    try {
+      const jwt = Auth.getJwt();
+      const res = await fetch(`${CONFIG.supabaseUrl}/functions/v1/delete-account`, {
+        method:  'POST',
+        headers: { 'Authorization': `Bearer ${jwt}` },
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'Neznámá chyba');
+
+      // Smaž lokální data a odhlás
+      vycistiLocalStorage();
+      profil         = null;
+      odemcenaTemata = null;
+      SessionProgress.resetCache();
+      document.getElementById('user-dropdown-wrap').classList.add('hidden');
+      zobrazAuthScreen();
+    } catch (e) {
+      btnSmazat.disabled = false;
+      btnSmazat.textContent = 'Smazat účet';
+      zpravaEl.textContent = `Chyba: ${e.message}`;
+      zpravaEl.className = 'profil-zprava profil-zprava--chyba';
+      zpravaEl.classList.remove('hidden');
+      setTimeout(() => zpravaEl.classList.add('hidden'), 5000);
+    }
+  }
+
   function zobrazUlohu()      { zobrazScreen('screen-uloha'); }
   function zobrazVysledky()   { zobrazScreen('screen-vysledky'); renderVysledky(); }
   function zobrazAuthScreen() { zobrazScreen('screen-auth'); }
@@ -1235,14 +1317,18 @@ const App = (() => {
     });
 
     // Registrace
-    document.getElementById('btn-registrovat').addEventListener('click', async () => {
+    const chkGdpr   = document.getElementById('chk-gdpr-souhlas');
+    const btnReg    = document.getElementById('btn-registrovat');
+    chkGdpr.addEventListener('change', () => { btnReg.disabled = !chkGdpr.checked; });
+
+    btnReg.addEventListener('click', async () => {
+      if (!chkGdpr.checked) return;
       const email    = document.getElementById('reg-email').value.trim();
       const password = document.getElementById('reg-password').value;
       const chybaEl  = document.getElementById('reg-chyba');
       chybaEl.classList.add('hidden');
       try {
         await Auth.registruj(email, password);
-        // Supabase pošle potvrzovací e-mail
         chybaEl.style.color = 'var(--color-success)';
         chybaEl.textContent = '✅ Účet vytvořen! Zkontroluj e-mail a klikni na potvrzovací odkaz.';
         chybaEl.classList.remove('hidden');
@@ -1256,7 +1342,7 @@ const App = (() => {
     // Odhlášení
     document.getElementById('btn-logout').addEventListener('click', async () => {
       zavriDropdown();
-      smazSessionStav();  // po odhlášení nechceme obnovovat stav jiného uživatele
+      vycistiLocalStorage();
       await Auth.odhlas();
       profil         = null;
       odemcenaTemata = null;
@@ -1351,9 +1437,11 @@ const App = (() => {
     // Profil — otevřít
     document.getElementById('btn-otevre-profil')?.addEventListener('click', zobrazProfil);
 
-    // Profil — zpět + uložit
+    // Profil — zpět + uložit + GDPR akce
     document.getElementById('btn-zpet-z-profilu')?.addEventListener('click', zobrazDomovskou);
     document.getElementById('btn-profil-ulozit')?.addEventListener('click', ulozProfil);
+    document.getElementById('btn-export-dat')?.addEventListener('click', exportDat);
+    document.getElementById('btn-smazat-ucet')?.addEventListener('click', smazatUcet);
 
     // Záchranný save konverzace při opuštění tabu + obnova home screen %
     document.addEventListener('visibilitychange', () => {
