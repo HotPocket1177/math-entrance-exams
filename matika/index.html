@@ -341,6 +341,29 @@
       </div>
     </div>
 
+    <!-- ══════════════════════════════════════════════════════
+         MODAL — Upravit profilovku (crop)
+    ═══════════════════════════════════════════════════════ -->
+    <div id="modal-avatar-crop" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="avatar-crop-title">
+      <div class="avatar-crop-karta">
+        <h2 id="avatar-crop-title" class="avatar-crop-nadpis">Upravit profilovku</h2>
+        <p class="avatar-crop-hint">Přesuň fotografii a nastav přiblížení</p>
+        <div id="avatar-crop-okno" class="avatar-crop-okno">
+          <img id="avatar-crop-img" class="avatar-crop-img" alt="" draggable="false">
+          <div class="avatar-crop-overlay"></div>
+        </div>
+        <div class="avatar-crop-zoom-row">
+          <span class="avatar-crop-zoom-ico" aria-hidden="true">🔍</span>
+          <input type="range" id="avatar-crop-zoom-slider" class="avatar-crop-zoom-slider" step="any" aria-label="Přiblížení">
+          <span class="avatar-crop-zoom-ico" aria-hidden="true">🔎</span>
+        </div>
+        <div class="avatar-crop-akce">
+          <button id="btn-avatar-crop-zrusit" class="btn-secondary" type="button">Zrušit</button>
+          <button id="btn-avatar-crop-ulozit" class="btn-primary" type="button">Uložit</button>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <footer class="app-footer">

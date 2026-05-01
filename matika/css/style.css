@@ -731,6 +731,102 @@ a { color: var(--color-primary); text-decoration: none; }
 .profil-zprava--ok    { color: var(--color-success); background: color-mix(in srgb, var(--color-success) 10%, transparent); }
 .profil-zprava--chyba { color: var(--color-danger);  background: color-mix(in srgb, var(--color-danger)  10%, transparent); }
 
+/* ── Avatar crop modal ── */
+.avatar-crop-karta {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  width: 340px;
+  max-width: 95vw;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  box-shadow: 0 8px 40px rgba(0,0,0,.3);
+}
+
+.avatar-crop-nadpis {
+  font-family: var(--font-head);
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.avatar-crop-hint {
+  font-size: .82rem;
+  color: var(--color-text-muted);
+  text-align: center;
+  margin: -.4rem 0 0;
+}
+
+.avatar-crop-okno {
+  width: 280px;
+  height: 280px;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  margin: 0 auto;
+  background: #111;
+  border-radius: var(--radius-md);
+}
+
+.avatar-crop-okno:active { cursor: grabbing; }
+
+.avatar-crop-img {
+  position: absolute;
+  max-width: none;
+  pointer-events: none;
+  user-select: none;
+}
+
+.avatar-crop-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle 138px at 50% 50%,
+    transparent 0,
+    transparent 137px,
+    rgba(0,0,0,.6) 138px
+  );
+}
+
+.avatar-crop-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle 140px at 50% 50%,
+    transparent 135px,
+    rgba(255,255,255,.75) 136px,
+    rgba(255,255,255,.75) 139px,
+    transparent 140px
+  );
+}
+
+.avatar-crop-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+
+.avatar-crop-zoom-slider {
+  flex: 1;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.avatar-crop-zoom-ico { font-size: .95rem; line-height: 1; }
+
+.avatar-crop-akce {
+  display: flex;
+  gap: .75rem;
+  justify-content: flex-end;
+}
+
 .dropdown-profil-btn {
   width: 100%;
   text-align: left;

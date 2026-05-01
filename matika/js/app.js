@@ -174,20 +174,152 @@ const App = (() => {
     input.addEventListener('change', () => {
       const file = input.files?.[0];
       if (!file) return;
-      if (file.size > 2 * 1024 * 1024) {
-        alert('Fotka je příliš velká. Vyber obrázek do 2 MB.');
+      if (file.size > 10 * 1024 * 1024) {
+        alert('Fotka je příliš velká. Vyber obrázek do 10 MB.');
         input.value = '';
         return;
       }
       const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataUrl = e.target.result;
-        localStorage.setItem('matika_avatar', dataUrl);
-        const email = Auth.getSession()?.user?.email || '';
-        renderProfilAvatar(email);
-      };
+      reader.onload = (e) => otevriCropModal(e.target.result);
       reader.readAsDataURL(file);
       input.value = '';
+    });
+  }
+
+  // ─── Avatar crop modal ────────────────────────────────────────
+  let _cropImg      = null;
+  let _cropDragX    = 0;
+  let _cropDragY    = 0;
+  let _cropScale    = 1;
+  let _cropMinScale = 1;
+  let _cropDragging = false;
+  let _cropLastX    = 0;
+  let _cropLastY    = 0;
+
+  const CROP_SIZE = 280;  // px crop window
+
+  function otevriCropModal(dataUrl) {
+    const img = new Image();
+    img.onload = () => {
+      _cropImg      = img;
+      _cropMinScale = Math.max(CROP_SIZE / img.naturalWidth, CROP_SIZE / img.naturalHeight);
+      _cropScale    = _cropMinScale;
+      _cropDragX    = 0;
+      _cropDragY    = 0;
+
+      const slider  = document.getElementById('avatar-crop-zoom-slider');
+      slider.min    = _cropMinScale;
+      slider.max    = _cropMinScale * 4;
+      slider.value  = _cropScale;
+
+      _renderCropImg();
+      document.getElementById('modal-avatar-crop').classList.remove('hidden');
+    };
+    img.src = dataUrl;
+  }
+
+  function _renderCropImg() {
+    const imgEl = document.getElementById('avatar-crop-img');
+    const w = _cropImg.naturalWidth  * _cropScale;
+    const h = _cropImg.naturalHeight * _cropScale;
+    imgEl.src          = _cropImg.src;
+    imgEl.style.width  = `${w}px`;
+    imgEl.style.height = `${h}px`;
+    imgEl.style.left   = `${CROP_SIZE / 2 + _cropDragX - w / 2}px`;
+    imgEl.style.top    = `${CROP_SIZE / 2 + _cropDragY - h / 2}px`;
+  }
+
+  function _clampCropDrag() {
+    const halfW = (_cropImg.naturalWidth  * _cropScale) / 2;
+    const halfH = (_cropImg.naturalHeight * _cropScale) / 2;
+    const half  = CROP_SIZE / 2;
+    _cropDragX  = Math.max(half - halfW, Math.min(halfW - half, _cropDragX));
+    _cropDragY  = Math.max(half - halfH, Math.min(halfH - half, _cropDragY));
+  }
+
+  function initCropModalEventy() {
+    const okno   = document.getElementById('avatar-crop-okno');
+    const slider = document.getElementById('avatar-crop-zoom-slider');
+
+    // Drag — mouse
+    okno.addEventListener('mousedown', (e) => {
+      _cropDragging = true;
+      _cropLastX    = e.clientX;
+      _cropLastY    = e.clientY;
+      okno.style.cursor = 'grabbing';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!_cropDragging) return;
+      _cropDragX += e.clientX - _cropLastX;
+      _cropDragY += e.clientY - _cropLastY;
+      _cropLastX  = e.clientX;
+      _cropLastY  = e.clientY;
+      _clampCropDrag();
+      _renderCropImg();
+    });
+    document.addEventListener('mouseup', () => {
+      if (_cropDragging) { _cropDragging = false; okno.style.cursor = 'grab'; }
+    });
+
+    // Drag — touch
+    okno.addEventListener('touchstart', (e) => {
+      _cropDragging = true;
+      _cropLastX    = e.touches[0].clientX;
+      _cropLastY    = e.touches[0].clientY;
+      e.preventDefault();
+    }, { passive: false });
+    okno.addEventListener('touchmove', (e) => {
+      if (!_cropDragging) return;
+      _cropDragX += e.touches[0].clientX - _cropLastX;
+      _cropDragY += e.touches[0].clientY - _cropLastY;
+      _cropLastX  = e.touches[0].clientX;
+      _cropLastY  = e.touches[0].clientY;
+      _clampCropDrag();
+      _renderCropImg();
+      e.preventDefault();
+    }, { passive: false });
+    okno.addEventListener('touchend', () => { _cropDragging = false; });
+
+    // Zoom slider
+    slider.addEventListener('input', () => {
+      _cropScale = parseFloat(slider.value);
+      _clampCropDrag();
+      _renderCropImg();
+    });
+
+    // Zrušit
+    document.getElementById('btn-avatar-crop-zrusit').addEventListener('click', () => {
+      document.getElementById('modal-avatar-crop').classList.add('hidden');
+    });
+
+    // Uložit — vykreslit na canvas a exportovat JPEG
+    document.getElementById('btn-avatar-crop-ulozit').addEventListener('click', () => {
+      const out = 256;
+      const canvas = document.createElement('canvas');
+      canvas.width  = out;
+      canvas.height = out;
+      const ctx = canvas.getContext('2d');
+
+      // Kruhový clip
+      ctx.beginPath();
+      ctx.arc(out / 2, out / 2, out / 2, 0, Math.PI * 2);
+      ctx.clip();
+
+      // Zdrojový obdélník v přirozených pixelech obrázku
+      const srcW = CROP_SIZE / _cropScale;
+      const srcH = CROP_SIZE / _cropScale;
+      const srcX = _cropImg.naturalWidth  / 2 - (CROP_SIZE / 2 + _cropDragX) / _cropScale;
+      const srcY = _cropImg.naturalHeight / 2 - (CROP_SIZE / 2 + _cropDragY) / _cropScale;
+
+      ctx.drawImage(_cropImg, srcX, srcY, srcW, srcH, 0, 0, out, out);
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+      localStorage.setItem('matika_avatar', dataUrl);
+
+      const email = Auth.getSession()?.user?.email || '';
+      renderProfilAvatar(email);
+      document.getElementById('modal-avatar-crop').classList.add('hidden');
     });
   }
 
@@ -1250,6 +1382,7 @@ const App = (() => {
   async function init() {
     initDarkMode();
     initAvatarUpload();
+    initCropModalEventy();
 
     // Zaregistruj callback PŘED Auth.init() (race condition prevence)
     Auth.onSessionChange((event, session) => {
