@@ -91,15 +91,16 @@ const App = (() => {
     sessionStorage.removeItem(SESSION_KEY);
   }
 
-  function vycistiLocalStorage() {
-    // Avatar je klíčovaný per-userId — zachováme cizí avatary, smažeme jen aktuálního uživatele
+  function vycistiLocalStorage({ smazatAvatar = false } = {}) {
     const aktualniAvatarKlic = _avatarKlic();
     const zachovat = new Set(['matika_darkmode', 'matika_openai_key']);
-    const smazat   = [];
+    // Při normálním odhlášení avatar zachováme — uživatel ho uvidí po přihlášení
+    if (!smazatAvatar && aktualniAvatarKlic) zachovat.add(aktualniAvatarKlic);
+    const smazat = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (!key) continue;
-      if (key.startsWith('matika_avatar_') && key !== aktualniAvatarKlic) continue; // cizí avatary nechej
+      if (key.startsWith('matika_avatar_') && !smazatAvatar) continue; // cizí avatary vždy nechej
       if (key.startsWith('matika_') && !zachovat.has(key)) smazat.push(key);
     }
     smazat.forEach(k => localStorage.removeItem(k));
@@ -460,8 +461,8 @@ const App = (() => {
 
       if (!res.ok) throw new Error(data.error || 'Neznámá chyba');
 
-      // Nejdřív smaž lokální data, pak odhlás přes Supabase (smaže i sb-* tokeny)
-      vycistiLocalStorage();
+      // Nejdřív smaž lokální data včetně avataru (GDPR — smazání účtu), pak odhlás
+      vycistiLocalStorage({ smazatAvatar: true });
       profil         = null;
       odemcenaTemata = null;
       SessionProgress.resetCache();
