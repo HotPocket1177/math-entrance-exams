@@ -92,13 +92,15 @@ const App = (() => {
   }
 
   function vycistiLocalStorage() {
+    // Avatar je klíčovaný per-userId — zachováme cizí avatary, smažeme jen aktuálního uživatele
+    const aktualniAvatarKlic = _avatarKlic();
     const zachovat = new Set(['matika_darkmode', 'matika_openai_key']);
     const smazat   = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && key.startsWith('matika_') && !zachovat.has(key)) {
-        smazat.push(key);
-      }
+      if (!key) continue;
+      if (key.startsWith('matika_avatar_') && key !== aktualniAvatarKlic) continue; // cizí avatary nechej
+      if (key.startsWith('matika_') && !zachovat.has(key)) smazat.push(key);
     }
     smazat.forEach(k => localStorage.removeItem(k));
     sessionStorage.removeItem(SESSION_KEY);
@@ -161,12 +163,18 @@ const App = (() => {
   }
 
   // ─── Avatar: zobrazení + upload ──────────────────────────────
+  function _avatarKlic() {
+    const uid = Auth.getSession()?.user?.id;
+    return uid ? `matika_avatar_${uid}` : null;
+  }
+
   function renderProfilAvatar(email) {
-    const el       = document.getElementById('profil-avatar-inicialy');
-    const saved    = localStorage.getItem('matika_avatar');
+    const el    = document.getElementById('profil-avatar-inicialy');
+    const klic  = _avatarKlic();
+    const saved = klic ? localStorage.getItem(klic) : null;
     if (saved) {
-      el.innerHTML = `<img src="${saved}" alt="Profilovka" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
-      // Synchronizuj i header avatar
+      const img = `<img src="${saved}" alt="Profilovka" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+      el.innerHTML = img;
       const hdr = document.getElementById('avatar-inicialy');
       if (hdr) hdr.innerHTML = `<img src="${saved}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
     } else {
@@ -328,7 +336,8 @@ const App = (() => {
       ctx.drawImage(_cropImg, srcX, srcY, srcW, srcH, 0, 0, out, out);
 
       const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
-      localStorage.setItem('matika_avatar', dataUrl);
+      const klic = _avatarKlic();
+      if (klic) localStorage.setItem(klic, dataUrl);
 
       const email = Auth.getSession()?.user?.email || '';
       renderProfilAvatar(email);
