@@ -28,13 +28,7 @@
           <div id="user-dropdown" class="user-dropdown hidden" role="menu">
             <div id="dropdown-email" class="dropdown-email"></div>
             <div class="dropdown-divider"></div>
-            <div class="dropdown-label">Třída</div>
-            <div id="dropdown-tridy" class="dropdown-tridy"></div>
-            <div class="dropdown-divider"></div>
-            <label class="dropdown-checkbox-label" role="menuitemcheckbox">
-              <input type="checkbox" id="chk-email-updates" autocomplete="off">
-              <span>Novinky e-mailem</span>
-            </label>
+            <button id="btn-otevre-profil" class="dropdown-profil-btn" role="menuitem">⚙ Nastavení profilu</button>
             <div class="dropdown-divider"></div>
             <button id="btn-logout" class="dropdown-odhlasit" role="menuitem">Odhlásit</button>
           </div>
@@ -272,6 +266,62 @@
         <p class="modal-text">Dokončil/a jsi toto téma 3×.<br>To je pro dnešek maximum —<br>mozek potřebuje čas na zpracování.</p>
         <p class="modal-text modal-text--accent">Zítra na tebe čeká nová sada.</p>
         <button id="btn-modal-zpet" class="btn-primary">Zpět na témata</button>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         OBRAZOVKA 4 — Profil žáka
+    ═══════════════════════════════════════════════════════ -->
+    <div id="screen-profil" class="screen hidden">
+      <div class="app-container">
+        <button id="btn-zpet-z-profilu" class="btn-back" aria-label="Zpět na výběr tématu">← Zpět</button>
+
+        <div class="profil-karta">
+
+          <!-- Avatar + e-mail -->
+          <div class="profil-avatar-sekce">
+            <div id="profil-avatar-inicialy" class="profil-avatar">?</div>
+            <div id="profil-email-text" class="profil-email-text"></div>
+          </div>
+
+          <!-- Třída -->
+          <div class="profil-sekce">
+            <h2 class="profil-sekce-nadpis">Moje třída</h2>
+            <p class="profil-sekce-popis">Podle třídy se ti odemykají témata přizpůsobená tvému ročníku.</p>
+            <div id="profil-tridy" class="profil-tridy"></div>
+          </div>
+
+          <!-- Notifikace -->
+          <div class="profil-sekce">
+            <h2 class="profil-sekce-nadpis">Notifikace</h2>
+            <label class="profil-checkbox-label">
+              <input type="checkbox" id="profil-chk-email" autocomplete="off">
+              <div class="profil-checkbox-text">
+                <span class="profil-checkbox-nazev">Novinky e-mailem</span>
+                <span class="profil-checkbox-popis">Dostávej e-mail když přidáme nové funkce nebo příklady.</span>
+              </div>
+            </label>
+          </div>
+
+          <!-- Vzhled -->
+          <div class="profil-sekce">
+            <h2 class="profil-sekce-nadpis">Vzhled</h2>
+            <label class="profil-checkbox-label">
+              <input type="checkbox" id="profil-chk-dark" autocomplete="off">
+              <div class="profil-checkbox-text">
+                <span class="profil-checkbox-nazev">Tmavý režim</span>
+                <span class="profil-checkbox-popis">Přepne aplikaci do tmavého barevného schématu.</span>
+              </div>
+            </label>
+          </div>
+
+          <!-- Feedback + akce -->
+          <p id="profil-zprava" class="profil-zprava hidden"></p>
+          <div class="profil-akce">
+            <button id="btn-profil-ulozit" class="btn-primary">Uložit změny</button>
+          </div>
+
+        </div>
       </div>
     </div>
 

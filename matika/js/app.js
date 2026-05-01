@@ -126,7 +126,7 @@ const App = (() => {
   }
 
   // ─── Správa obrazovek ─────────────────────────────────────────
-  const SCREENS = ['screen-auth', 'screen-home', 'screen-apikey', 'screen-uloha', 'screen-vysledky'];
+  const SCREENS = ['screen-auth', 'screen-home', 'screen-apikey', 'screen-uloha', 'screen-vysledky', 'screen-profil'];
 
   function zobrazScreen(id) {
     SCREENS.forEach(s => {
@@ -135,6 +135,80 @@ const App = (() => {
   }
 
   function zobrazDomovskou()  { zobrazScreen('screen-home');    renderTemata(); }
+  function zobrazProfil()     {
+    // Naplň profil hodnoty před zobrazením
+    const email = Auth.getSession()?.user?.email || '';
+    document.getElementById('profil-avatar-inicialy').textContent = email.charAt(0).toUpperCase() || '?';
+    document.getElementById('profil-email-text').textContent = email;
+    renderProfilTridy();
+    document.getElementById('profil-chk-email').checked = profil?.email_updates === true;
+    document.getElementById('profil-chk-dark').checked  = document.documentElement.getAttribute('data-theme') === 'dark';
+    document.getElementById('profil-zprava').classList.add('hidden');
+    zavriDropdown();
+    zobrazScreen('screen-profil');
+  }
+
+  // ─── Profil: výběr třídy ─────────────────────────────────────
+  let _profilNovaTrida = null;  // lokální stav před uložením
+
+  function renderProfilTridy() {
+    const wrap = document.getElementById('profil-tridy');
+    wrap.innerHTML = '';
+    _profilNovaTrida = profil?.trida || 8;
+    [6, 7, 8, 9].forEach(t => {
+      const btn = document.createElement('button');
+      btn.className = `profil-trida-karta${t === _profilNovaTrida ? ' aktivni' : ''}`;
+      btn.setAttribute('type', 'button');
+      btn.setAttribute('aria-pressed', t === _profilNovaTrida ? 'true' : 'false');
+      btn.innerHTML = `<span class="profil-trida-cislo">${t}.</span><span class="profil-trida-text">třída</span>`;
+      btn.addEventListener('click', () => {
+        _profilNovaTrida = t;
+        wrap.querySelectorAll('.profil-trida-karta').forEach((el, i) => {
+          const active = [6, 7, 8, 9][i] === t;
+          el.classList.toggle('aktivni', active);
+          el.setAttribute('aria-pressed', String(active));
+        });
+      });
+      wrap.appendChild(btn);
+    });
+  }
+
+  async function ulozProfil() {
+    const btn = document.getElementById('btn-profil-ulozit');
+    btn.disabled = true;
+    btn.textContent = 'Ukládám…';
+
+    const novaTrida  = _profilNovaTrida || profil?.trida || 8;
+    const emailOpt   = document.getElementById('profil-chk-email').checked;
+    const darkMode   = document.getElementById('profil-chk-dark').checked;
+    const sb         = Auth.getSupabase();
+    const userId     = Auth.getSession()?.user?.id;
+
+    const { error } = await sb.from('profiles')
+      .update({ trida: novaTrida, email_updates: emailOpt })
+      .eq('id', userId);
+
+    btn.disabled = false;
+    btn.textContent = 'Uložit změny';
+
+    const zpravaEl = document.getElementById('profil-zprava');
+    if (error) {
+      zpravaEl.textContent = 'Chyba při ukládání. Zkus to znovu.';
+      zpravaEl.className   = 'profil-zprava profil-zprava--chyba';
+    } else {
+      profil         = { ...profil, trida: novaTrida, email_updates: emailOpt };
+      odemcenaTemata = Syllabus.getOdemcenaTemataPoTridu(novaTrida);
+      zpravaEl.textContent = '✓ Změny uloženy';
+      zpravaEl.className   = 'profil-zprava profil-zprava--ok';
+      // Aplikuj dark mode
+      const newTheme = darkMode ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('matika_darkmode', darkMode ? '1' : '0');
+      document.getElementById('btn-dark-mode').textContent = darkMode ? '☀️' : '🌙';
+    }
+    zpravaEl.classList.remove('hidden');
+    setTimeout(() => zpravaEl.classList.add('hidden'), 3000);
+  }
   function zobrazUlohu()      { zobrazScreen('screen-uloha'); }
   function zobrazVysledky()   { zobrazScreen('screen-vysledky'); renderVysledky(); }
   function zobrazAuthScreen() { zobrazScreen('screen-auth'); }
@@ -198,22 +272,9 @@ const App = (() => {
 
   // ─── Dropdown: výběr třídy ────────────────────────────────────
   function renderDropdownTridy() {
-    const wrap = document.getElementById('dropdown-tridy');
-    wrap.innerHTML = '';
-    const aktualniTrida = profil?.trida || 8;
-    [6, 7, 8, 9].forEach(t => {
-      const item = document.createElement('div');
-      item.className = `dropdown-trida-item${t === aktualniTrida ? ' aktivni' : ''}`;
-      item.setAttribute('role', 'menuitemradio');
-      item.setAttribute('aria-checked', t === aktualniTrida ? 'true' : 'false');
-      item.innerHTML = `<span>${t}. třída</span>${t === aktualniTrida ? '<span aria-hidden="true">✓</span>' : ''}`;
-      item.addEventListener('click', () => zmenTridu(t));
-      wrap.appendChild(item);
-    });
-
-    // Nastav checkbox pro e-mail novinky
-    const chk = document.getElementById('chk-email-updates');
-    if (chk) chk.checked = profil?.email_updates === true;
+    // Dropdown je teď minimální — třída a e-mail jsou v profilové stránce
+    const email = Auth.getSession()?.user?.email || '';
+    document.getElementById('dropdown-email').textContent = email;
   }
 
   async function zmenTridu(novaTrida) {
@@ -1122,12 +1183,12 @@ const App = (() => {
       if (e.target === e.currentTarget) zavriModalNovinky();
     });
 
-    // Checkbox "Novinky e-mailem"
-    document.getElementById('chk-email-updates')?.addEventListener('change', async e => {
-      const hodnota = e.target.checked;
-      profil = { ...profil, email_updates: hodnota };
-      await Auth.ulozEmailPreferenci(hodnota);
-    });
+    // Profil — otevřít
+    document.getElementById('btn-otevre-profil')?.addEventListener('click', zobrazProfil);
+
+    // Profil — zpět + uložit
+    document.getElementById('btn-zpet-z-profilu')?.addEventListener('click', zobrazDomovskou);
+    document.getElementById('btn-profil-ulozit')?.addEventListener('click', ulozProfil);
 
     // Záchranný save konverzace při opuštění tabu + obnova home screen %
     document.addEventListener('visibilitychange', () => {
