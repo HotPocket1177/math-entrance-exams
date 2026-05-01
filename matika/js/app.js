@@ -451,13 +451,13 @@ const App = (() => {
 
       if (!res.ok) throw new Error(data.error || 'Neznámá chyba');
 
-      // Smaž lokální data a odhlás
+      // Nejdřív smaž lokální data, pak odhlás přes Supabase (smaže i sb-* tokeny)
       vycistiLocalStorage();
       profil         = null;
       odemcenaTemata = null;
       SessionProgress.resetCache();
       document.getElementById('user-dropdown-wrap').classList.add('hidden');
-      zobrazAuthScreen();
+      await Auth.odhlas();  // → SIGNED_OUT → zobrazAuthScreen() přes handler
     } catch (e) {
       btnSmazat.disabled = false;
       btnSmazat.textContent = 'Smazat účet';
@@ -470,7 +470,18 @@ const App = (() => {
 
   function zobrazUlohu()      { zobrazScreen('screen-uloha'); }
   function zobrazVysledky()   { zobrazScreen('screen-vysledky'); renderVysledky(); }
-  function zobrazAuthScreen() { zobrazScreen('screen-auth'); }
+  function zobrazAuthScreen() {
+    // Vyčisti oba formuláře — zabrání zobrazení starých dat po smazání účtu
+    document.getElementById('auth-email').value    = '';
+    document.getElementById('auth-password').value = '';
+    document.getElementById('auth-chyba').classList.add('hidden');
+    document.getElementById('reg-email').value    = '';
+    document.getElementById('reg-password').value = '';
+    document.getElementById('reg-chyba').classList.add('hidden');
+    const chk = document.getElementById('chk-gdpr-souhlas');
+    if (chk) { chk.checked = false; document.getElementById('btn-registrovat').disabled = true; }
+    zobrazScreen('screen-auth');
+  }
 
   function zobrazApiKlic(callbackPoCancelaci) {
     zobrazScreen('screen-apikey');
