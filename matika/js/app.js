@@ -632,8 +632,8 @@ const App = (() => {
       const userId = session?.user?.id || Auth.getSession()?.user?.id;
       await Auth.getSupabase()
         .from('profiles')
-        .upsert({ id: userId, trida: 8 }, { onConflict: 'id' });
-      profil = { trida: 8 };
+        .upsert({ id: userId, trida: 8, onboarding_done: false }, { onConflict: 'id' });
+      profil = { trida: 8, onboarding_done: false };
     }
 
     odemcenaTemata = Syllabus.getOdemcenaTemataPoTridu(profil?.trida || 8);
@@ -661,6 +661,7 @@ const App = (() => {
     }
 
     zobrazDomovskou();
+    zkontrolujOnboarding();
     zkontrolujNovinky();
   }
 
@@ -694,6 +695,46 @@ const App = (() => {
   }
 
   // ─── Novinky: modal "Co je nového" ───────────────────────────
+  // ─── Onboarding ──────────────────────────────────────────────
+  let _onboardingTrida = null;
+
+  function zkontrolujOnboarding() {
+    if (profil?.onboarding_done !== false) return;
+    _onboardingTrida = profil?.trida || 8;
+    renderOnboardingTridy();
+    document.getElementById('modal-onboarding').classList.remove('hidden');
+  }
+
+  function renderOnboardingTridy() {
+    const wrap = document.getElementById('onboarding-tridy');
+    if (!wrap) return;
+    wrap.innerHTML = [6, 7, 8, 9].map(t => `
+      <button class="profil-trida-karta onboarding-trida-karta${t === _onboardingTrida ? ' aktivni' : ''}"
+              data-trida="${t}">
+        <span class="profil-trida-cislo">${t}.</span>
+        <span class="profil-trida-text">třída</span>
+      </button>
+    `).join('');
+    wrap.querySelectorAll('.onboarding-trida-karta').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _onboardingTrida = Number(btn.dataset.trida);
+        wrap.querySelectorAll('.onboarding-trida-karta').forEach(b => b.classList.remove('aktivni'));
+        btn.classList.add('aktivni');
+        document.getElementById('btn-onboarding-dalsi').disabled = false;
+      });
+    });
+    document.getElementById('btn-onboarding-dalsi').disabled = false;
+  }
+
+  async function dokoncOnboarding() {
+    document.getElementById('modal-onboarding').classList.add('hidden');
+    if (_onboardingTrida && _onboardingTrida !== profil?.trida) {
+      await zmenTridu(_onboardingTrida);
+    }
+    await Auth.ulozOnboardingDone();
+    profil = { ...profil, onboarding_done: true };
+  }
+
   async function zkontrolujNovinky() {
     if (profil?.last_seen_version === CONFIG.appVersion) return;
     document.getElementById('modal-novinky-text').textContent = CONFIG.appChangelog;
@@ -1568,6 +1609,13 @@ const App = (() => {
     document.getElementById('modal-novinky')?.addEventListener('click', e => {
       if (e.target === e.currentTarget) zavriModalNovinky();
     });
+
+    // Onboarding
+    document.getElementById('btn-onboarding-dalsi')?.addEventListener('click', () => {
+      document.getElementById('onboarding-krok-1').classList.add('hidden');
+      document.getElementById('onboarding-krok-2').classList.remove('hidden');
+    });
+    document.getElementById('btn-onboarding-zacit')?.addEventListener('click', dokoncOnboarding);
 
     // Profil — otevřít
     document.getElementById('btn-otevre-profil')?.addEventListener('click', zobrazProfil);

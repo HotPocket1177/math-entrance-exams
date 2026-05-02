@@ -353,6 +353,43 @@
     <!-- ══════════════════════════════════════════════════════
          MODAL — Co je nového
     ═══════════════════════════════════════════════════════ -->
+    <!-- ══════════════════════════════════════════════════════
+         MODAL — Onboarding (nový uživatel)
+    ═══════════════════════════════════════════════════════ -->
+    <div id="modal-onboarding" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="onboarding-title-1">
+
+      <!-- Krok 1: Výběr třídy -->
+      <div class="modal-karta onboarding-karta" id="onboarding-krok-1">
+        <div class="onboarding-logo">📐</div>
+        <h2 id="onboarding-title-1" class="modal-nadpis">Vítej v Matika přijímačky!</h2>
+        <p class="modal-text">Připravíme tě na přijímačky krok za krokem.<br>Nejdřív řekni, ve které třídě jsi.</p>
+        <div class="profil-tridy" id="onboarding-tridy"></div>
+        <button id="btn-onboarding-dalsi" class="btn-primary" style="margin-top:.5rem">Pokračovat →</button>
+      </div>
+
+      <!-- Krok 2: Jak to funguje -->
+      <div class="modal-karta onboarding-karta hidden" id="onboarding-krok-2">
+        <div class="onboarding-logo">📚</div>
+        <h2 id="onboarding-title-2" class="modal-nadpis">Jak to funguje</h2>
+        <ul class="onboarding-list">
+          <li>
+            <span class="onboarding-list-ikona">🎯</span>
+            <span>Každé téma má <strong>sadu úloh</strong>. Projdeš je a AI kouč ti pomůže s nápovědou.</span>
+          </li>
+          <li>
+            <span class="onboarding-list-ikona">🔄</span>
+            <span>Každé téma lze procvičit <strong>3× za den</strong>. Pak se odemkne znovu druhý den.</span>
+          </li>
+          <li>
+            <span class="onboarding-list-ikona">📈</span>
+            <span>Tvůj <strong>postup se ukládá</strong>. Sleduj ho přes tlačítko 📊 na hlavní stránce.</span>
+          </li>
+        </ul>
+        <button id="btn-onboarding-zacit" class="btn-primary">Začít procvičovat 🚀</button>
+      </div>
+
+    </div>
+
     <div id="modal-novinky" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-novinky-title">
       <div class="modal-karta">
         <div class="modal-ikona">🚀</div>

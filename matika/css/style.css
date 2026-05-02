@@ -1426,6 +1426,53 @@ select.apikey-input {
   font-size: .97rem;
 }
 
+/* ── Onboarding modal ── */
+.onboarding-karta {
+  max-width: 480px;
+  text-align: left;
+}
+
+.onboarding-karta .modal-nadpis,
+.onboarding-karta .modal-text {
+  text-align: center;
+}
+
+.onboarding-logo {
+  font-size: 3rem;
+  text-align: center;
+  margin-bottom: .75rem;
+  line-height: 1;
+}
+
+.onboarding-karta .profil-tridy {
+  justify-content: center;
+  margin: 1rem 0 1.25rem;
+}
+
+.onboarding-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: .9rem;
+}
+
+.onboarding-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  font-size: .93rem;
+  color: var(--color-text);
+  line-height: 1.55;
+}
+
+.onboarding-list-ikona {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+  margin-top: -.05rem;
+}
+
 /* ── Tlačítko nahlášení chyby ── */
 .btn-nahlasit {
   margin-left: auto;

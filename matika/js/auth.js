@@ -63,7 +63,7 @@ const Auth = (() => {
     if (!_session) return null;
     const { data, error } = await _supabase
       .from('profiles')
-      .select('trida, last_seen_version, email_updates')
+      .select('trida, last_seen_version, email_updates, onboarding_done')
       .eq('id', _session.user.id)
       .maybeSingle();
     if (error) {
@@ -92,6 +92,15 @@ const Auth = (() => {
     if (error) console.warn('Chyba uložení email preference:', error.message);
   }
 
+  // ── Onboarding: označ jako dokončený ─────────────────────────
+  async function ulozOnboardingDone() {
+    if (!_session) return;
+    await _supabase
+      .from('profiles')
+      .update({ onboarding_done: true })
+      .eq('id', _session.user.id);
+  }
+
   // ── Gettery ───────────────────────────────────────────────────
   function getJwt()          { return _session?.access_token ?? null; }
   function getSession()      { return _session; }
@@ -107,6 +116,7 @@ const Auth = (() => {
     getProfil,
     ulozVerziZobrazeni,
     ulozEmailPreferenci,
+    ulozOnboardingDone,
     getJwt,
     getSession,
     jeAuthenticated,
