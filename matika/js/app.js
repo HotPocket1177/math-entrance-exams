@@ -23,6 +23,8 @@ const App = (() => {
   // souběžně (dvojklik, race condition) a tím double-chargovat cycle.
   let _spustTemaBeziPro = false;  // brání souběžnému spouštění (dvojklik, race)
   let _sadaSeKonci      = false;  // brání double-volání dokonceniSady
+  let _sadaZapoctena    = false;  // true = spustiSadu bylo voláno pro tento cyklus
+  let _posledniDokoncena = false; // true = uživatel dokončil poslední úlohu v sadě
 
   // ─── Per-cyklus výběr úloh ───────────────────────────────────
   const TASKS_PER_CYCLE    = 5;
@@ -1067,6 +1069,8 @@ const App = (() => {
     aktualniUlohaIndex = 0;
     skore              = { spravne: 0, celkem: vybrane.length };
     dialogLog          = [];
+    _sadaZapoctena     = false;
+    _posledniDokoncena = false;
     zobrazUlohu();
     document.getElementById('uloha-tema-nazev').textContent = tema.nazev;
     nactiUlohu(0);
@@ -1092,6 +1096,7 @@ const App = (() => {
 
     // Zaregistruj dokončení tohoto cyklu — count++ se děje TEĎ (ne při startu)
     const { count, zamceno } = await SessionProgress.spustiSadu(temaId, userId);
+    _sadaZapoctena = true;  // zabraňuje dvojímu počítání při odchodu zpět
 
     if (zamceno || count >= 3) {
       // Třetí cyklus dokončen → uzamkni do půlnoci
@@ -1103,6 +1108,10 @@ const App = (() => {
 
     const zbyvaPocet = 3 - count;
     const trida      = profil?.trida || 8;
+
+    // Reset flagů pro nový cyklus
+    _sadaZapoctena     = false;
+    _posledniDokoncena = false;
 
     let vybrane = null;
 
@@ -1302,6 +1311,7 @@ const App = (() => {
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
+      .replace(/\{,\}/g, ',')
       .replace(/\n/g, '<br>');
   }
 
@@ -1326,7 +1336,7 @@ const App = (() => {
     if (krok.popis) {
       const popisEl = document.createElement('p');
       popisEl.className = 'krok-popis';
-      popisEl.textContent = krok.popis;  // textContent → $ v textu zpracuje renderMath níže
+      popisEl.textContent = (krok.popis || '').replace(/\{,\}/g, ',');  // textContent → $ v textu zpracuje renderMath níže
       el.appendChild(popisEl);
     }
 
@@ -1441,6 +1451,7 @@ const App = (() => {
     btnDalsi.classList.remove('hidden');
     const jePosledni = aktualniUlohaIndex >= aktualniTema.ulohy.length - 1;
     btnDalsi.textContent = jePosledni ? 'Zobrazit výsledky' : 'Další úloha →';
+    if (jePosledni) _posledniDokoncena = true;
     btnDalsi.focus();
   }
 
@@ -1592,10 +1603,24 @@ const App = (() => {
     document.getElementById('btn-zpet-z-ulohy').addEventListener('click', () => {
       ulozKonverzaci();
       smazSessionStav();  // hard refresh z home screenu = bez obnovy rozpracované sady
+
+      // Pokud uživatel dokončil všechny úlohy ale kliknul Zpět místo "Zobrazit výsledky",
+      // sada se musí započítat — jinak by denní counter zůstal na 0.
+      if (_posledniDokoncena && !_sadaZapoctena) {
+        const temaId = aktualniTema?._temaId || aktualniTema?.id;
+        const userId = Auth.getSession()?.user?.id;
+        if (temaId && userId) {
+          SessionProgress.spustiSadu(temaId, userId).then(({ count }) => {
+            if (count >= 3) SessionProgress.uzamkniSadu(temaId, userId);
+          });
+          _sadaZapoctena = true;
+        }
+      }
+
       // Ulož stav jen pokud jsou úlohy skutečně načteny (ne uprostřed generování).
       // Bez tohoto guardu by Zpět během generování zachytil prázdné aktualniTema.ulohy
       // a při návratu by nactiUlohu(0) skočilo rovnou na dokonceniSady.
-      _resumeState = (aktualniTema?.ulohy?.length > 0) ? {
+      _resumeState = (aktualniTema?.ulohy?.length > 0 && !_posledniDokoncena) ? {
         temaId: aktualniTema._temaId || aktualniTema.id,
         tema:   aktualniTema,
         index:  aktualniUlohaIndex,
