@@ -702,7 +702,7 @@ const App = (() => {
   let _obTrida      = null;
 
   function zkontrolujOnboarding() {
-    if (profil?.onboarding_done !== false) return;
+    if (profil?.onboarding_done === true) return;
     _obKrok  = 1;
     _obTrida = profil?.trida || 8;
     _obRenderTridy();
@@ -1664,6 +1664,13 @@ const App = (() => {
     document.getElementById('btn-profil-ulozit')?.addEventListener('click', ulozProfil);
     document.getElementById('btn-export-dat')?.addEventListener('click', exportDat);
     document.getElementById('btn-smazat-ucet')?.addEventListener('click', smazatUcet);
+    document.getElementById('btn-znovu-tutorial')?.addEventListener('click', () => {
+      zobrazDomovskou();
+      _obKrok = 1;
+      _obRenderTridy();
+      _obAktualizuj();
+      document.getElementById('modal-onboarding').classList.remove('hidden');
+    });
 
     // Statistiky
     document.getElementById('btn-statistiky')?.addEventListener('click', zobrazStatistiky);
