@@ -1426,51 +1426,127 @@ select.apikey-input {
   font-size: .97rem;
 }
 
-/* ── Onboarding modal ── */
+/* ── Onboarding tutorial ── */
 .onboarding-karta {
-  max-width: 480px;
-  text-align: left;
-}
-
-.onboarding-karta .modal-nadpis,
-.onboarding-karta .modal-text {
-  text-align: center;
-}
-
-.onboarding-logo {
-  font-size: 3rem;
-  text-align: center;
-  margin-bottom: .75rem;
-  line-height: 1;
-}
-
-.onboarding-karta .profil-tridy {
-  justify-content: center;
-  margin: 1rem 0 1.25rem;
-}
-
-.onboarding-list {
-  list-style: none;
-  padding: 0;
-  margin: 1rem 0 1.5rem;
+  max-width: 500px;
+  min-height: 380px;
   display: flex;
   flex-direction: column;
-  gap: .9rem;
 }
 
-.onboarding-list li {
+/* Progress dots */
+.ob-dots {
+  display: flex;
+  justify-content: center;
+  gap: .45rem;
+  margin-bottom: 1.5rem;
+}
+
+.ob-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-border);
+  transition: background .2s, transform .2s;
+}
+
+.ob-dot--aktivni {
+  background: var(--color-primary);
+  transform: scale(1.25);
+}
+
+/* Step content */
+.ob-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.ob-emoji {
+  font-size: 3.2rem;
+  line-height: 1;
+  margin-bottom: .85rem;
+}
+
+.ob-nadpis {
+  font-family: var(--font-head);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: .75rem;
+}
+
+.ob-text {
+  font-size: .92rem;
+  color: var(--color-text-muted);
+  line-height: 1.65;
+  margin-bottom: .5rem;
+  max-width: 380px;
+}
+
+.ob-text--tip {
+  background: var(--color-surface2);
+  border-radius: var(--radius-md);
+  padding: .6rem .9rem;
+  color: var(--color-text);
+  font-size: .88rem;
+  margin-top: .75rem;
+}
+
+.ob-list {
+  list-style: none;
+  padding: 0;
+  margin: .75rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+  text-align: left;
+  width: 100%;
+}
+
+.ob-list li {
   display: flex;
   align-items: flex-start;
   gap: .75rem;
-  font-size: .93rem;
+  font-size: .9rem;
   color: var(--color-text);
   line-height: 1.55;
 }
 
-.onboarding-list-ikona {
-  font-size: 1.3rem;
+.ob-list-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
   flex-shrink: 0;
-  margin-top: -.05rem;
+  margin-top: .35rem;
+}
+
+/* Navigation */
+.ob-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1.5rem;
+  gap: .75rem;
+}
+
+.ob-btn-zpet {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: .9rem;
+  cursor: pointer;
+  padding: .5rem .25rem;
+  transition: color var(--transition);
+}
+
+.ob-btn-zpet:hover { color: var(--color-text); }
+
+.ob-btn-dalsi {
+  margin-left: auto;
+  min-width: 160px;
 }
 
 /* ── Tlačítko nahlášení chyby ── */

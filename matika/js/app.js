@@ -696,40 +696,82 @@ const App = (() => {
 
   // ─── Novinky: modal "Co je nového" ───────────────────────────
   // ─── Onboarding ──────────────────────────────────────────────
-  let _onboardingTrida = null;
+  // ─── Onboarding tutorial ─────────────────────────────────────
+  const OB_STEPS    = 7;
+  let _obKrok       = 1;
+  let _obTrida      = null;
 
   function zkontrolujOnboarding() {
     if (profil?.onboarding_done !== false) return;
-    _onboardingTrida = profil?.trida || 8;
-    renderOnboardingTridy();
+    _obKrok  = 1;
+    _obTrida = profil?.trida || 8;
+    _obRenderTridy();
+    _obAktualizuj();
     document.getElementById('modal-onboarding').classList.remove('hidden');
   }
 
-  function renderOnboardingTridy() {
+  function _obAktualizuj() {
+    // Zobraz správný krok
+    for (let i = 1; i <= OB_STEPS; i++) {
+      document.getElementById(`ob-step-${i}`)?.classList.toggle('hidden', i !== _obKrok);
+    }
+    // Dots
+    const dots = document.getElementById('ob-dots');
+    if (dots) {
+      dots.innerHTML = Array.from({ length: OB_STEPS }, (_, i) =>
+        `<span class="ob-dot${i + 1 === _obKrok ? ' ob-dot--aktivni' : ''}"></span>`
+      ).join('');
+    }
+    // Tlačítka
+    const btnZpet  = document.getElementById('btn-ob-zpet');
+    const btnDalsi = document.getElementById('btn-ob-dalsi');
+    if (btnZpet)  btnZpet.classList.toggle('hidden', _obKrok === 1);
+    if (btnDalsi) {
+      if (_obKrok === OB_STEPS) {
+        btnDalsi.textContent = 'Začít procvičovat 🚀';
+      } else {
+        btnDalsi.textContent = 'Pokračovat →';
+      }
+      // Krok 2 (výběr třídy) — vždy enabled (výchozí třída je předvybraná)
+      btnDalsi.disabled = false;
+    }
+  }
+
+  function _obRenderTridy() {
     const wrap = document.getElementById('onboarding-tridy');
     if (!wrap) return;
     wrap.innerHTML = [6, 7, 8, 9].map(t => `
-      <button class="profil-trida-karta onboarding-trida-karta${t === _onboardingTrida ? ' aktivni' : ''}"
-              data-trida="${t}">
+      <button class="profil-trida-karta${t === _obTrida ? ' aktivni' : ''}" data-trida="${t}">
         <span class="profil-trida-cislo">${t}.</span>
         <span class="profil-trida-text">třída</span>
       </button>
     `).join('');
-    wrap.querySelectorAll('.onboarding-trida-karta').forEach(btn => {
+    wrap.querySelectorAll('.profil-trida-karta').forEach(btn => {
       btn.addEventListener('click', () => {
-        _onboardingTrida = Number(btn.dataset.trida);
-        wrap.querySelectorAll('.onboarding-trida-karta').forEach(b => b.classList.remove('aktivni'));
+        _obTrida = Number(btn.dataset.trida);
+        wrap.querySelectorAll('.profil-trida-karta').forEach(b => b.classList.remove('aktivni'));
         btn.classList.add('aktivni');
-        document.getElementById('btn-onboarding-dalsi').disabled = false;
       });
     });
-    document.getElementById('btn-onboarding-dalsi').disabled = false;
   }
 
-  async function dokoncOnboarding() {
+  async function _obDalsi() {
+    if (_obKrok < OB_STEPS) {
+      _obKrok++;
+      _obAktualizuj();
+    } else {
+      await _obDokoncit();
+    }
+  }
+
+  function _obZpet() {
+    if (_obKrok > 1) { _obKrok--; _obAktualizuj(); }
+  }
+
+  async function _obDokoncit() {
     document.getElementById('modal-onboarding').classList.add('hidden');
-    if (_onboardingTrida && _onboardingTrida !== profil?.trida) {
-      await zmenTridu(_onboardingTrida);
+    if (_obTrida && _obTrida !== profil?.trida) {
+      await zmenTridu(_obTrida);
     }
     await Auth.ulozOnboardingDone();
     profil = { ...profil, onboarding_done: true };
@@ -1610,12 +1652,9 @@ const App = (() => {
       if (e.target === e.currentTarget) zavriModalNovinky();
     });
 
-    // Onboarding
-    document.getElementById('btn-onboarding-dalsi')?.addEventListener('click', () => {
-      document.getElementById('onboarding-krok-1').classList.add('hidden');
-      document.getElementById('onboarding-krok-2').classList.remove('hidden');
-    });
-    document.getElementById('btn-onboarding-zacit')?.addEventListener('click', dokoncOnboarding);
+    // Onboarding tutorial
+    document.getElementById('btn-ob-dalsi')?.addEventListener('click', _obDalsi);
+    document.getElementById('btn-ob-zpet')?.addEventListener('click', _obZpet);
 
     // Profil — otevřít
     document.getElementById('btn-otevre-profil')?.addEventListener('click', zobrazProfil);

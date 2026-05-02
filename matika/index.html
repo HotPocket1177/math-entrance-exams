@@ -354,40 +354,101 @@
          MODAL — Co je nového
     ═══════════════════════════════════════════════════════ -->
     <!-- ══════════════════════════════════════════════════════
-         MODAL — Onboarding (nový uživatel)
+         MODAL — Onboarding tutorial (nový uživatel)
     ═══════════════════════════════════════════════════════ -->
-    <div id="modal-onboarding" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="onboarding-title-1">
+    <div id="modal-onboarding" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal-karta onboarding-karta">
 
-      <!-- Krok 1: Výběr třídy -->
-      <div class="modal-karta onboarding-karta" id="onboarding-krok-1">
-        <div class="onboarding-logo">📐</div>
-        <h2 id="onboarding-title-1" class="modal-nadpis">Vítej v Matika přijímačky!</h2>
-        <p class="modal-text">Připravíme tě na přijímačky krok za krokem.<br>Nejdřív řekni, ve které třídě jsi.</p>
-        <div class="profil-tridy" id="onboarding-tridy"></div>
-        <button id="btn-onboarding-dalsi" class="btn-primary" style="margin-top:.5rem">Pokračovat →</button>
+        <!-- Progress dots -->
+        <div class="ob-dots" id="ob-dots"></div>
+
+        <!-- ── Krok 1: Vítej ── -->
+        <div class="ob-step" id="ob-step-1">
+          <div class="ob-emoji">📐</div>
+          <h2 class="ob-nadpis">Vítej v Matika přijímačky!</h2>
+          <p class="ob-text">Tato aplikace tě připraví na přijímačky na střední školu — krok za krokem, s pomocí AI kouče.</p>
+          <p class="ob-text">Za minutu ti ukážeme vše, co potřebuješ vědět.</p>
+        </div>
+
+        <!-- ── Krok 2: Výběr třídy ── -->
+        <div class="ob-step hidden" id="ob-step-2">
+          <div class="ob-emoji">🎓</div>
+          <h2 class="ob-nadpis">Ve které třídě jsi?</h2>
+          <p class="ob-text">Podle třídy ti vybereme vhodné příklady. Nastavení můžeš kdykoli změnit v profilu.</p>
+          <div class="profil-tridy" id="onboarding-tridy" style="justify-content:center;margin:1.1rem 0 .5rem"></div>
+        </div>
+
+        <!-- ── Krok 3: Témata ── -->
+        <div class="ob-step hidden" id="ob-step-3">
+          <div class="ob-emoji">🗂️</div>
+          <h2 class="ob-nadpis">Témata & postup</h2>
+          <ul class="ob-list">
+            <li><span class="ob-list-dot" style="background:#3b82f6"></span>
+              <span>Na hlavní stránce najdeš seznam <strong>témat</strong> — zlomky, procenta, rovnice a další.</span></li>
+            <li><span class="ob-list-dot" style="background:#22c55e"></span>
+              <span>Každé téma má <strong>progress bar</strong> — vidíš přesně, kolik úloh jsi splnil a kolik zbývá.</span></li>
+            <li><span class="ob-list-dot" style="background:#f59e0b"></span>
+              <span>Témata se <strong>postupně odemykají</strong> jak procvičuješ — začínáš snazšími a pokračuješ dál.</span></li>
+          </ul>
+        </div>
+
+        <!-- ── Krok 4: Denní sady ── -->
+        <div class="ob-step hidden" id="ob-step-4">
+          <div class="ob-emoji">🔄</div>
+          <h2 class="ob-nadpis">Denní sady</h2>
+          <ul class="ob-list">
+            <li><span class="ob-list-dot" style="background:#3b82f6"></span>
+              <span>Každé téma lze procvičit <strong>3× za den</strong>. Po třetí sadě se téma uzamkne do půlnoci.</span></li>
+            <li><span class="ob-list-dot" style="background:#22c55e"></span>
+              <span>Tři tečky <span style="letter-spacing:.1em">●●○</span> pod tématem ukazují, kolik sad jsi dnes udělal.</span></li>
+            <li><span class="ob-list-dot" style="background:#f59e0b"></span>
+              <span>Druhý den se vše <strong>resetuje</strong> — tak si udržuješ pravidelný trénink.</span></li>
+          </ul>
+        </div>
+
+        <!-- ── Krok 5: AI kouč ── -->
+        <div class="ob-step hidden" id="ob-step-5">
+          <div class="ob-emoji">🤖</div>
+          <h2 class="ob-nadpis">AI kouč</h2>
+          <ul class="ob-list">
+            <li><span class="ob-list-dot" style="background:#3b82f6"></span>
+              <span>Při řešení úlohy máš vedle sebe <strong>AI kouče</strong>, který ti pomáhá přes nápovědné otázky.</span></li>
+            <li><span class="ob-list-dot" style="background:#22c55e"></span>
+              <span>Kouč tě <strong>nevyřeší příklad za tebe</strong> — místo toho tě navede, abys na odpověď přišel sám.</span></li>
+            <li><span class="ob-list-dot" style="background:#8b5cf6"></span>
+              <span>Správnost odpovědi vždy kontroluje <strong>lokální algoritmus</strong>, ne AI — výsledky jsou vždy přesné.</span></li>
+          </ul>
+        </div>
+
+        <!-- ── Krok 6: Statistiky & Profil ── -->
+        <div class="ob-step hidden" id="ob-step-6">
+          <div class="ob-emoji">📊</div>
+          <h2 class="ob-nadpis">Statistiky & Profil</h2>
+          <ul class="ob-list">
+            <li><span class="ob-list-dot" style="background:#3b82f6"></span>
+              <span>Tlačítko <strong>📊</strong> v pravém horním rohu otevře tvůj přehled — splněné úlohy, úspěšnost, nejlepší témata.</span></li>
+            <li><span class="ob-list-dot" style="background:#22c55e"></span>
+              <span>Kliknutím na svůj <strong>avatar</strong> (nebo iniciály) se dostaneš do nastavení profilu — třída, profilovka, tmavý režim.</span></li>
+            <li><span class="ob-list-dot" style="background:#f59e0b"></span>
+              <span>V profilu si také můžeš <strong>stáhnout svá data</strong> nebo účet smazat (GDPR).</span></li>
+          </ul>
+        </div>
+
+        <!-- ── Krok 7: Začínáme ── -->
+        <div class="ob-step hidden" id="ob-step-7">
+          <div class="ob-emoji">🚀</div>
+          <h2 class="ob-nadpis">Jsi připraven!</h2>
+          <p class="ob-text">Teď víš vše, co potřebuješ. Vyber si téma a začni procvičovat — přijímačky zvládneš!</p>
+          <p class="ob-text ob-text--tip">💡 Tip: Zkus každý den alespoň jednu sadu. Pravidelnost je klíč k úspěchu.</p>
+        </div>
+
+        <!-- Navigation -->
+        <div class="ob-nav">
+          <button id="btn-ob-zpet" class="ob-btn-zpet hidden">← Zpět</button>
+          <button id="btn-ob-dalsi" class="btn-primary ob-btn-dalsi">Pokračovat →</button>
+        </div>
+
       </div>
-
-      <!-- Krok 2: Jak to funguje -->
-      <div class="modal-karta onboarding-karta hidden" id="onboarding-krok-2">
-        <div class="onboarding-logo">📚</div>
-        <h2 id="onboarding-title-2" class="modal-nadpis">Jak to funguje</h2>
-        <ul class="onboarding-list">
-          <li>
-            <span class="onboarding-list-ikona">🎯</span>
-            <span>Každé téma má <strong>sadu úloh</strong>. Projdeš je a AI kouč ti pomůže s nápovědou.</span>
-          </li>
-          <li>
-            <span class="onboarding-list-ikona">🔄</span>
-            <span>Každé téma lze procvičit <strong>3× za den</strong>. Pak se odemkne znovu druhý den.</span>
-          </li>
-          <li>
-            <span class="onboarding-list-ikona">📈</span>
-            <span>Tvůj <strong>postup se ukládá</strong>. Sleduj ho přes tlačítko 📊 na hlavní stránce.</span>
-          </li>
-        </ul>
-        <button id="btn-onboarding-zacit" class="btn-primary">Začít procvičovat 🚀</button>
-      </div>
-
     </div>
 
     <div id="modal-novinky" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-novinky-title">
