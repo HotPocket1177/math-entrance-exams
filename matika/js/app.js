@@ -142,7 +142,7 @@ const App = (() => {
   }
 
   // ─── Správa obrazovek ─────────────────────────────────────────
-  const SCREENS = ['screen-auth', 'screen-home', 'screen-apikey', 'screen-uloha', 'screen-vysledky', 'screen-profil'];
+  const SCREENS = ['screen-auth', 'screen-home', 'screen-apikey', 'screen-uloha', 'screen-vysledky', 'screen-profil', 'screen-statistiky'];
 
   function zobrazScreen(id) {
     SCREENS.forEach(s => {
@@ -491,6 +491,120 @@ const App = (() => {
     const chk = document.getElementById('chk-gdpr-souhlas');
     if (chk) { chk.checked = false; document.getElementById('btn-registrovat').disabled = true; }
     zobrazScreen('screen-auth');
+  }
+
+  // ─── Statistiky ───────────────────────────────────────────────
+  function zobrazStatistiky() {
+    renderStatistiky();
+    // Resetuj animaci karet — vrátit na start stav
+    document.querySelectorAll('.stats-tcg-karta').forEach(card => {
+      card.style.animation = 'none';
+      card.style.opacity   = '0';
+      card.style.transform = `translateY(120px) scale(0.3) rotate(calc(var(--rot, 0deg) * 2.5))`;
+    });
+    zobrazScreen('screen-statistiky');
+    // Spusť animaci po rendrování
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      document.querySelectorAll('.stats-tcg-karta').forEach(card => {
+        card.style.animation = '';
+        card.style.opacity   = '';
+        card.style.transform = '';
+      });
+    }));
+  }
+
+  function renderStatistiky() {
+    const trida = profil?.trida || 8;
+    const p     = nactiProgress();
+    let celkemSpravne = 0, celkemPokus = 0, celkemUloh = 0;
+    const temaData = [];
+
+    TEMATA.forEach(tema => {
+      const ulohy = Syllabus.getUlohyProTridu(tema.id, trida);
+      if (!ulohy.length) return;
+      const temaProgress = p[tema.id] || {};
+      let spravne = 0, pokus = 0;
+      Object.entries(temaProgress).forEach(([id, v]) => {
+        if (id.startsWith('gen_')) return;
+        if (v === 'spravne') spravne++;
+        else pokus++;
+      });
+      const celkem = ulohy.filter(u => !u.id.startsWith('gen_')).length;
+      const procent = celkem > 0 ? Math.round((spravne / celkem) * 100) : 0;
+      celkemSpravne += spravne;
+      celkemPokus   += pokus;
+      celkemUloh    += celkem;
+      temaData.push({ tema, spravne, pokus, celkem, procent });
+    });
+
+    // Summary karty
+    const uspesnost = (celkemSpravne + celkemPokus) > 0
+      ? Math.round((celkemSpravne / (celkemSpravne + celkemPokus)) * 100) : 0;
+    const sadyDnes = TEMATA.reduce((s, t) => s + SessionProgress.getDokonceniCount(t.id), 0);
+    document.getElementById('stats-splneno').textContent  = `${celkemSpravne}/${celkemUloh}`;
+    document.getElementById('stats-uspesnost').textContent = `${uspesnost} %`;
+    document.getElementById('stats-dnes').textContent      = `${sadyDnes}`;
+
+    // Seznam témat — seřadit od nejhoršího %
+    temaData.sort((a, b) => a.procent - b.procent);
+    const listEl = document.getElementById('stats-temata-list');
+    listEl.innerHTML = temaData.map(({ tema, spravne, pokus, celkem, procent }) => `
+      <div class="stats-tema-radek">
+        <span class="stats-tema-ikona">${tema.ikona}</span>
+        <div class="stats-tema-info">
+          <div class="stats-tema-hlavicka">
+            <span class="stats-tema-nazev">${tema.nazev}</span>
+            <span class="stats-tema-procent">${procent} %</span>
+          </div>
+          <div class="stats-bar-wrap">
+            <div class="stats-bar-fill" style="width:${procent}%"></div>
+          </div>
+          <div class="stats-tema-detail">${spravne} správně · ${pokus} rozděláno · ${celkem - spravne - pokus} zbývá</div>
+        </div>
+      </div>
+    `).join('');
+
+    // Highlights
+    const sPokusem = temaData.filter(d => d.spravne + d.pokus > 0);
+    const nejlepsi = [...temaData].sort((a, b) => b.procent - a.procent)[0];
+    const nejhorsi = sPokusem.sort((a, b) => a.procent - b.procent)[0];
+    const hlEl = document.getElementById('stats-highlights');
+    if (nejlepsi && nejhorsi && nejlepsi.tema.id !== nejhorsi.tema.id) {
+      hlEl.innerHTML = `
+        <div class="stats-highlight stats-highlight--best">
+          <span>🏆</span><div><strong>Nejlepší</strong><br>${nejlepsi.tema.nazev} — ${nejlepsi.procent} %</div>
+        </div>
+        <div class="stats-highlight stats-highlight--warn">
+          <span>⚠</span><div><strong>K procvičení</strong><br>${nejhorsi.tema.nazev} — ${nejhorsi.procent} %</div>
+        </div>
+      `;
+      hlEl.classList.remove('hidden');
+    } else {
+      hlEl.classList.add('hidden');
+    }
+  }
+
+  function initStatsTcgKarty() {
+    document.querySelectorAll('.stats-tcg-karta').forEach(card => {
+      card.addEventListener('mousemove', (e) => {
+        const rect  = card.getBoundingClientRect();
+        const mx    = (e.clientX - rect.left) / rect.width;
+        const my    = (e.clientY - rect.top)  / rect.height;
+        const tiltX = (my - 0.5) * 22;
+        const tiltY = (mx - 0.5) * -22;
+        card.style.setProperty('--mx', mx);
+        card.style.setProperty('--my', my);
+        card.style.animation  = 'none';
+        card.style.opacity    = '1';
+        card.style.transform  = `perspective(800px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) translateY(-12px) scale(1.06)`;
+      });
+      card.addEventListener('mouseleave', () => {
+        card.style.setProperty('--mx', 0.5);
+        card.style.setProperty('--my', 0.5);
+        card.style.transform = '';
+        card.style.animation = 'statsCardHover 3.5s ease-in-out infinite';
+      });
+    });
   }
 
   function zobrazApiKlic(callbackPoCancelaci) {
@@ -1463,6 +1577,11 @@ const App = (() => {
     document.getElementById('btn-profil-ulozit')?.addEventListener('click', ulozProfil);
     document.getElementById('btn-export-dat')?.addEventListener('click', exportDat);
     document.getElementById('btn-smazat-ucet')?.addEventListener('click', smazatUcet);
+
+    // Statistiky
+    document.getElementById('btn-statistiky')?.addEventListener('click', zobrazStatistiky);
+    document.getElementById('btn-zpet-ze-statistik')?.addEventListener('click', zobrazDomovskou);
+    initStatsTcgKarty();
 
     // Záchranný save konverzace při opuštění tabu + obnova home screen %
     document.addEventListener('visibilitychange', () => {

@@ -152,7 +152,10 @@
             <h1 class="screen-title">Vyber si téma</h1>
             <p class="screen-subtitle" id="home-uvitani">Appka tě provede každou úlohou krok za krokem pomocí sokratovského dialogu — nikdy ti nedá rovnou odpověď, ale navede tě správnými otázkami. Každý den o půlnoci se úlohy v tématech obmění.</p>
           </div>
-          <div id="ai-stav" class="ai-stav ai-off" aria-live="polite">📖 Statický mód</div>
+          <div style="display:flex;align-items:center;gap:.75rem;">
+            <button id="btn-statistiky" class="btn-icon" title="Tvůj pokrok" aria-label="Statistiky">📊</button>
+            <div id="ai-stav" class="ai-stav ai-off" aria-live="polite">📖 Statický mód</div>
+          </div>
         </div>
 
         <!-- Mřížka témat -->
@@ -379,6 +382,47 @@
           <button id="btn-avatar-crop-zrusit" class="btn-secondary" type="button">Zrušit</button>
           <button id="btn-avatar-crop-ulozit" class="btn-primary" type="button">Uložit</button>
         </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         OBRAZOVKA — Statistiky
+    ═══════════════════════════════════════════════════════ -->
+    <div id="screen-statistiky" class="screen hidden">
+      <div class="app-container">
+        <button id="btn-zpet-ze-statistik" class="btn-back">← Zpět</button>
+        <h2 class="screen-title" style="margin-bottom:0">Tvůj pokrok</h2>
+
+        <!-- TCG karty -->
+        <div class="stats-balicek" id="stats-balicek">
+          <div class="stats-tcg-karta" style="--rot:-10deg;--delay:0.15s;--b1:#1e3a8a;--b2:#3b82f6">
+            <div class="stats-tcg-foil"></div>
+            <div class="stats-tcg-ozdoba">📚</div>
+            <div class="stats-tcg-cislo" id="stats-splneno">—</div>
+            <div class="stats-tcg-label">Splněno úloh</div>
+            <div class="stats-tcg-hvezdy">✦ ✦ ✦</div>
+          </div>
+          <div class="stats-tcg-karta" style="--rot:0deg;--delay:0.35s;--b1:#713f12;--b2:#f59e0b">
+            <div class="stats-tcg-foil"></div>
+            <div class="stats-tcg-ozdoba">🏆</div>
+            <div class="stats-tcg-cislo" id="stats-uspesnost">—</div>
+            <div class="stats-tcg-label">Úspěšnost</div>
+            <div class="stats-tcg-hvezdy">✦ ✦ ✦</div>
+          </div>
+          <div class="stats-tcg-karta" style="--rot:10deg;--delay:0.55s;--b1:#14532d;--b2:#22c55e">
+            <div class="stats-tcg-foil"></div>
+            <div class="stats-tcg-ozdoba">⚡</div>
+            <div class="stats-tcg-cislo" id="stats-dnes">—</div>
+            <div class="stats-tcg-label">Sady dnes</div>
+            <div class="stats-tcg-hvezdy">✦ ✦ ✦</div>
+          </div>
+        </div>
+
+        <!-- Per-téma progress -->
+        <div id="stats-temata-list" class="stats-temata-list"></div>
+
+        <!-- Highlights -->
+        <div id="stats-highlights" class="stats-highlights hidden"></div>
       </div>
     </div>
 
