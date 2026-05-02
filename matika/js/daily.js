@@ -36,7 +36,7 @@ const SessionProgress = (() => {
 
     const { data, error } = await sb
       .from('session_progress')
-      .select('tema_id, dokonceni_count, uzamceno_do')
+      .select('tema_id, dokonceni_count, uzamceno_do, datum')
       .eq('user_id', userId);
 
     if (error) {
@@ -52,19 +52,21 @@ const SessionProgress = (() => {
     const toHeal  = [];  // count>=3 bez data → doplň uzamceno_do
 
     (data || []).forEach(row => {
-      if (row.uzamceno_do && row.uzamceno_do < dnes) {
-        // Uzamčení vypršelo → reset
+      const expired = (row.uzamceno_do && row.uzamceno_do < dnes)
+                   || (row.datum       && row.datum       < dnes);
+      if (expired) {
+        // Uzamčení nebo datum starší než dnes → reset na 0
         toReset.push(row.tema_id);
-        _cache[row.tema_id] = { dokonceni_count: 0, uzamceno_do: null };
+        _cache[row.tema_id] = { dokonceni_count: 0, uzamceno_do: null, datum: null };
       } else if (!row.uzamceno_do && (row.dokonceni_count || 0) >= 3) {
         // Léčení legacy dat: count=3 bez zámku → nastav datum na dnes
-        // (jinak by se count 3 nikdy neresetoval při novém dni)
         toHeal.push(row.tema_id);
-        _cache[row.tema_id] = { dokonceni_count: 3, uzamceno_do: dnes };
+        _cache[row.tema_id] = { dokonceni_count: 3, uzamceno_do: dnes, datum: dnes };
       } else {
         _cache[row.tema_id] = {
           dokonceni_count: row.dokonceni_count || 0,
-          uzamceno_do:     row.uzamceno_do || null
+          uzamceno_do:     row.uzamceno_do || null,
+          datum:           row.datum || null
         };
       }
     });
@@ -75,7 +77,7 @@ const SessionProgress = (() => {
     // Resetuj expired záznamy v DB (fire-and-forget)
     toReset.forEach(temaId => {
       sb.from('session_progress')
-        .upsert({ user_id: userId, tema_id: temaId, dokonceni_count: 0, uzamceno_do: null },
+        .upsert({ user_id: userId, tema_id: temaId, dokonceni_count: 0, uzamceno_do: null, datum: null },
                 { onConflict: 'user_id,tema_id' })
         .then(({ error: e }) => { if (e) console.warn('SessionProgress reset error:', e.message); });
     });
@@ -83,7 +85,7 @@ const SessionProgress = (() => {
     // Doplň chybějící uzamceno_do pro count=3 záznamy (fire-and-forget)
     toHeal.forEach(temaId => {
       sb.from('session_progress')
-        .upsert({ user_id: userId, tema_id: temaId, dokonceni_count: 3, uzamceno_do: dnes },
+        .upsert({ user_id: userId, tema_id: temaId, dokonceni_count: 3, uzamceno_do: dnes, datum: dnes },
                 { onConflict: 'user_id,tema_id' })
         .then(({ error: e }) => { if (e) console.warn('SessionProgress heal error:', e.message); });
     });
@@ -137,14 +139,14 @@ const SessionProgress = (() => {
     }
 
     const newCount = currentCount + 1;
-    _cache[temaId] = { ...(_cache[temaId] || {}), dokonceni_count: newCount, uzamceno_do: null };
+    _cache[temaId] = { ...(_cache[temaId] || {}), dokonceni_count: newCount, uzamceno_do: null, datum: dnes };
     _ulozLocal();
 
     // Zapiš do DB (fire-and-forget — neblokujeme UI)
     if (userId) {
       const sb = Auth.getSupabase();
       sb.from('session_progress')
-        .upsert({ user_id: userId, tema_id: temaId, dokonceni_count: newCount, uzamceno_do: null },
+        .upsert({ user_id: userId, tema_id: temaId, dokonceni_count: newCount, uzamceno_do: null, datum: dnes },
                 { onConflict: 'user_id,tema_id' })
         .then(({ error: e }) => { if (e) console.warn('spustiSadu DB error:', e.message); });
     }
@@ -157,14 +159,14 @@ const SessionProgress = (() => {
   async function uzamkniSadu(temaId, userId) {
     const dnes = getPragueDate();
     const count = _cache[temaId]?.dokonceni_count || 3;
-    _cache[temaId] = { dokonceni_count: count, uzamceno_do: dnes };
+    _cache[temaId] = { dokonceni_count: count, uzamceno_do: dnes, datum: dnes };
     _ulozLocal();
 
     if (userId) {
       const sb = Auth.getSupabase();
       const { error } = await sb
         .from('session_progress')
-        .upsert({ user_id: userId, tema_id: temaId, dokonceni_count: count, uzamceno_do: dnes },
+        .upsert({ user_id: userId, tema_id: temaId, dokonceni_count: count, uzamceno_do: dnes, datum: dnes },
                 { onConflict: 'user_id,tema_id' });
       if (error) console.warn('uzamkniSadu DB error:', error.message);
     }
