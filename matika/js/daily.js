@@ -6,7 +6,8 @@
 
 const SessionProgress = (() => {
 
-  const LOCAL_KEY = 'matika_daily_progress';
+  const LOCAL_KEY    = 'matika_daily_progress';
+  const CELKOVE_KEY  = 'matika_sady_celkem';
 
   function _nactiLocal() {
     try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}'); } catch { return {}; }
@@ -148,6 +149,8 @@ const SessionProgress = (() => {
     const newCount = currentCount + 1;
     _cache[temaId] = { ...(_cache[temaId] || {}), dokonceni_count: newCount, uzamceno_do: null, datum: dnes };
     _ulozLocal();
+    localStorage.setItem(CELKOVE_KEY, (parseInt(localStorage.getItem(CELKOVE_KEY) || '0', 10) + 1).toString());
+    if (typeof Auth !== 'undefined') Auth.incrementSadyCelkem();
 
     // Zapiš do DB (fire-and-forget — neblokujeme UI)
     if (userId) {
@@ -185,5 +188,9 @@ const SessionProgress = (() => {
     localStorage.removeItem(LOCAL_KEY);
   }
 
-  return { nactiVse, jeZamceno, getDokonceniCount, spustiSadu, uzamkniSadu, resetCache, getPragueDate };
+  function getCelkoveSady() {
+    return parseInt(localStorage.getItem(CELKOVE_KEY) || '0', 10);
+  }
+
+  return { nactiVse, jeZamceno, getDokonceniCount, getCelkoveSady, spustiSadu, uzamkniSadu, resetCache, getPragueDate };
 })();

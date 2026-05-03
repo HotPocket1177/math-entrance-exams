@@ -542,8 +542,9 @@ const App = (() => {
     // Summary karty
     const uspesnost = (celkemSpravne + celkemPokus) > 0
       ? Math.round((celkemSpravne / (celkemSpravne + celkemPokus)) * 100) : 0;
-    const sadyDnes = TEMATA.reduce((s, t) => s + SessionProgress.getDokonceniCount(t.id), 0);
-    document.getElementById('stats-splneno').textContent  = `${celkemSpravne}/${celkemUloh}`;
+    const sadyDnes   = TEMATA.reduce((s, t) => s + SessionProgress.getDokonceniCount(t.id), 0);
+    const sadyCelkem = SessionProgress.getCelkoveSady();
+    document.getElementById('stats-splneno').textContent   = `${sadyCelkem}`;
     document.getElementById('stats-uspesnost').textContent = `${uspesnost} %`;
     document.getElementById('stats-dnes').textContent      = `${sadyDnes}`;
 
@@ -643,6 +644,14 @@ const App = (() => {
     // Načti session progress (denní limity)
     const userId = session?.user?.id || Auth.getSession()?.user?.id;
     await SessionProgress.nactiVse(userId);
+
+    // Seed kumulativního počítadla sad z DB (source of truth pro cross-device sync)
+    if ((profil?.sady_celkem ?? 0) > 0) {
+      const localCount = parseInt(localStorage.getItem('matika_sady_celkem') || '0', 10);
+      if (profil.sady_celkem > localCount) {
+        localStorage.setItem('matika_sady_celkem', profil.sady_celkem.toString());
+      }
+    }
 
     // Hlavička — zobraz avatar dropdown
     const email = session?.user?.email || Auth.getSession()?.user?.email || '';

@@ -63,7 +63,7 @@ const Auth = (() => {
     if (!_session) return null;
     const { data, error } = await _supabase
       .from('profiles')
-      .select('trida, last_seen_version, email_updates, onboarding_done')
+      .select('trida, last_seen_version, email_updates, onboarding_done, sady_celkem')
       .eq('id', _session.user.id)
       .maybeSingle();
     if (error) {
@@ -92,6 +92,12 @@ const Auth = (() => {
     if (error) console.warn('Chyba uložení email preference:', error.message);
   }
 
+  // ── Sady celkem: inkrement na DB straně (atomic, bez race condition) ──
+  async function incrementSadyCelkem() {
+    if (!_session) return;
+    await _supabase.rpc('increment_sady_celkem', { uid: _session.user.id });
+  }
+
   // ── Onboarding: označ jako dokončený ─────────────────────────
   async function ulozOnboardingDone() {
     if (!_session) return;
@@ -117,6 +123,7 @@ const Auth = (() => {
     ulozVerziZobrazeni,
     ulozEmailPreferenci,
     ulozOnboardingDone,
+    incrementSadyCelkem,
     getJwt,
     getSession,
     jeAuthenticated,
