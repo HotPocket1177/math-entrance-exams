@@ -889,11 +889,7 @@ const App = (() => {
         <h3 class="tema-nazev">${tema.nazev}</h3>
         <p class="tema-popis">${tema.popis}</p>
         <div class="tema-meta">
-          <span class="tema-pocet">${hotovo}/${celkem} úloh</span>
-          <span class="tema-procent">${procent}%</span>
-        </div>
-        <div class="progress-bar" role="progressbar" aria-valuenow="${procent}" aria-valuemin="0" aria-valuemax="100">
-          <div class="progress-fill" style="width:${procent}%"></div>
+          <span class="tema-pocet">5 příkladů · 3×</span>
         </div>
         ${!jeOdemceno   ? `<span class="tema-zamek" aria-hidden="true">🔒</span>` : ''}
         ${!jeOdemceno   ? `<p class="tema-zamceno-text">Dostupné od ${minTrida}. třídy</p>` : ''}
@@ -1450,7 +1446,7 @@ const App = (() => {
     const btnDalsi   = document.getElementById('btn-dalsi');
     btnDalsi.classList.remove('hidden');
     const jePosledni = aktualniUlohaIndex >= aktualniTema.ulohy.length - 1;
-    btnDalsi.textContent = jePosledni ? 'Zobrazit výsledky' : 'Další úloha →';
+    btnDalsi.textContent = jePosledni ? 'Ukončit sadu' : 'Další úloha →';
     if (jePosledni) _posledniDokoncena = true;
     btnDalsi.focus();
   }
@@ -1604,7 +1600,7 @@ const App = (() => {
       ulozKonverzaci();
       smazSessionStav();  // hard refresh z home screenu = bez obnovy rozpracované sady
 
-      // Pokud uživatel dokončil všechny úlohy ale kliknul Zpět místo "Zobrazit výsledky",
+      // Pokud uživatel dokončil všechny úlohy ale kliknul Zpět místo "Ukončit sadu",
       // sada se musí započítat — jinak by denní counter zůstal na 0.
       if (_posledniDokoncena && !_sadaZapoctena) {
         const temaId = aktualniTema?._temaId || aktualniTema?.id;
