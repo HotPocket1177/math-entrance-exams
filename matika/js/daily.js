@@ -53,7 +53,8 @@ const SessionProgress = (() => {
 
     (data || []).forEach(row => {
       const expired = (row.uzamceno_do && row.uzamceno_do < dnes)
-                   || (row.datum       && row.datum       < dnes);
+                   || (row.datum       && row.datum       < dnes)
+                   || (!row.datum && !row.uzamceno_do && (row.dokonceni_count || 0) > 0);
       if (expired) {
         // Uzamčení nebo datum starší než dnes → reset na 0
         toReset.push(row.tema_id);
@@ -108,26 +109,32 @@ const SessionProgress = (() => {
   // Vrátí { count, zamceno }.
   // Pokud je téma již zamčeno nebo count >= 3 → zamceno: true, cyklus nespouštěj.
   async function spustiSadu(temaId, userId) {
+    const dnes = getPragueDate();
     // Nejdřív zkontroluji základ z DB (kanonický zdroj)
     if (userId) {
       const sb = Auth.getSupabase();
       const { data: row } = await sb
         .from('session_progress')
-        .select('dokonceni_count, uzamceno_do')
+        .select('dokonceni_count, uzamceno_do, datum')
         .eq('user_id', userId)
         .eq('tema_id', temaId)
         .maybeSingle();
 
       if (row) {
-        const dnes = getPragueDate();
         if (row.uzamceno_do && row.uzamceno_do >= dnes) {
           _cache[temaId] = { dokonceni_count: row.dokonceni_count, uzamceno_do: row.uzamceno_do };
           _ulozLocal();
           return { count: row.dokonceni_count, zamceno: true };
         }
+        // Stejná logika jako v nactiVse: reset pokud datum/uzamceno_do je starší než dnes,
+        // nebo pokud datum chybí a count > 0 (pre-migrace stará data).
+        const expired = (row.uzamceno_do && row.uzamceno_do < dnes)
+                     || (row.datum       && row.datum       < dnes)
+                     || (!row.datum && !row.uzamceno_do && (row.dokonceni_count || 0) > 0);
         _cache[temaId] = {
-          dokonceni_count: row.uzamceno_do && row.uzamceno_do < dnes ? 0 : (row.dokonceni_count || 0),
-          uzamceno_do: row.uzamceno_do && row.uzamceno_do < dnes ? null : row.uzamceno_do
+          dokonceni_count: expired ? 0 : (row.dokonceni_count || 0),
+          uzamceno_do:     expired ? null : (row.uzamceno_do || null),
+          datum:           expired ? null : (row.datum || null)
         };
       }
     }
