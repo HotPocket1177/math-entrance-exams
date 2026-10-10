@@ -31,6 +31,7 @@ const App = (() => {
   const HISTORY_KEY        = 'matika_history';           // { temaId: { taskId: timestampMs } }
   const SESSION_KEY        = 'matika_session_sada';      // sessionStorage: sadaId pro obnovu po hard refreshi
   const ROZPRACOVANE_KEY   = 'matika_rozpracovane';      // localStorage: rozpracované sady (panel na home)
+  const TYP_ULOH_KEY       = 'matika_typ_uloh';          // localStorage: { temaId: 'slovni' | 'priklady' }
   const COOLDOWN_PRIMARY   = 30 * 24 * 60 * 60 * 1000;  // 30 dní (ideál)
   const COOLDOWN_SECONDARY =  7 * 24 * 60 * 60 * 1000;  // 7 dní (fallback)
 
@@ -49,6 +50,34 @@ const App = (() => {
     slovni: '#6366f1', procenta: '#ec4899', zlomky: '#f59e0b',
     rovnice: '#10b981', geometrie: '#0ea5e9', grafy: '#8b5cf6', mix: '#f97316'
   };
+
+  // ─── Typ úloh: slovní úlohy × jen příklady ───────────────────
+  // Jen u témat, kde dává smysl obojí (slovní úlohy jsou slovní vždy, grafy potřebují data).
+  const TEMATA_S_VOLBOU_TYPU = ['zlomky', 'procenta', 'rovnice', 'geometrie'];
+
+  function _nactiTypy() {
+    try { return JSON.parse(localStorage.getItem(TYP_ULOH_KEY) || '{}'); } catch { return {}; }
+  }
+
+  // true = slovní úlohy (výchozí), false = jen početní příklady
+  function jeSlovniVolba(temaId) {
+    if (!TEMATA_S_VOLBOU_TYPU.includes(temaId)) return true;
+    return _nactiTypy()[temaId] !== 'priklady';
+  }
+
+  function nastavTypUloh(temaId, slovni) {
+    const typy = _nactiTypy();
+    typy[temaId] = slovni ? 'slovni' : 'priklady';
+    try { localStorage.setItem(TYP_ULOH_KEY, JSON.stringify(typy)); } catch {}
+  }
+
+  // Generované úlohy nesou příznak; statické se poznají podle začátku zadání
+  // („Vypočítej…“, „Vyřeš…“, holý výraz, „Čtverec má…“ = příklad bez příběhu).
+  const ZACATEK_PRIKLADU = /^(Vypočítej|Vyřeš|Zjednoduš|Zkrať|Zapiš|Kolik je|Najdi|Nerovnici|Který ze zlomků|Urči|\$|Pravoúhlý|Rovnoramenný|Trojúhelník|Čtverec|Obdélník|Kosočtverec|Kruh|Válec|Kvádr)/;
+  function jeSlovniUloha(u) {
+    if (typeof u.slovni === 'boolean') return u.slovni;
+    return !ZACATEK_PRIKLADU.test((u.zadani || '').trim());
+  }
 
   function najdiTema(id) {
     return id === MIX_TEMA.id ? MIX_TEMA : TEMATA.find(t => t.id === id);
@@ -964,6 +993,7 @@ const App = (() => {
           <span class="cykly-text">Dnes ${dokonceniCount}/3 · 5 příkladů</span>
         </div>` : ''}
       </div>
+      ${klikatelna && TEMATA_S_VOLBOU_TYPU.includes(tema.id) ? prepinacTypuHtml(tema) : ''}
     `;
 
     if (klikatelna) {
@@ -971,8 +1001,36 @@ const App = (() => {
       karta.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); spustTema(tema); }
       });
+      napojPrepinacTypu(karta, tema);
     }
     return karta;
+  }
+
+  // Dvě tlačítka „Slovní úlohy / Jen příklady“ — zvolené je zvýrazněné
+  function prepinacTypuHtml(tema) {
+    const slovni = jeSlovniVolba(tema.id);
+    return `
+      <div class="typ-prepinac" role="group" aria-label="Typ úloh v tématu ${tema.nazev}">
+        <button type="button" class="typ-volba${slovni ? ' typ-volba--aktivni' : ''}" data-slovni="1" aria-pressed="${slovni}">📝 Slovní úlohy</button>
+        <button type="button" class="typ-volba${!slovni ? ' typ-volba--aktivni' : ''}" data-slovni="0" aria-pressed="${!slovni}">🔢 Jen příklady</button>
+      </div>`;
+  }
+
+  function napojPrepinacTypu(karta, tema) {
+    karta.querySelectorAll('.typ-volba').forEach(btn => {
+      // Klik ani Enter na přepínači nesmí spustit sadu (karta je celá klikací)
+      btn.addEventListener('keydown', e => e.stopPropagation());
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const slovni = btn.dataset.slovni === '1';
+        nastavTypUloh(tema.id, slovni);
+        karta.querySelectorAll('.typ-volba').forEach(b => {
+          const aktivni = (b.dataset.slovni === '1') === slovni;
+          b.classList.toggle('typ-volba--aktivni', aktivni);
+          b.setAttribute('aria-pressed', String(aktivni));
+        });
+      });
+    });
   }
 
   // ─── Panel „Rozpracované“ (home) ──────────────────────────────
@@ -1128,12 +1186,20 @@ const App = (() => {
     return Array.from({ length: TASKS_PER_CYCLE }, (_, i) => temata[i % temata.length]);
   }
 
+  // Statický pool tématu, případně zúžený na zvolený typ úloh
+  // (když daného typu není dost, vezme se celý pool — lepší než prázdná sada)
+  function statickyPool(temaId, trida, slovni, pocet = TASKS_PER_CYCLE) {
+    const pool  = Syllabus.getUlohyProTridu(temaId, trida);
+    const zdroj = pool.length > 0 ? pool : (najdiTema(temaId)?.ulohy || []);
+    if (!TEMATA_S_VOLBOU_TYPU.includes(temaId)) return zdroj;
+    const zuzeny = zdroj.filter(u => jeSlovniUloha(u) === slovni);
+    return zuzeny.length >= pocet ? zuzeny : zdroj;
+  }
+
   // Statický výběr pro Mix — z každého vybraného tématu jedna úloha
-  function selectUlohyProMix(temataMixu, trida) {
-    return temataMixu.map(temaId => {
-      const pool = Syllabus.getUlohyProTridu(temaId, trida);
-      const zdroj = pool.length > 0 ? pool : (najdiTema(temaId)?.ulohy || []);
-      const [uloha] = selectUlohyProCyklus(temaId, zdroj, 1);
+  function selectUlohyProMix(temataMixu, typyMixu, trida) {
+    return temataMixu.map((temaId, i) => {
+      const [uloha] = selectUlohyProCyklus(temaId, statickyPool(temaId, trida, typyMixu[i], 1), 1);
       return uloha ? { ...uloha, temaId } : null;
     }).filter(Boolean);
   }
@@ -1142,19 +1208,21 @@ const App = (() => {
   async function pripravSadu(temaId, trida, onProgress) {
     const mix = temaId === MIX_TEMA.id;
     const temataMixu = mix ? vyberTemataProMix(trida) : null;
+    // Mix střídá slovní úlohy a čisté příklady jako skutečný test; jinak platí volba na kartě
+    const slovni = mix
+      ? temataMixu.map(t => !TEMATA_S_VOLBOU_TYPU.includes(t) || Math.random() < 0.5)
+      : jeSlovniVolba(temaId);
 
     if (Api.jeAiDostupne()) {
       try {
-        return await Generator.generujSadu(mix ? temataMixu : temaId, trida, TASKS_PER_CYCLE, onProgress);
+        return await Generator.generujSadu(mix ? temataMixu : temaId, trida, TASKS_PER_CYCLE, onProgress, slovni);
       } catch (err) {
         console.warn('Generator selhal, používám statický pool:', err.message);
       }
     }
 
-    if (mix) return selectUlohyProMix(temataMixu, trida);
-    const pool  = Syllabus.getUlohyProTridu(temaId, trida);
-    const zdroj = pool.length > 0 ? pool : (najdiTema(temaId)?.ulohy || []);
-    return selectUlohyProCyklus(temaId, zdroj);
+    if (mix) return selectUlohyProMix(temataMixu, slovni, trida);
+    return selectUlohyProCyklus(temaId, statickyPool(temaId, trida, slovni));
   }
 
   // ─── Loading overlay pro generování příkladů ─────────────────

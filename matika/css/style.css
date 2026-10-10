@@ -2590,3 +2590,40 @@ mark.zvyrazneni { background-repeat: no-repeat; background-size: 100% 100%; }
   .rozpracovane-panel { position: static; max-height: none; order: -1; }
   .rozpracovane-panel--prazdny { display: none; }
 }
+
+/* ── Přepínač typu úloh na kartě tématu ── */
+.tema-karta:has(> .typ-prepinac) { flex-wrap: wrap; }
+
+.typ-prepinac {
+  flex-basis: 100%;
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  margin-top: -.15rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface2);
+  border: 1px solid var(--color-border);
+}
+
+.typ-volba {
+  flex: 1;
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  padding: .4rem .35rem;
+  font-family: var(--font-ui);
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition), color var(--transition), box-shadow var(--transition);
+}
+
+.typ-volba:hover:not(.typ-volba--aktivni) { color: var(--color-text); }
+
+.typ-volba--aktivni {
+  background: var(--color-surface);
+  color: var(--tema-barva);
+  box-shadow: var(--shadow-sm);
+}

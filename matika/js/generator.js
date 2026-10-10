@@ -40,21 +40,42 @@ const Generator = (() => {
     };
   }
 
-  function buildPrompt(temaId, trida) {
+  // Ukázky čistě početních zadání (bez slovního kontextu) pro témata, kde to jde
+  const PRIKLADY_BEZ_KONTEXTU = {
+    zlomky:    '"Vypočítej: $\\frac{3}{4} - \\frac{1}{6}$", "Zkrať na základní tvar: $\\frac{42}{56}$", "Vypočítej: $2\\frac{1}{3} \\cdot \\frac{3}{14}$"',
+    procenta:  '"Kolik je 15 % z 240?", "Kolik procent je 36 z 48?", "Urči číslo, jehož 30 % je 120."',
+    rovnice:   '"Vyřeš rovnici: $3(x - 2) = x + 8$", "Vyřeš soustavu: $x + y = 9$, $2x - y = 3$", "Vyřeš nerovnici: $5 - 2x > 11$"',
+    geometrie: '"Obdélník má strany 4,5 cm a 6 cm. Vypočítej jeho obsah.", "Pravoúhlý trojúhelník má odvěsny 5 cm a 12 cm. Urči délku přepony."'
+  };
+
+  // slovni = true → úloha s reálným kontextem (slovní úloha); false → čistý početní příklad
+  function buildPrompt(temaId, trida, slovni) {
+    const tema = slovni
+      ? (TEMA_POPIS[temaId] || temaId)
+      : (TEMA_POPIS[temaId] || temaId).replace(/,?\s*reálný kontext/, '');
+    const krok1 = slovni
+      ? 'Vymysli zadání s realistickým kontextem a pěknými čísly.'
+      : 'Vymysli ČISTĚ početní zadání BEZ slovního kontextu a pěkná čísla.';
+    const kontext = slovni
+      ? '- Realistický kontext (ne abstraktní "číslo x")'
+      : `- ŽÁDNÝ příběh ani kontext (žádné ceny zboží, osoby, recepty…) — jen krátký pokyn a matematický výraz
+- Ukázky stylu: ${PRIKLADY_BEZ_KONTEXTU[temaId] || '"Vypočítej: …"'}`;
+
     return `Jsi generátor matematických příkladů pro přijímací zkoušky na střední školy v ČR (styl CERMAT, 4leté obory).
 
-Téma: ${TEMA_POPIS[temaId] || temaId}
+Téma: ${tema}
 Třída žáka: ${trida}. třída
+Typ úlohy: ${slovni ? 'slovní úloha' : 'početní příklad bez kontextu'}
 
 POSTUP TVORBY (dodržuj pořadí):
-1. Vymysli zadání s realistickým kontextem a pěknými čísly.
+1. ${krok1}
 2. PŘESNĚ VYPOČÍTEJ správnou odpověď (krok za krokem v hlavě).
 3. Zapište výpočetní kroky (postup) — každý krok musí numericky navazovat na předchozí a vést k výsledku z bodu 2.
 4. Ověř: dosad výsledek zpět do zadání a zkontroluj, že sedí.
 5. Teprve pak vytvoř JSON.
 
 Požadavky:
-- Realistický kontext (ne abstraktní "číslo x")
+${kontext}
 - Správná matematika, pěkná celá nebo desetinná čísla (ne nahodilá zlomky)
 - Obtížnost odpovídající přijímačkám na střední školu
 - Zadání a kroky v češtině, matematika v LaTeX ($...$)
@@ -104,12 +125,14 @@ Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;
   }
 
   // Vygeneruje jeden příklad
-  async function generujUlohu(temaId, trida, index) {
+  async function generujUlohu(temaId, trida, index, slovni = true) {
     const messages = [
-      { role: 'system', content: buildPrompt(temaId, trida) },
+      { role: 'system', content: buildPrompt(temaId, trida, slovni) },
       {
         role: 'user',
-        content: `Vygeneruj příklad ${index + 1}. Musí se lišit od typických učebnicových příkladů — zvol jiný kontext nebo číselné hodnoty.`
+        content: slovni
+          ? `Vygeneruj příklad ${index + 1}. Musí se lišit od typických učebnicových příkladů — zvol jiný kontext nebo číselné hodnoty.`
+          : `Vygeneruj příklad ${index + 1}. Bez slovního kontextu — zvol jiná čísla a jiný typ operace než obvykle.`
       }
     ];
 
@@ -161,6 +184,7 @@ Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;
     return {
       id:       `gen_${temaId}_${Date.now()}_${index}`,
       temaId,
+      slovni,
       tridy:    [6, 7, 8, 9],
       podtyp:   'generovany',
       zadani:   prob.zadani,
@@ -178,11 +202,13 @@ Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;
 
   // Vygeneruje sadu count příkladů paralelně, s retry při selhání.
   // temaId může být i pole (Mix) — i-tý příklad pak bude z tématu temaId[i].
-  async function generujSadu(temaId, trida, count = 5, onProgress) {
+  // slovni: true/false pro celou sadu, nebo pole (Mix) — typ i-tého příkladu.
+  async function generujSadu(temaId, trida, count = 5, onProgress, slovni = true) {
     const promises = Array.from({ length: count }, async (_, i) => {
       try {
         const tema  = Array.isArray(temaId) ? temaId[i % temaId.length] : temaId;
-        const uloha = await generujUlohu(tema, trida, i);
+        const typ   = Array.isArray(slovni) ? slovni[i % slovni.length] : slovni;
+        const uloha = await generujUlohu(tema, trida, i, typ);
         if (onProgress) onProgress(i + 1, count);
         return uloha;
       } catch (err) {
