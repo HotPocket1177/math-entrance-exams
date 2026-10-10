@@ -33,6 +33,31 @@ const App = (() => {
   const COOLDOWN_PRIMARY   = 30 * 24 * 60 * 60 * 1000;  // 30 dní (ideál)
   const COOLDOWN_SECONDARY =  7 * 24 * 60 * 60 * 1000;  // 7 dní (fallback)
 
+  // ─── Mix — úlohy z různých témat jako u přijímaček ───────────
+  // Žák předem neví, jaké téma přijde → trénuje poznat, jak úlohu začít.
+  // Každá úloha nese vlastní temaId (progress se ukládá k jejímu tématu).
+  const MIX_TEMA = {
+    id:     'mix',
+    nazev:  'Mix jako u přijímaček',
+    ikona:  '🎲',
+    popis:  'Pět úloh z různých témat. Předem nevíš, co přijde — přesně jako u testu.',
+    ulohy:  []
+  };
+
+  const TEMA_BARVY = {
+    slovni: '#6366f1', procenta: '#ec4899', zlomky: '#f59e0b',
+    rovnice: '#10b981', geometrie: '#0ea5e9', grafy: '#8b5cf6', mix: '#f97316'
+  };
+
+  function najdiTema(id) {
+    return id === MIX_TEMA.id ? MIX_TEMA : TEMATA.find(t => t.id === id);
+  }
+
+  // Témata, která má žák v aktuální třídě odemčená (mají aspoň jednu úlohu)
+  function odemcenaTemataProMix(trida) {
+    return TEMATA.filter(t => Syllabus.getUlohyProTridu(t.id, trida).length > 0).map(t => t.id);
+  }
+
   // ─── Resume stav ─────────────────────────────────────────────
   // Uloží se při kliknutí "Zpět" uprostřed sady; obnoví se při opětovném
   // otevření stejného tématu, aby uživatel pokračoval tam, kde skončil.
@@ -95,7 +120,7 @@ const App = (() => {
 
   function vycistiLocalStorage({ smazatAvatar = false } = {}) {
     const aktualniAvatarKlic = _avatarKlic();
-    const zachovat = new Set(['matika_darkmode', 'matika_openai_key']);
+    const zachovat = new Set(['matika_darkmode']);
     // Při normálním odhlášení avatar zachováme — uživatel ho uvidí po přihlášení
     if (!smazatAvatar && aktualniAvatarKlic) zachovat.add(aktualniAvatarKlic);
     const smazat = [];
@@ -144,7 +169,7 @@ const App = (() => {
   }
 
   // ─── Správa obrazovek ─────────────────────────────────────────
-  const SCREENS = ['screen-auth', 'screen-home', 'screen-apikey', 'screen-uloha', 'screen-vysledky', 'screen-profil', 'screen-statistiky'];
+  const SCREENS = ['screen-auth', 'screen-home', 'screen-uloha', 'screen-vysledky', 'screen-profil', 'screen-statistiky'];
 
   function zobrazScreen(id) {
     SCREENS.forEach(s => {
@@ -610,20 +635,6 @@ const App = (() => {
     });
   }
 
-  function zobrazApiKlic(callbackPoCancelaci) {
-    zobrazScreen('screen-apikey');
-    document.getElementById('apikey-input').value =
-      localStorage.getItem(CONFIG.apiKeyStorageKey) || '';
-    document.getElementById('apikey-input').focus();
-    const btnZpet = document.getElementById('btn-apikey-zpet');
-    if (callbackPoCancelaci) {
-      btnZpet.classList.remove('hidden');
-      btnZpet.onclick = callbackPoCancelaci;
-    } else {
-      btnZpet.classList.add('hidden');
-    }
-  }
-
   // ─── Po úspěšném přihlášení ───────────────────────────────────
   async function pokracujPoLoginu(session) {
     profil = await Auth.getProfil();
@@ -663,7 +674,7 @@ const App = (() => {
     // Obnova po hard refresh — pokud byl uživatel uprostřed sady, vrátíme ho tam
     const savedStav = obnovSessionStav();
     if (savedStav && !SessionProgress.jeZamceno(savedStav.temaId)) {
-      const temaObj = TEMATA.find(t => t.id === savedStav.temaId);
+      const temaObj = najdiTema(savedStav.temaId);
       if (temaObj) {
         _resumeState = savedStav;
         await spustTema(temaObj);
@@ -854,52 +865,56 @@ const App = (() => {
       .length;
   }
 
-  function maApiKlic() {
-    return !!localStorage.getItem(CONFIG.apiKeyStorageKey);
-  }
-
   // ─── Domovská obrazovka ───────────────────────────────────────
   function renderTemata() {
     // AI status badge
     const aiStav = document.getElementById('ai-stav');
     if (aiStav) {
-      const aiOn = Auth.jeAuthenticated() || maApiKlic();
-      aiStav.textContent = aiOn ? '🤖 AI mód aktivní' : '📖 Statický mód';
+      const aiOn = Api.jeAiDostupne();
+      aiStav.textContent = aiOn ? '✨ AI kouč aktivní' : '📖 Statický mód';
       aiStav.className   = aiOn ? 'ai-stav ai-on' : 'ai-stav ai-off';
     }
 
-    const grid = document.getElementById('temata-grid');
+    const grid  = document.getElementById('temata-grid');
+    const trida = profil?.trida || 8;
     grid.innerHTML = '';
 
+    // Mix — dává smysl až od dvou odemčených témat
+    if (odemcenaTemataProMix(trida).length >= 2) {
+      grid.appendChild(vytvorKartuTematu(MIX_TEMA, { jeOdemceno: true, mix: true }));
+    }
+
     TEMATA.forEach(tema => {
-      const trida         = profil?.trida || 8;
-      const ulohyProTridu = Syllabus.getUlohyProTridu(tema.id, trida);
-      const jeOdemceno    = ulohyProTridu.length > 0;
-      const jeDnesHotovo  = jeOdemceno && SessionProgress.jeZamceno(tema.id);
-      const klikatelna    = jeOdemceno && !jeDnesHotovo;
-      const celkem        = ulohyProTridu.length;
-      const hotovo        = pocetDokoncenychUloh(tema.id);
-      const procent       = celkem > 0 ? Math.round((hotovo / celkem) * 100) : 0;
-      const minTrida      = !jeOdemceno ? Syllabus.getMinTrida(tema.id) : null;
-      const dokonceniCount = jeOdemceno ? SessionProgress.getDokonceniCount(tema.id) : 0;
+      const jeOdemceno = Syllabus.getUlohyProTridu(tema.id, trida).length > 0;
+      grid.appendChild(vytvorKartuTematu(tema, {
+        jeOdemceno,
+        minTrida: !jeOdemceno ? Syllabus.getMinTrida(tema.id) : null
+      }));
+    });
+  }
 
-      const karta = document.createElement('div');
-      if (!jeOdemceno)       karta.className = 'tema-karta tema-karta--zamcena';
-      else if (jeDnesHotovo) karta.className = 'tema-karta tema-karta--dnes-hotovo';
-      else                   karta.className = 'tema-karta';
+  function vytvorKartuTematu(tema, { jeOdemceno, minTrida = null, mix = false }) {
+    const jeDnesHotovo   = jeOdemceno && SessionProgress.jeZamceno(tema.id);
+    const klikatelna     = jeOdemceno && !jeDnesHotovo;
+    const dokonceniCount = jeOdemceno ? SessionProgress.getDokonceniCount(tema.id) : 0;
 
-      karta.setAttribute('role', klikatelna ? 'button' : 'article');
-      if (klikatelna) karta.setAttribute('tabindex', '0');
-      karta.setAttribute('aria-label',
-        `Téma: ${tema.nazev}${!jeOdemceno ? ' (zamčeno)' : jeDnesHotovo ? ' (hotovo na dnes)' : ''}`);
+    const karta = document.createElement('div');
+    karta.className = 'tema-karta'
+      + (mix ? ' tema-karta--mix' : '')
+      + (!jeOdemceno ? ' tema-karta--zamcena' : jeDnesHotovo ? ' tema-karta--dnes-hotovo' : '');
+    karta.style.setProperty('--tema-barva', TEMA_BARVY[tema.id] || 'var(--color-primary)');
 
-      karta.innerHTML = `
-        <div class="tema-ikona">${tema.ikona}</div>
+    karta.setAttribute('role', klikatelna ? 'button' : 'article');
+    if (klikatelna) karta.setAttribute('tabindex', '0');
+    karta.setAttribute('aria-label',
+      `Téma: ${tema.nazev}${!jeOdemceno ? ' (zamčeno)' : jeDnesHotovo ? ' (hotovo na dnes)' : ''}`);
+
+    karta.innerHTML = `
+      <div class="tema-ikona" aria-hidden="true">${tema.ikona}</div>
+      <div class="tema-telo">
+        ${mix ? '<span class="tema-stitek">Nové · trénink na test</span>' : ''}
         <h3 class="tema-nazev">${tema.nazev}</h3>
         <p class="tema-popis">${tema.popis}</p>
-        <div class="tema-meta">
-          <span class="tema-pocet">5 příkladů · 3×</span>
-        </div>
         ${!jeOdemceno   ? `<span class="tema-zamek" aria-hidden="true">🔒</span>` : ''}
         ${!jeOdemceno   ? `<p class="tema-zamceno-text">Dostupné od ${minTrida}. třídy</p>` : ''}
         ${jeDnesHotovo  ? `<span class="tema-zamek tema-zamek--hotovo" aria-hidden="true">✓</span>` : ''}
@@ -909,19 +924,18 @@ const App = (() => {
           <span class="cyklus-puntik${dokonceniCount >= 1 ? ' hotovy' : ''}"></span>
           <span class="cyklus-puntik${dokonceniCount >= 2 ? ' hotovy' : ''}"></span>
           <span class="cyklus-puntik${dokonceniCount >= 3 ? ' hotovy' : ''}"></span>
-          <span class="cykly-text">Dnes: ${dokonceniCount}/3</span>
+          <span class="cykly-text">Dnes ${dokonceniCount}/3 · 5 příkladů</span>
         </div>` : ''}
-      `;
+      </div>
+    `;
 
-      if (klikatelna) {
-        karta.addEventListener('click', () => spustTema(tema));
-        karta.addEventListener('keydown', e => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); spustTema(tema); }
-        });
-      }
-
-      grid.appendChild(karta);
-    });
+    if (klikatelna) {
+      karta.addEventListener('click', () => spustTema(tema));
+      karta.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); spustTema(tema); }
+      });
+    }
+    return karta;
   }
 
   // ─── Výběr úloh pro cyklus (bez opakování po dobu 30 dní) ───
@@ -932,7 +946,7 @@ const App = (() => {
     catch { return {}; }
   }
 
-  function selectUlohyProCyklus(temaId, pool) {
+  function selectUlohyProCyklus(temaId, pool, pocet = TASKS_PER_CYCLE) {
     const now      = Date.now();
     const historie = _nactiHistorii();
     const tema     = historie[temaId] || {};
@@ -944,7 +958,7 @@ const App = (() => {
     });
 
     // Stupeň 2: příklady nezobrazené v posledních 7 dnech
-    if (dostupne.length < TASKS_PER_CYCLE) {
+    if (dostupne.length < pocet) {
       dostupne = pool.filter(u => {
         const t = tema[u.id];
         return !t || (now - t) > COOLDOWN_SECONDARY;
@@ -952,7 +966,7 @@ const App = (() => {
     }
 
     // Stupeň 3: vezmi nejdéle nepoužívané (LRU) — jen krajní případ malého poolu
-    if (dostupne.length < TASKS_PER_CYCLE) {
+    if (dostupne.length < pocet) {
       dostupne = [...pool].sort((a, b) => (tema[a.id] || 0) - (tema[b.id] || 0));
     }
 
@@ -962,7 +976,7 @@ const App = (() => {
       [dostupne[i], dostupne[j]] = [dostupne[j], dostupne[i]];
     }
 
-    const vybrane = dostupne.slice(0, TASKS_PER_CYCLE);
+    const vybrane = dostupne.slice(0, pocet);
 
     // Ulož timestamp zobrazení
     vybrane.forEach(u => { tema[u.id] = now; });
@@ -970,6 +984,45 @@ const App = (() => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(historie));
 
     return vybrane;
+  }
+
+  // Pořadí témat pro Mix — co nejvíc různých, zamíchané
+  function vyberTemataProMix(trida) {
+    const temata = odemcenaTemataProMix(trida);
+    for (let i = temata.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [temata[i], temata[j]] = [temata[j], temata[i]];
+    }
+    return Array.from({ length: TASKS_PER_CYCLE }, (_, i) => temata[i % temata.length]);
+  }
+
+  // Statický výběr pro Mix — z každého vybraného tématu jedna úloha
+  function selectUlohyProMix(temataMixu, trida) {
+    return temataMixu.map(temaId => {
+      const pool = Syllabus.getUlohyProTridu(temaId, trida);
+      const zdroj = pool.length > 0 ? pool : (najdiTema(temaId)?.ulohy || []);
+      const [uloha] = selectUlohyProCyklus(temaId, zdroj, 1);
+      return uloha ? { ...uloha, temaId } : null;
+    }).filter(Boolean);
+  }
+
+  // Připraví úlohy pro jeden cyklus: AI generování, při selhání statický pool.
+  async function pripravSadu(temaId, trida, onProgress) {
+    const mix = temaId === MIX_TEMA.id;
+    const temataMixu = mix ? vyberTemataProMix(trida) : null;
+
+    if (Api.jeAiDostupne()) {
+      try {
+        return await Generator.generujSadu(mix ? temataMixu : temaId, trida, TASKS_PER_CYCLE, onProgress);
+      } catch (err) {
+        console.warn('Generator selhal, používám statický pool:', err.message);
+      }
+    }
+
+    if (mix) return selectUlohyProMix(temataMixu, trida);
+    const pool  = Syllabus.getUlohyProTridu(temaId, trida);
+    const zdroj = pool.length > 0 ? pool : (najdiTema(temaId)?.ulohy || []);
+    return selectUlohyProCyklus(temaId, zdroj);
   }
 
   // ─── Loading overlay pro generování příkladů ─────────────────
@@ -1032,8 +1085,8 @@ const App = (() => {
       return;
     }
 
-    // ── Pokus o AI generování ─────────────────────────────────
-    let vybrane = null;
+    // ── AI generování (se statickým fallbackem) ───────────────
+    let vybrane;
 
     if (Api.jeAiDostupne()) {
       // Nastav aktualniTema ihned s prázdnými úlohami — Zpět tak zachytí správné temaId
@@ -1044,30 +1097,18 @@ const App = (() => {
 
       zobrazUlohu();
       document.getElementById('uloha-tema-nazev').textContent = tema.nazev;
-      zobrazNacitani('Generuji nové příklady… ⏳');
+      zobrazNacitani('Připravuji nové příklady…');
 
-      try {
-        let hotovo = 0;
-        vybrane = await Generator.generujSadu(temaId, trida, TASKS_PER_CYCLE, (n, z) => {
-          hotovo = n;
-          zobrazNacitani(`Generuji příklady… ${hotovo}/${z}`);
-        });
-      } catch (err) {
-        console.warn('Generator selhal, používám statický pool:', err.message);
-        vybrane = null;
-      }
+      vybrane = await pripravSadu(temaId, trida, (n, z) => {
+        zobrazNacitani(`Připravuji příklady… ${n}/${z}`);
+      });
 
       zobrazNacitani(null);
 
       // Uživatel přešel jinam během generování → tiše storno, žádný cyklus se nezapočítá
       if (document.getElementById('screen-uloha').classList.contains('hidden')) return;
-    }
-
-    // ── Fallback: statický pool ───────────────────────────────
-    if (!vybrane) {
-      const pool  = Syllabus.getUlohyProTridu(temaId, trida);
-      const zdroj = pool.length > 0 ? pool : (tema.ulohy || []);
-      vybrane = selectUlohyProCyklus(temaId, zdroj);
+    } else {
+      vybrane = await pripravSadu(temaId, trida);
     }
 
     aktualniTema       = { ...tema, ulohy: vybrane };
@@ -1118,23 +1159,9 @@ const App = (() => {
     _sadaZapoctena     = false;
     _posledniDokoncena = false;
 
-    let vybrane = null;
-
-    if (Api.jeAiDostupne()) {
-      zobrazNacitani('Připravuji další příklady…');
-      try {
-        vybrane = await Generator.generujSadu(temaId, trida, TASKS_PER_CYCLE);
-      } catch {
-        vybrane = null;
-      }
-      zobrazNacitani(null);
-    }
-
-    if (!vybrane) {
-      const pool  = Syllabus.getUlohyProTridu(temaId, trida);
-      const zdroj = pool.length > 0 ? pool : (TEMATA.find(t => t.id === temaId)?.ulohy || []);
-      vybrane = selectUlohyProCyklus(temaId, zdroj);
-    }
+    if (Api.jeAiDostupne()) zobrazNacitani('Připravuji další příklady…');
+    const vybrane = await pripravSadu(temaId, trida);
+    zobrazNacitani(null);
 
     aktualniTema = { ...aktualniTema, ulohy: vybrane };
     skore        = { spravne: 0, celkem: vybrane.length };
@@ -1181,7 +1208,7 @@ const App = (() => {
       odemcenaTemata: odemcenaTemata || TEMATA.map(t => t.id)
     } : null;
 
-    // Vyčisti dialog; výpočetní panel dostane placeholder (zobrazí se po dokončení)
+    // Vyčisti dialog; vzorový postup dostane placeholder (zobrazí se po dokončení)
     document.getElementById('dialog-log').innerHTML = '';
     document.getElementById('btn-dalsi').classList.add('hidden');
     zobrazPlaceholderPostupu();
@@ -1190,62 +1217,229 @@ const App = (() => {
     const temaId  = aktualniTema._temaId || aktualniTema.id;
     const ulozena = obnovKonverzaci(temaId, uloha.id);
 
-    if (ulozena && ulozena.dialogLog?.length > 1) {
+    if (ulozena?.engineStav && (ulozena.dialogLog?.length > 0 || ulozena.engineStav.faze === 'zacatek')) {
       // ── Obnova uložené konverzace ─────────────────────────────
       Engine.obnovStav(ulozena.engineStav, uloha);
+      renderZadani();
+      renderPlan();
 
-      ulozena.dialogLog.forEach(m => {
+      (ulozena.dialogLog || []).forEach(m => {
+        if (m.typ === 'system') return;  // starší formát — zadání je teď v kartě nad dialogem
         dialogLog.push(m);
         _renderZprava(m.typ, m.text);
       });
 
       pridejZpravu('info', '↩ Pokračuješ v rozpracované úloze.');
 
-      if (Engine.jeDokonceno()) {
-        dokoncUlohu();
-      } else {
-        setVstupDisabled(false);
-        document.getElementById('vstup-pole').value = '';
-        document.getElementById('vstup-pole').focus();
-      }
+      if (Engine.jeDokonceno())                        dokoncUlohu();
+      else if (Engine.getStav().faze === 'zacatek')    zobrazVolbuZacatku();
+      else                                             povolVstup();
       return;
     }
 
     // ── Normální inicializace ─────────────────────────────────────
-    const uvod = Engine.inicializuj(uloha, kontextZaka);
-    pridejZpravu('system', uvod.text);
-
+    Engine.inicializuj(uloha, kontextZaka, uloha.temaId || temaId);
+    renderZadani();
+    renderPlan();
     setVstupDisabled(true);
 
     pokazLoadingIndikator();
-    const uvodniOtazka = await Engine.getUvodniOtazka();
+    const prep = await Engine.priprav();
     skrejLoadingIndikator();
 
-    if (uvodniOtazka.error) zobrazApiChybu(uvodniOtazka.error);
-    if (introZprava) pridejZpravu('info', introZprava);
-    pridejZpravu('hint', uvodniOtazka.text);
+    // Mezitím se otevřela jiná úloha (Zpět + jiné téma) → výsledek zahoď
+    if (Engine.getStav().uloha !== uloha) return;
 
+    if (prep.error) zobrazApiChybu(prep.error);
+    if (introZprava) pridejZpravu('info', introZprava);
+    renderPlan();
+
+    if (prep.zacatek) {
+      zobrazVolbuZacatku();
+    } else {
+      pridejZpravu('hint', prep.uvod);
+      povolVstup();
+    }
+    ulozKonverzaci();
+  }
+
+  function povolVstup() {
     setVstupDisabled(false);
-    document.getElementById('vstup-pole').value = '';
-    document.getElementById('vstup-pole').focus();
+    const pole = document.getElementById('vstup-pole');
+    pole.value = '';
+    pole.focus();
+  }
+
+  // ─── Zadání se zvýrazněním ────────────────────────────────────
+  function renderZadani() {
+    const { uloha, zvyraznit } = Engine.getStav();
+    const el = document.getElementById('zadani-text');
+    if (!uloha) { el.innerHTML = ''; return; }
+    el.innerHTML = zvyrazniText(uloha.zadani, zvyraznit);
+    MathRender.renderMath(el);
+    document.getElementById('zadani-karta')
+      .classList.toggle('zadani-karta--zvyraznena', el.querySelector('mark') !== null);
+  }
+
+  // Obalí úryvky (bez ohledu na velikost písmen) do <mark>. Vrací HTML.
+  // LaTeX ($...$) se zvýrazní celý, pokud ho kouč v úryvku uvedl.
+  function zvyrazniText(text, useky = []) {
+    const LATEX_RE = /(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$)/g;
+    const textoveUseky = useky
+      .flatMap(u => u.split(/\$[^$]*\$/))
+      .map(u => u.trim().toLowerCase())
+      .filter(u => u.length >= 3);
+    const latexUseky = useky.flatMap(u => u.match(/\$[^$]+\$/g) || []).map(u => u.toLowerCase());
+
+    return text.split(LATEX_RE).map((cast, i) => {
+      if (i % 2 === 1) {
+        return latexUseky.includes(cast.toLowerCase())
+          ? `<mark class="zvyrazneni">${escapujHtml(cast)}</mark>`
+          : escapujHtml(cast);
+      }
+
+      const lower   = cast.toLowerCase();
+      const rozsahy = [];
+      textoveUseky.forEach(u => {
+        for (let idx = lower.indexOf(u); idx !== -1; idx = lower.indexOf(u, idx + u.length)) {
+          rozsahy.push([idx, idx + u.length]);
+        }
+      });
+      if (!rozsahy.length) return escapujHtml(cast);
+
+      // Sloučení překrývajících se rozsahů
+      rozsahy.sort((a, b) => a[0] - b[0]);
+      const slouceno = [rozsahy[0]];
+      rozsahy.slice(1).forEach(([od, do_]) => {
+        const posledni = slouceno[slouceno.length - 1];
+        if (od <= posledni[1]) posledni[1] = Math.max(posledni[1], do_);
+        else slouceno.push([od, do_]);
+      });
+
+      let html = '';
+      let pozice = 0;
+      slouceno.forEach(([od, do_]) => {
+        html += escapujHtml(cast.slice(pozice, od));
+        html += `<mark class="zvyrazneni">${escapujHtml(cast.slice(od, do_))}</mark>`;
+        pozice = do_;
+      });
+      return html + escapujHtml(cast.slice(pozice));
+    }).join('');
+  }
+
+  // ─── Plán řešení (pravý panel) ────────────────────────────────
+  function renderPlan() {
+    const { plan, aktivniKrok, dokonceno, zobrazenaOdpoved, faze } = Engine.getStav();
+    const el = document.getElementById('plan-list');
+    if (!plan?.length) {
+      el.innerHTML = '<li class="plan-krok plan-krok--placeholder">Připravuji plán…</li>';
+      return;
+    }
+    el.innerHTML = plan.map((nazev, i) => {
+      const cislo = i + 1;
+      const stavKroku = (dokonceno && !zobrazenaOdpoved) || cislo < aktivniKrok ? 'hotovo'
+                      : (!dokonceno && faze === 'reseni' && cislo === aktivniKrok) ? 'aktivni'
+                      : 'ceka';
+      return `
+        <li class="plan-krok plan-krok--${stavKroku}"${stavKroku === 'aktivni' ? ' aria-current="step"' : ''}>
+          <span class="plan-cislo" aria-hidden="true">${stavKroku === 'hotovo' ? '✓' : cislo}</span>
+          <span class="plan-nazev">${escapujHtml(nazev)}</span>
+        </li>`;
+    }).join('');
+    MathRender.renderMath(el);
+  }
+
+  // ─── „Jak začneš?“ — volba prvního kroku ──────────────────────
+  function zobrazVolbuZacatku() {
+    const { zacatek, zacatekChyby } = Engine.getStav();
+    if (!zacatek) return;
+    setVstupDisabled(true);
+
+    const logEl = document.getElementById('dialog-log');
+    const karta = document.createElement('div');
+    karta.className = 'volba-karta';
+    karta.innerHTML = `
+      <span class="volba-label">Než začneš počítat</span>
+      <p class="volba-otazka">Jak tuhle úlohu začneš?</p>
+      <div class="volba-moznosti" role="group" aria-label="Možnosti prvního kroku"></div>
+      <p class="volba-zpetna-vazba hidden" aria-live="polite"></p>
+    `;
+
+    const moznostiEl = karta.querySelector('.volba-moznosti');
+    zacatek.forEach((m, i) => {
+      const btn = document.createElement('button');
+      btn.type      = 'button';
+      btn.className = 'volba-moznost';
+      btn.innerHTML = `<span class="volba-pismeno" aria-hidden="true">${'ABCD'[i]}</span><span class="volba-text">${escapujHtml(m.text)}</span>`;
+      if (zacatekChyby.includes(i)) {
+        btn.classList.add('volba-moznost--spatne');
+        btn.disabled = true;
+      }
+      btn.addEventListener('click', () => zvolZacatek(i, karta));
+      moznostiEl.appendChild(btn);
+    });
+
+    logEl.appendChild(karta);
+    MathRender.renderMath(karta);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function zvolZacatek(index, karta) {
+    const vysledek = Engine.vyberZacatek(index);
+    if (!vysledek) return;
+    const tlacitka    = karta.querySelectorAll('.volba-moznost');
+    const zpetnaVazba = karta.querySelector('.volba-zpetna-vazba');
+
+    if (!vysledek.spravne) {
+      tlacitka[index].classList.add('volba-moznost--spatne');
+      tlacitka[index].disabled = true;
+      zpetnaVazba.innerHTML = `<strong>Tudy ne.</strong> ${escapujHtml(vysledek.proc)} Zkus jinou možnost.`;
+      zpetnaVazba.classList.remove('hidden');
+      MathRender.renderMath(zpetnaVazba);
+      ulozKonverzaci();
+      return;
+    }
+
+    tlacitka[index].classList.add('volba-moznost--spravne');
+    tlacitka.forEach(b => { b.disabled = true; });
+    karta.classList.add('volba-karta--hotovo');
+    zpetnaVazba.classList.add('hidden');
+
+    pridejZpravu('volba', vysledek.text);
+    pridejZpravu('pokrok', vysledek.zprava);
+    renderPlan();
+    ulozKonverzaci();
+    povolVstup();
+  }
+
+  // ─── Typy zpráv v dialogu ─────────────────────────────────────
+  const MSG_IKONY = {
+    system: '📋', student: '✏️', volba: '🧭', hint: '💡', pokrok: '👍', uspech: '✅',
+    reseni: '📖', chyba: '⚠️', info: 'ℹ️', apierror: '🔌'
+  };
+  const MSG_LABELY = {
+    system: 'Zadání', student: 'Ty', volba: 'Začnu tím, že', hint: 'Kouč', pokrok: 'Kouč · dobrý krok',
+    uspech: 'Správně', reseni: 'Řešení', chyba: 'Upozornění', info: 'Info', apierror: 'Chyba API'
+  };
+
+  function _vytvorZpravu(typ, text) {
+    const msg = document.createElement('div');
+    msg.className = `msg msg-${typ}`;
+    msg.innerHTML = `
+      <span class="msg-ikona" aria-hidden="true">${MSG_IKONY[typ] || '•'}</span>
+      <div class="msg-obsah">
+        <span class="msg-label">${MSG_LABELY[typ] || typ}</span>
+        <p class="msg-text math-text">${escapujHtml(text)}</p>
+      </div>
+    `;
+    return msg;
   }
 
   // Renderuje zprávu do DOM bez přidání do dialogLog (pro obnovu uložené konverzace)
   function _renderZprava(typ, text) {
     const logEl = document.getElementById('dialog-log');
-    const msg   = document.createElement('div');
-    msg.className = `msg msg-${typ} msg-visible`;
-
-    const ikona = { system: '📋', student: '✏️', hint: '💡', uspech: '✅', reseni: '📖', chyba: '⚠️', info: 'ℹ️', apierror: '🔌' };
-    const label = { system: 'Zadání', student: 'Ty', hint: 'Nápověda', uspech: 'Správně', reseni: 'Řešení', chyba: 'Upozornění', info: 'Info', apierror: 'Chyba API' };
-
-    msg.innerHTML = `
-      <span class="msg-ikona" aria-hidden="true">${ikona[typ] || '•'}</span>
-      <div class="msg-obsah">
-        <span class="msg-label">${label[typ] || typ}</span>
-        <p class="msg-text math-text">${escapujHtml(text)}</p>
-      </div>
-    `;
+    const msg   = _vytvorZpravu(typ, text);
+    msg.classList.add('msg-visible');
     logEl.appendChild(msg);
     MathRender.renderMath(msg);
     logEl.scrollTop = logEl.scrollHeight;
@@ -1263,7 +1457,7 @@ const App = (() => {
     el.innerHTML = `
       <span class="msg-ikona" aria-hidden="true">🤔</span>
       <div class="msg-obsah">
-        <span class="msg-label">Přemýšlím…</span>
+        <span class="msg-label">Kouč přemýšlí…</span>
         <div class="loading-dots"><span></span><span></span><span></span></div>
       </div>
     `;
@@ -1280,25 +1474,14 @@ const App = (() => {
   function setVstupDisabled(disabled) {
     document.getElementById('vstup-pole').disabled   = disabled;
     document.getElementById('btn-odeslat').disabled  = disabled;
+    document.getElementById('btn-napoveda').disabled = disabled;
   }
 
   // ─── Dialog ──────────────────────────────────────────────────
   function pridejZpravu(typ, text) {
     dialogLog.push({ typ, text });
     const logEl = document.getElementById('dialog-log');
-    const msg   = document.createElement('div');
-    msg.className = `msg msg-${typ}`;
-
-    const ikona = { system: '📋', student: '✏️', hint: '💡', uspech: '✅', reseni: '📖', chyba: '⚠️', info: 'ℹ️', apierror: '🔌' };
-    const label = { system: 'Zadání', student: 'Ty', hint: 'Nápověda', uspech: 'Správně', reseni: 'Řešení', chyba: 'Upozornění', info: 'Info', apierror: 'Chyba API' };
-
-    msg.innerHTML = `
-      <span class="msg-ikona" aria-hidden="true">${ikona[typ] || '•'}</span>
-      <div class="msg-obsah">
-        <span class="msg-label">${label[typ] || typ}</span>
-        <p class="msg-text math-text">${escapujHtml(text)}</p>
-      </div>
-    `;
+    const msg   = _vytvorZpravu(typ, text);
     logEl.appendChild(msg);
     requestAnimationFrame(() => {
       msg.classList.add('msg-visible');
@@ -1312,21 +1495,22 @@ const App = (() => {
   }
 
   function escapujHtml(text) {
-    return text
+    return String(text ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/\{,\}/g, ',')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')  // kouč zvýrazňuje klíčové pojmy
       .replace(/\n/g, '<br>');
   }
 
-  // ─── Výpočetní panel ─────────────────────────────────────────
+  // ─── Vzorový postup (pravý panel) ─────────────────────────────
 
-  // Placeholder v pravém panelu během řešení (postup se zobrazí po dokončení)
+  // Placeholder během řešení (postup se zobrazí po dokončení)
   function zobrazPlaceholderPostupu() {
     const log = document.getElementById('vypocet-log');
     if (!log) return;
-    log.innerHTML = '<div class="vypocet-placeholder">Podrobné řešení se zobrazí po dokončení příkladu.</div>';
+    log.innerHTML = '<div class="vypocet-placeholder">Vzorový postup se ukáže, až příklad dokončíš.</div>';
   }
 
   // Přidá jeden krok (LaTeX + popis) do výpočetního panelu.
@@ -1414,32 +1598,49 @@ const App = (() => {
 
     if (vysledek.fallback && vysledek.error) zobrazApiChybu(vysledek.error);
 
+    const uloha       = aktualniTema.ulohy[aktualniUlohaIndex];
+    const temaUlohy   = uloha.temaId || aktualniTema._temaId || aktualniTema.id;
+
     if (vysledek.typ === 'napoveda') {
-      pridejZpravu('hint', vysledek.text);
+      pridejZpravu(vysledek.pokrok ? 'pokrok' : 'hint', vysledek.text);
+      renderZadani();
+      renderPlan();
       ulozKonverzaci();
       setVstupDisabled(false);
       document.getElementById('vstup-pole').focus();
     } else if (vysledek.typ === 'uspech') {
       pridejZpravu('uspech', vysledek.text);
-      ulozProgress(
-        aktualniTema._temaId || aktualniTema.id,
-        aktualniTema.ulohy[aktualniUlohaIndex].id,
-        true
-      );
+      ulozProgress(temaUlohy, uloha.id, true);
       skore.spravne++;
       dokoncUlohu();
     } else if (vysledek.typ === 'reseni') {
       pridejZpravu('reseni', vysledek.text);
-      ulozProgress(
-        aktualniTema._temaId || aktualniTema.id,
-        aktualniTema.ulohy[aktualniUlohaIndex].id,
-        false
-      );
+      ulozProgress(temaUlohy, uloha.id, false);
       dokoncUlohu();
     } else if (vysledek.typ === 'info') {
       pridejZpravu('info', vysledek.text);
       setVstupDisabled(false);
     }
+  }
+
+  // ─── Tlačítko „Nevím, jak dál“ ────────────────────────────────
+  async function pozadejNapovedu() {
+    if (cekaNaApi || Engine.jeDokonceno() || Engine.getStav().faze !== 'reseni') return;
+
+    pokazLoadingIndikator();
+    const vysledek = await Engine.napoveda();
+    skrejLoadingIndikator();
+
+    if (vysledek) {
+      if (vysledek.fallback && vysledek.error) zobrazApiChybu(vysledek.error);
+      pridejZpravu('hint', vysledek.text);
+      renderZadani();
+      renderPlan();
+      ulozKonverzaci();
+    }
+    // Rozepsanou odpověď v poli necháváme — žák v ní může pokračovat
+    setVstupDisabled(false);
+    document.getElementById('vstup-pole').focus();
   }
 
   function dokoncUlohu() {
@@ -1449,7 +1650,9 @@ const App = (() => {
     const uloha  = aktualniTema.ulohy[aktualniUlohaIndex];
     if (uloha) smazKonverzaci(temaId, uloha.id);
 
-    // Zobraz celý postup řešení v pravém panelu
+    // Zvýraznění už nedává smysl; plán odškrtni a ukaž vzorový postup
+    renderZadani();
+    renderPlan();
     zobrazPostupPoDokonceni();
 
     const btnDalsi   = document.getElementById('btn-dalsi');
@@ -1471,32 +1674,6 @@ const App = (() => {
     document.getElementById('vysledky-spravne').textContent = `${skore.spravne} / ${skore.celkem}`;
     document.getElementById('vysledky-breakdown').innerHTML =
       `<p>Téma: <strong>${aktualniTema.nazev}</strong> — ${skore.spravne}/${skore.celkem} správně</p>`;
-  }
-
-  // ─── API klíč (legacy mód) ────────────────────────────────────
-  function ulozApiKlic() {
-    const vstup   = document.getElementById('apikey-input').value.trim();
-    const chybaEl = document.getElementById('apikey-chyba');
-    if (!vstup) {
-      chybaEl.textContent = 'Klíč nesmí být prázdný.';
-      chybaEl.classList.remove('hidden');
-      return;
-    }
-    if (!vstup.startsWith('sk-')) {
-      chybaEl.textContent = 'OpenAI klíč by měl začínat na "sk-".';
-      chybaEl.classList.remove('hidden');
-      return;
-    }
-    chybaEl.classList.add('hidden');
-    localStorage.setItem(CONFIG.apiKeyStorageKey, vstup);
-    zobrazDomovskou();
-  }
-
-  function smazApiKlic() {
-    if (confirm('Opravdu chceš smazat API klíč? Appka přejde do statického módu.')) {
-      localStorage.removeItem(CONFIG.apiKeyStorageKey);
-      zobrazDomovskou();
-    }
   }
 
   // ─── Dark mode ────────────────────────────────────────────────
@@ -1589,6 +1766,7 @@ const App = (() => {
   // ─── Ostatní event listenery ──────────────────────────────────
   function initEventy() {
     document.getElementById('btn-odeslat').addEventListener('click', odeslat);
+    document.getElementById('btn-napoveda').addEventListener('click', pozadejNapovedu);
     document.getElementById('vstup-pole').addEventListener('keydown', e => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); odeslat(); }
     });
@@ -1656,11 +1834,6 @@ const App = (() => {
     });
     document.getElementById('user-dropdown').addEventListener('click', e => e.stopPropagation());
 
-    // Výpočetní panel — smazat
-    document.getElementById('btn-vypocet-smazat').addEventListener('click', () => {
-      document.getElementById('vypocet-log').innerHTML = '';
-    });
-
     // Tlačítko "Nahlásit chybu" — zobrazí ID úlohy pro report
     document.getElementById('btn-nahlasit-chybu')?.addEventListener('click', () => {
       if (!aktualniTema) return;
@@ -1715,18 +1888,6 @@ const App = (() => {
         const homeVisible = !document.getElementById('screen-home').classList.contains('hidden');
         if (homeVisible) renderTemata();
       }
-    });
-
-    // API klíč (legacy)
-    document.getElementById('btn-odeslat-apikey')?.addEventListener('click', ulozApiKlic);
-    document.getElementById('apikey-input')?.addEventListener('keydown', e => {
-      if (e.key === 'Enter') ulozApiKlic();
-    });
-    document.getElementById('btn-apikey-uloz')?.addEventListener('click', ulozApiKlic);
-    document.getElementById('btn-apikey-smazat')?.addEventListener('click', smazApiKlic);
-    document.getElementById('btn-apikey-preskocit')?.addEventListener('click', () => {
-      localStorage.removeItem(CONFIG.apiKeyStorageKey);
-      zobrazDomovskou();
     });
   }
 

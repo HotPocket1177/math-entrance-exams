@@ -1,58 +1,25 @@
-// api.js — proxy na OpenAI přes Supabase Edge Function (s legacy fallbackem)
+// api.js — volání Claude přes Supabase Edge Function (klíč i volba modelu jsou na serveru)
 
 const Api = (() => {
 
   // Hlavní vstupní bod: pošle messages na AI a vrátí textovou odpověď
-  // opts.maxTokens  — limit tokenů (výchozí 200, pro generování příkladů použij 800)
-  // opts.temperature — teplota (výchozí 0.7)
+  // opts.maxTokens — strop výstupu včetně přemýšlení modelu (výchozí 4000)
+  // opts.effort    — 'low' | 'medium' | 'high' (výchozí 'medium')
   async function chat(messages, opts = {}) {
     const jwt = Auth.getJwt();
-    const maxTokens  = opts.maxTokens  ?? 200;
-    const temperature = opts.temperature ?? 0.7;
+    if (!jwt) throw new Error('Pro AI kouče se musíš přihlásit.');
 
-    // ── Primární cesta: Supabase Edge Function (JWT auth) ────────
-    if (CONFIG.useEdgeFunction && jwt) {
-      const res = await fetch(CONFIG.edgeFunctionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${jwt}`,
-          'apikey': CONFIG.supabaseAnonKey
-        },
-        body: JSON.stringify({
-          messages,
-          model: CONFIG.model,
-          max_tokens: maxTokens,
-          temperature
-        })
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error?.message || `HTTP ${res.status}`);
-      }
-
-      const data = await res.json();
-      return data.choices[0].message.content.trim();
-    }
-
-    // ── Fallback: přímé volání OpenAI (legacy, bez auth) ─────────
-    const apiKey = localStorage.getItem(CONFIG.apiKeyStorageKey);
-    if (!apiKey) {
-      throw new Error('Chybí přihlášení ani API klíč. Přihlas se nebo zadej OpenAI klíč.');
-    }
-
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetch(CONFIG.edgeFunctionUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${jwt}`,
+        'apikey': CONFIG.supabaseAnonKey
       },
       body: JSON.stringify({
-        model: CONFIG.model,
         messages,
-        max_tokens: maxTokens,
-        temperature
+        max_tokens: opts.maxTokens ?? 4000,
+        effort:     opts.effort    ?? 'medium'
       })
     });
 
@@ -62,13 +29,12 @@ const Api = (() => {
     }
 
     const data = await res.json();
-    return data.choices[0].message.content.trim();
+    return (data.text || '').trim();
   }
 
   // Vrací true pokud je dostupný nějaký způsob komunikace s AI
   function jeAiDostupne() {
-    return (CONFIG.useEdgeFunction && Auth.jeAuthenticated()) ||
-           !!localStorage.getItem(CONFIG.apiKeyStorageKey);
+    return Auth.jeAuthenticated();
   }
 
   return { chat, jeAiDostupne };

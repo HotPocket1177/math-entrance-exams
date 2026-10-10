@@ -18,7 +18,7 @@
   <!-- ── Hlavička ── -->
   <header class="app-header" role="banner">
     <div class="header-inner">
-      <div class="app-logo">Matika <span>přijímačky</span></div>
+      <div class="app-logo"><span class="app-logo-znak" aria-hidden="true">∑</span>Matika <span>přijímačky</span></div>
       <div class="header-akce">
         <div id="user-dropdown-wrap" class="user-dropdown-wrap hidden">
           <button id="btn-user-avatar" class="btn-avatar" aria-haspopup="true" aria-expanded="false" title="Nastavení účtu">
@@ -100,49 +100,6 @@
     </div>
 
     <!-- ══════════════════════════════════════════════════════
-         OBRAZOVKA 0b — API klíč (legacy / bez auth)
-    ═══════════════════════════════════════════════════════ -->
-    <div id="screen-apikey" class="screen hidden">
-      <div class="app-container apikey-container">
-        <div class="apikey-card">
-          <div class="apikey-ikona">🔑</div>
-          <h1 class="screen-title">Připoj AI asistenta</h1>
-          <p class="screen-subtitle">
-            Pro sokratovský dialog s AI zadej svůj OpenAI API klíč.<br>
-            Nebo appku spusť bez AI — nápovědy budou statické.
-          </p>
-
-          <div class="apikey-pole-wrap">
-            <label for="apikey-input" class="apikey-label">OpenAI API klíč</label>
-            <input
-              id="apikey-input"
-              type="password"
-              class="apikey-input"
-              placeholder="sk-..."
-              autocomplete="off"
-              spellcheck="false"
-              aria-describedby="apikey-bezpecnost"
-            >
-            <p id="apikey-bezpecnost" class="apikey-bezpecnost">
-              🔒 Klíč se ukládá pouze ve tvém prohlížeči a nikam se neodesílá kromě přímých volání na api.openai.com.
-            </p>
-            <p id="apikey-chyba" class="apikey-chyba hidden" role="alert"></p>
-          </div>
-
-          <div class="apikey-akce">
-            <button id="btn-apikey-uloz"       class="btn-primary">Uložit a spustit</button>
-            <button id="btn-apikey-preskocit"  class="btn-secondary">Pokračovat bez AI</button>
-            <button id="btn-apikey-zpet"       class="btn-secondary hidden">← Zpět</button>
-          </div>
-
-          <div class="apikey-footer">
-            <button id="btn-apikey-smazat" class="btn-link" aria-label="Smazat uložený klíč">Smazat uložený klíč</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════════
          OBRAZOVKA 1 — Domovská (výběr tématu)
     ═══════════════════════════════════════════════════════ -->
     <div id="screen-home" class="screen hidden">
@@ -150,7 +107,7 @@
         <div class="home-header">
           <div>
             <h1 class="screen-title">Vyber si téma</h1>
-            <p class="screen-subtitle" id="home-uvitani">Appka tě provede každou úlohou krok za krokem pomocí sokratovského dialogu — nikdy ti nedá rovnou odpověď, ale navede tě správnými otázkami. Každý den o půlnoci se úlohy v tématech obmění.</p>
+            <p class="screen-subtitle" id="home-uvitani">Kouč tě provede každou úlohou krok za krokem — neřekne ti výsledek, ale pomůže ti na něj přijít. Každý den o půlnoci se úlohy obmění.</p>
           </div>
           <div style="display:flex;align-items:center;gap:.75rem;">
             <button id="btn-statistiky" class="btn-icon" title="Tvůj pokrok" aria-label="Statistiky">📊</button>
@@ -198,14 +155,19 @@
         <!-- Dvoupanelové rozvržení -->
         <div class="uloha-dual-panel">
 
-          <!-- LEVÝ PANEL: Dialog -->
+          <!-- LEVÝ PANEL: Zadání + dialog -->
           <div class="uloha-panel uloha-panel--dialog">
+            <section id="zadani-karta" class="zadani-karta" aria-label="Zadání úlohy">
+              <span class="zadani-label">Zadání</span>
+              <p id="zadani-text" class="zadani-text"></p>
+            </section>
+
             <div
               id="dialog-log"
               class="dialog-log"
               role="log"
               aria-live="polite"
-              aria-label="Dialog s Matikáčem"
+              aria-label="Dialog s koučem"
               tabindex="0"
             ></div>
 
@@ -213,23 +175,30 @@
               <textarea
                 id="vstup-pole"
                 class="vstup-pole"
-                placeholder="Napiš svou odpověď… (Enter = odeslat)"
+                placeholder="Napiš mezikrok nebo výsledek… (Enter = odeslat)"
                 rows="2"
                 aria-label="Tvoje odpověď"
               ></textarea>
-              <button id="btn-odeslat" class="btn-primary" aria-label="Odeslat odpověď">Odeslat</button>
+              <div class="vstup-akce">
+                <button id="btn-napoveda" class="btn-napoveda" type="button" title="Kouč ti napoví další krok — nepočítá se jako pokus">💡 Nevím, jak dál</button>
+                <button id="btn-odeslat" class="btn-primary" aria-label="Odeslat odpověď">Odeslat</button>
+              </div>
             </div>
+            <p class="vstup-tip">Můžeš poslat i mezikrok, třeba rovnici nebo mezivýsledek — kouč ti řekne, jestli jsi na dobré cestě.</p>
 
             <button id="btn-dalsi" class="btn-primary btn-dalsi hidden" aria-live="polite">
               Další úloha →
             </button>
           </div>
 
-          <!-- PRAVÝ PANEL: Výpočetní kroky -->
-          <div class="uloha-panel uloha-panel--vypocet" aria-label="Postup řešení">
+          <!-- PRAVÝ PANEL: Plán řešení + vzorový postup -->
+          <div class="uloha-panel uloha-panel--vypocet" aria-label="Plán řešení">
             <div class="vypocet-header">
-              <span class="vypocet-nadpis">🧮 Postup řešení</span>
-              <button id="btn-vypocet-smazat" class="btn-link" title="Smazat postup" aria-label="Smazat postup řešení">Smazat</button>
+              <span class="vypocet-nadpis">🧭 Plán řešení</span>
+            </div>
+            <ol id="plan-list" class="plan-list" aria-live="polite"></ol>
+            <div class="vypocet-header vypocet-header--postup">
+              <span class="vypocet-nadpis">🧮 Vzorový postup</span>
             </div>
             <div id="vypocet-log" class="vypocet-log" aria-live="polite"></div>
           </div>
@@ -418,9 +387,9 @@
           <h2 class="ob-nadpis">AI kouč</h2>
           <ul class="ob-list">
             <li><span class="ob-list-dot" style="background:#3b82f6"></span>
-              <span>Při řešení úlohy máš vedle sebe <strong>AI kouče</strong>, který ti pomáhá přes nápovědné otázky.</span></li>
+              <span>Před každou úlohou si vybereš, <strong>jak ji začneš</strong> — přesně tohle rozhoduje u testu.</span></li>
             <li><span class="ob-list-dot" style="background:#22c55e"></span>
-              <span>Kouč tě <strong>nevyřeší příklad za tebe</strong> — místo toho tě navede, abys na odpověď přišel sám.</span></li>
+              <span>Posílej i <strong>mezikroky</strong>. Kouč pozná, co máš dobře, a zvýrazní ti v zadání, kam se podívat. Když nevíš, klikni na <strong>💡 Nevím, jak dál</strong>.</span></li>
             <li><span class="ob-list-dot" style="background:#8b5cf6"></span>
               <span>Správnost odpovědi vždy kontroluje <strong>lokální algoritmus</strong>, ne AI — výsledky jsou vždy přesné.</span></li>
           </ul>

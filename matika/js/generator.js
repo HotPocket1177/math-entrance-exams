@@ -71,6 +71,12 @@ Vrať VÝHRADNĚ validní JSON (žádný text mimo JSON):
     {"latex": "druhý výpočetní krok", "popis": "Vysvětlení operace — pojmenuj co se dělá (odečítáme, dosazujeme, vydělíme...)", "stav": "krok"},
     {"latex": "finální výsledek = answerValue", "popis": "Výsledek — co jsme vypočítali a co to znamená v kontextu zadání", "stav": "vysledek"}
   ],
+  "plan": ["Pojmenuj neznámou", "Sestav rovnici", "Vyřeš rovnici"],
+  "zacatek": [
+    {"text": "správný první krok", "spravne": true, "proc": "proč je to dobrý začátek"},
+    {"text": "věrohodný, ale špatný začátek", "spravne": false, "proc": "proč to nevede k cíli"},
+    {"text": "jiný věrohodný, ale špatný začátek", "spravne": false, "proc": "proč to nevede k cíli"}
+  ],
   "answerType": "number",
   "answerValue": 42.5,
   "tolerance": 0.05
@@ -86,6 +92,12 @@ PRAVIDLA PRO postup[]:
 - V polích "odpoved", "popis" a "zadani" (mimo $...$) piš normální čárku (,) — NIKDY nepíš {,} v běžném textu
 - Pro "answerType": "keywords" musí poslední krok v postup[] obsahovat výpočet s čísly z "keywords" — ne jiné hodnoty
 
+PRAVIDLA PRO plan[] a zacatek[]:
+- plan[] = 2–5 krátkých názvů kroků řešení (max 6 slov), BEZ čísel a výsledků
+- zacatek[] = přesně 3 možnosti, jak úlohu ZAČÍT; právě jedna "spravne": true
+- Špatné možnosti musí být věrohodné — typické chyby žáků (špatný základ procent, sečtení místo odečtení, záměna obvodu a obsahu…)
+- "text" max 12 slov, "proc" jedna věta; nikde neprozrazuj výsledek
+
 Pro slovní úlohy s více hodnotami (soustava) použij "answerType": "keywords", "keywords": ["hodnota1", "hodnota2"].
 Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;
   }
@@ -100,7 +112,7 @@ Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;
       }
     ];
 
-    const raw = await Api.chat(messages, { maxTokens: 800, temperature: 0.95 });
+    const raw = await Api.chat(messages, { maxTokens: 8000, effort: 'medium' });
 
     // AI může zabalit JSON do markdown bloku ```json...```
     const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
@@ -150,6 +162,7 @@ Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;
 
     return {
       id:       `gen_${temaId}_${Date.now()}_${index}`,
+      temaId,
       tridy:    [6, 7, 8, 9],
       podtyp:   'generovany',
       zadani:   prob.zadani,
@@ -157,16 +170,21 @@ Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;
       odpoved:  prob.odpoved,
       jednotka: prob.jednotka || '',
       postup:   postupOvereny,
+      // Engine plan/zacatek validuje; neplatné doplní AI při přípravě úlohy
+      plan:     Array.isArray(prob.plan)    ? prob.plan    : null,
+      zacatek:  Array.isArray(prob.zacatek) ? prob.zacatek : null,
       kontrola: makeKontrola(prob),
       _meta:    { answerType: prob.answerType, answerValue: prob.answerValue, tolerance: prob.tolerance ?? 0.05, keywords: prob.keywords || [] },
     };
   }
 
-  // Vygeneruje sadu count příkladů paralelně, s retry při selhání
+  // Vygeneruje sadu count příkladů paralelně, s retry při selhání.
+  // temaId může být i pole (Mix) — i-tý příklad pak bude z tématu temaId[i].
   async function generujSadu(temaId, trida, count = 5, onProgress) {
     const promises = Array.from({ length: count }, async (_, i) => {
       try {
-        const uloha = await generujUlohu(temaId, trida, i);
+        const tema  = Array.isArray(temaId) ? temaId[i % temaId.length] : temaId;
+        const uloha = await generujUlohu(tema, trida, i);
         if (onProgress) onProgress(i + 1, count);
         return uloha;
       } catch (err) {
