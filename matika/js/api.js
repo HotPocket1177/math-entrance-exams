@@ -32,10 +32,36 @@ const Api = (() => {
     return (data.text || '').trim();
   }
 
+  // Vytáhne JSON objekt z odpovědi AI (i když je zabalený v ```json … ```).
+  // Model často píše LaTeX s jedním zpětným lomítkem ($\frac{1}{2}$) — v JSON je
+  // ale \f, \t, \n, \r, \b escape sekvence, takže by se z \frac stalo „form feed + rac“
+  // a \, nebo \{ by parsování úplně shodily. Proto lomítka před LaTeXem zdvojíme.
+  function parseJson(raw) {
+    const s = (raw || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+    const m = s.match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    try { return JSON.parse(opravLatexEscapy(m[0])); } catch { return null; }
+  }
+
+  function opravLatexEscapy(json) {
+    return json.replace(/\\([\s\S])/g, (cele, znak, pozice) => {
+      if (znak === '\\' || znak === '"' || znak === '/') return cele;   // platný escape
+      const dalsi = json.slice(pozice + 2);
+      if (znak === 'u' && /^[0-9a-fA-F]{4}/.test(dalsi)) return cele;   // á
+      if (/[a-zA-Z]/.test(znak)) {
+        const prikaz = /^[a-zA-Z]*/.exec(dalsi)[0];
+        // Jedno písmeno (\n, \t…) nebo nový řádek před slovem s velkým písmenem = skutečný escape
+        const jeEscape = 'bfnrt'.includes(znak) && (prikaz === '' || ('nrt'.includes(znak) && /^[A-ZÁ-Ž]/.test(dalsi)));
+        if (jeEscape) return cele;
+      }
+      return '\\\\' + znak;   // LaTeX příkaz nebo \, \{ \% … → doslovné lomítko
+    });
+  }
+
   // Vrací true pokud je dostupný nějaký způsob komunikace s AI
   function jeAiDostupne() {
     return Auth.jeAuthenticated();
   }
 
-  return { chat, jeAiDostupne };
+  return { chat, parseJson, jeAiDostupne };
 })();

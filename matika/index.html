@@ -103,7 +103,9 @@
          OBRAZOVKA 1 — Domovská (výběr tématu)
     ═══════════════════════════════════════════════════════ -->
     <div id="screen-home" class="screen hidden">
-      <div class="app-container">
+      <div class="app-container app-container--home">
+       <div class="home-layout">
+        <div class="home-main">
         <div class="home-header">
           <div>
             <h1 class="screen-title">Vyber si téma</h1>
@@ -119,6 +121,20 @@
         <div id="temata-grid" class="temata-grid" role="list" aria-label="Témata">
           <!-- Generuje JS -->
         </div>
+        </div><!-- /.home-main -->
+
+        <!-- Rozpracované sady — kliknutím se pokračuje, košem se smaže -->
+        <aside class="rozpracovane-panel" aria-labelledby="rozpracovane-nadpis">
+          <div class="rozpracovane-hlavicka">
+            <h2 id="rozpracovane-nadpis" class="rozpracovane-nadpis">📌 Rozpracované</h2>
+            <span id="rozpracovane-pocet" class="rozpracovane-pocet hidden" aria-label="Počet rozpracovaných sad"></span>
+          </div>
+          <p class="rozpracovane-popis">Tady najdeš úlohy, které jsi nedokončil. Klikni a pokračuj tam, kde jsi skončil.</p>
+          <div id="rozpracovane-seznam" class="rozpracovane-seznam" aria-live="polite">
+            <!-- Generuje JS -->
+          </div>
+        </aside>
+       </div><!-- /.home-layout -->
       </div>
     </div>
 

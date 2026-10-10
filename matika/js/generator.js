@@ -88,6 +88,7 @@ PRAVIDLA PRO postup[]:
 - Popis musí být pochopitelný žákovi 8.–9. třídy bez dalšího vysvětlení
 - Poslední krok má stav "vysledek" a jeho latex obsahuje finální číslo
 - V poli "latex" NIKDY nepíš $ ani $$ — piš čistý LaTeX bez delimitérů (např. "x = 5", ne "$x = 5$")
+- Je to JSON: každé zpětné lomítko v LaTeXu zdvoj (např. "\\\\frac{1}{2}", "2 \\\\cdot 3")
 - Desetinná čárka v poli "latex": piš {,} místo , (např. "4{,}5" ne "4,5") — jinak se vykreslí mezera
 - V polích "odpoved", "popis" a "zadani" (mimo $...$) piš normální čárku (,) — NIKDY nepíš {,} v běžném textu
 - Pro "answerType": "keywords" musí poslední krok v postup[] obsahovat výpočet s čísly z "keywords" — ne jiné hodnoty
@@ -114,12 +115,9 @@ Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;
 
     const raw = await Api.chat(messages, { maxTokens: 8000, effort: 'medium' });
 
-    // AI může zabalit JSON do markdown bloku ```json...```
-    const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
-    const match   = jsonStr.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error(`AI nevrátila JSON (index ${index})`);
-
-    const prob = JSON.parse(match[0]);
+    // AI může zabalit JSON do ```json…``` a psát LaTeX s jedním lomítkem — parseJson to zvládne
+    const prob = Api.parseJson(raw);
+    if (!prob) throw new Error(`AI nevrátila platný JSON (index ${index})`);
 
     // Validace povinných polí
     if (!prob.zadani || !prob.odpoved) throw new Error('Neúplný JSON od AI');

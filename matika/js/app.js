@@ -29,7 +29,8 @@ const App = (() => {
   // ─── Per-cyklus výběr úloh ───────────────────────────────────
   const TASKS_PER_CYCLE    = 5;
   const HISTORY_KEY        = 'matika_history';           // { temaId: { taskId: timestampMs } }
-  const SESSION_KEY        = 'matika_session_stav';      // sessionStorage: obnova po hard refresh
+  const SESSION_KEY        = 'matika_session_sada';      // sessionStorage: sadaId pro obnovu po hard refreshi
+  const ROZPRACOVANE_KEY   = 'matika_rozpracovane';      // localStorage: rozpracované sady (panel na home)
   const COOLDOWN_PRIMARY   = 30 * 24 * 60 * 60 * 1000;  // 30 dní (ideál)
   const COOLDOWN_SECONDARY =  7 * 24 * 60 * 60 * 1000;  // 7 dní (fallback)
 
@@ -58,64 +59,118 @@ const App = (() => {
     return TEMATA.filter(t => Syllabus.getUlohyProTridu(t.id, trida).length > 0).map(t => t.id);
   }
 
-  // ─── Resume stav ─────────────────────────────────────────────
-  // Uloží se při kliknutí "Zpět" uprostřed sady; obnoví se při opětovném
-  // otevření stejného tématu, aby uživatel pokračoval tam, kde skončil.
-  let _resumeState = null;  // { temaId, tema, index, skore } | null
+  // ─── Rozpracované sady (localStorage) ─────────────────────────
+  // Každá spuštěná sada má vlastní sadaId a ukládá se celá (úlohy, pozice, skóre),
+  // aby se k ní žák mohl kdykoli vrátit z panelu „Rozpracované“ na domovské obrazovce.
+  // V panelu se zobrazují jen sady, ve kterých žák už něco udělal (pokrok: true).
+  // Klíč: matika_rozpracovane → { [sadaId]: { sadaId, temaId, nazev, ikona, ulohy, index, skore, pokrok, upraveno } }
+  const MAX_ROZPRACOVANYCH = 20;
+
+  function nactiRozpracovane() {
+    try { return JSON.parse(localStorage.getItem(ROZPRACOVANE_KEY) || '{}'); }
+    catch { return {}; }
+  }
+
+  function _zapisRozpracovane(mapa) {
+    try { localStorage.setItem(ROZPRACOVANE_KEY, JSON.stringify(mapa)); }
+    catch { /* localStorage plný — tiše ignoruj */ }
+  }
+
+  function novaSadaId() {
+    return `sada_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+  }
+
+  // Udělal žák v aktuální úloze něco sám? (odpověď, volba začátku, nápověda)
+  function _maPokrokVUloze() {
+    const e = Engine.getStav();
+    return dialogLog.some(m => m.typ === 'student' || m.typ === 'volba')
+      || e.zacatekChyby?.length > 0 || e.pocetNapoved > 0;
+  }
+
+  // Uloží aktuální sadu. Hotová úloha posune pozici na další, aby se po návratu neopakovala.
+  function ulozRozpracovanou({ pokrok = false } = {}) {
+    if (!aktualniTema?.ulohy?.length || !aktualniTema.sadaId) return;
+    const mapa     = nactiRozpracovane();
+    const sadaId   = aktualniTema.sadaId;
+    const uloha    = aktualniTema.ulohy[aktualniUlohaIndex];
+    const hotova   = Engine.getStav().uloha === uloha && Engine.jeDokonceno();
+
+    mapa[sadaId] = {
+      sadaId,
+      temaId:   aktualniTema._temaId || aktualniTema.id,
+      nazev:    aktualniTema.nazev,
+      ikona:    aktualniTema.ikona,
+      // kontrola je funkce — nelze serializovat; obnoví se přes _rekonstruujKontrola
+      ulohy:    aktualniTema.ulohy.map(({ kontrola, ...rest }) => rest),
+      index:    hotova ? aktualniUlohaIndex + 1 : aktualniUlohaIndex,
+      skore:    { ...skore },
+      pokrok:   pokrok || mapa[sadaId]?.pokrok || aktualniUlohaIndex > 0,
+      upraveno: Date.now()
+    };
+
+    // Nejstarší sady nad limit zahoď (i s jejich konverzacemi)
+    Object.values(mapa)
+      .sort((a, b) => b.upraveno - a.upraveno)
+      .slice(MAX_ROZPRACOVANYCH)
+      .forEach(s => _smazSaduZMapy(mapa, s.sadaId));
+
+    _zapisRozpracovane(mapa);
+    sessionStorage.setItem(SESSION_KEY, sadaId);  // obnova po hard refreshi ve stejném tabu
+  }
+
+  function _smazSaduZMapy(mapa, sadaId) {
+    (mapa[sadaId]?.ulohy || []).forEach(u => localStorage.removeItem(_konvKlic(sadaId, u.id)));
+    delete mapa[sadaId];
+  }
+
+  function smazRozpracovanou(sadaId) {
+    if (!sadaId) return;
+    const mapa = nactiRozpracovane();
+    _smazSaduZMapy(mapa, sadaId);
+    _zapisRozpracovane(mapa);
+    if (sessionStorage.getItem(SESSION_KEY) === sadaId) sessionStorage.removeItem(SESSION_KEY);
+  }
+
+  // Sady, ve kterých žák nic neudělal, se v panelu neukazují — při startu nové sady je zahoď
+  function uklidNedotceneSady() {
+    const mapa = nactiRozpracovane();
+    Object.values(mapa).filter(s => !s.pokrok).forEach(s => _smazSaduZMapy(mapa, s.sadaId));
+    _zapisRozpracovane(mapa);
+  }
 
   // ─── Persistence konverzace (localStorage) ───────────────────
-  // Klíč: matika_konv__{temaId}__{ulohaId}
-  // Ukládá: dialogLog + engine stav + postup panel — vše potřebné pro obnovu.
-  function _konvKlic(temaId, ulohaId) {
-    return `matika_konv__${temaId}__${ulohaId}`;
+  // Klíč: matika_konv__{sadaId}__{ulohaId}
+  // Ukládá: dialogLog + engine stav — vše potřebné pro obnovu.
+  function _konvKlic(sadaId, ulohaId) {
+    return `matika_konv__${sadaId}__${ulohaId}`;
   }
 
   function ulozKonverzaci() {
-    if (!aktualniTema || aktualniUlohaIndex == null) return;
-    const uloha  = aktualniTema.ulohy[aktualniUlohaIndex];
-    if (!uloha) return;
-    const temaId = aktualniTema._temaId || aktualniTema.id;
+    if (!aktualniTema?.sadaId || aktualniUlohaIndex == null) return;
+    // Jen když je úloha otevřená — jinak by např. skrytí tabu na home screenu
+    // znovu uložilo sadu, kterou žák mezitím smazal z panelu Rozpracované.
+    if (document.getElementById('screen-uloha').classList.contains('hidden')) return;
+    const uloha = aktualniTema.ulohy[aktualniUlohaIndex];
+    if (!uloha || Engine.getStav().uloha !== uloha) return;
     try {
       const data = {
         dialogLog:  dialogLog.slice(),
         engineStav: Engine.ulozStav(),
       };
-      localStorage.setItem(_konvKlic(temaId, uloha.id), JSON.stringify(data));
+      localStorage.setItem(_konvKlic(aktualniTema.sadaId, uloha.id), JSON.stringify(data));
     } catch { /* localStorage plný — tiše ignoruj */ }
+    ulozRozpracovanou({ pokrok: _maPokrokVUloze() });
   }
 
-  function obnovKonverzaci(temaId, ulohaId) {
+  function obnovKonverzaci(sadaId, ulohaId) {
     try {
-      const raw = localStorage.getItem(_konvKlic(temaId, ulohaId));
+      const raw = localStorage.getItem(_konvKlic(sadaId, ulohaId));
       return raw ? JSON.parse(raw) : null;
     } catch { return null; }
   }
 
-  function smazKonverzaci(temaId, ulohaId) {
-    localStorage.removeItem(_konvKlic(temaId, ulohaId));
-  }
-
-  // ─── Session stav (obnova po hard refresh) ────────────────────
-  // Ukládá se do sessionStorage (přežije Ctrl+Shift+R ve stejném tabu,
-  // ale ne zavření tabu). Maže se při Zpět na home nebo dokončení cyklu.
-
-  function ulozSessionStav() {
-    if (!aktualniTema?.ulohy?.length) return;
-    const temaId = aktualniTema._temaId || aktualniTema.id;
-    try {
-      // kontrola je funkce — nelze serializovat; obnoví se přes _rekonstruujKontrola
-      const ulohySerial = aktualniTema.ulohy.map(({ kontrola, ...rest }) => rest);
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify({
-        temaId,
-        tema:  { ...aktualniTema, ulohy: ulohySerial },
-        index: aktualniUlohaIndex,
-        skore: { ...skore }
-      }));
-    } catch {}
-  }
-
-  function smazSessionStav() {
-    sessionStorage.removeItem(SESSION_KEY);
+  function smazKonverzaci(sadaId, ulohaId) {
+    localStorage.removeItem(_konvKlic(sadaId, ulohaId));
   }
 
   function vycistiLocalStorage({ smazatAvatar = false } = {}) {
@@ -150,22 +205,6 @@ const App = (() => {
       const a = (u.odpoved || '').toLowerCase();
       return n.length > 0 && (n.includes(a.substring(0, 6)) || a.includes(n.substring(0, 6)));
     };
-  }
-
-  function obnovSessionStav() {
-    try {
-      const raw = sessionStorage.getItem(SESSION_KEY);
-      if (!raw) return null;
-      const data = JSON.parse(raw);
-      if (!data?.temaId || !data?.tema?.ulohy?.length) return null;
-      const ulohy = data.tema.ulohy.map(u => ({ ...u, kontrola: _rekonstruujKontrola(u) }));
-      return {
-        temaId: data.temaId,
-        tema:   { ...data.tema, ulohy },
-        index:  data.index ?? 0,
-        skore:  data.skore ?? { spravne: 0, celkem: ulohy.length }
-      };
-    } catch { return null; }
   }
 
   // ─── Správa obrazovek ─────────────────────────────────────────
@@ -672,14 +711,10 @@ const App = (() => {
     renderDropdownTridy();
 
     // Obnova po hard refresh — pokud byl uživatel uprostřed sady, vrátíme ho tam
-    const savedStav = obnovSessionStav();
-    if (savedStav && !SessionProgress.jeZamceno(savedStav.temaId)) {
-      const temaObj = najdiTema(savedStav.temaId);
-      if (temaObj) {
-        _resumeState = savedStav;
-        await spustTema(temaObj);
-        return;
-      }
+    const sadaPoRefreshi = sessionStorage.getItem(SESSION_KEY);
+    if (sadaPoRefreshi && nactiRozpracovane()[sadaPoRefreshi]) {
+      await pokracujVSade(sadaPoRefreshi);
+      return;
     }
 
     zobrazDomovskou();
@@ -875,6 +910,8 @@ const App = (() => {
       aiStav.className   = aiOn ? 'ai-stav ai-on' : 'ai-stav ai-off';
     }
 
+    renderRozpracovane();
+
     const grid  = document.getElementById('temata-grid');
     const trida = profil?.trida || 8;
     grid.innerHTML = '';
@@ -936,6 +973,101 @@ const App = (() => {
       });
     }
     return karta;
+  }
+
+  // ─── Panel „Rozpracované“ (home) ──────────────────────────────
+  function renderRozpracovane() {
+    const seznam  = document.getElementById('rozpracovane-seznam');
+    const pocetEl = document.getElementById('rozpracovane-pocet');
+    if (!seznam) return;
+
+    const sady = Object.values(nactiRozpracovane())
+      .filter(s => s.pokrok && s.ulohy?.length)
+      .sort((a, b) => b.upraveno - a.upraveno);
+
+    pocetEl.textContent = sady.length || '';
+    pocetEl.classList.toggle('hidden', sady.length === 0);
+    seznam.closest('.rozpracovane-panel')?.classList.toggle('rozpracovane-panel--prazdny', sady.length === 0);
+    seznam.innerHTML = '';
+
+    if (!sady.length) {
+      seznam.innerHTML = `
+        <div class="rozpracovane-prazdne">
+          <span class="rozpracovane-prazdne-ikona" aria-hidden="true">📭</span>
+          <p><strong>Zatím tu nic není.</strong></p>
+          <p>Když od úlohy odejdeš tlačítkem „← Zpět“, uložíme ji sem a můžeš ji kdykoli dokončit.</p>
+        </div>`;
+      return;
+    }
+    sady.forEach(s => seznam.appendChild(vytvorPolozkuRozpracovane(s)));
+  }
+
+  function vytvorPolozkuRozpracovane(sada) {
+    const celkem  = sada.ulohy.length;
+    const cislo   = Math.min((sada.index ?? 0) + 1, celkem);
+    const procent = Math.round(((sada.index ?? 0) / celkem) * 100);
+    const zadani  = sada.ulohy[Math.min(sada.index ?? 0, celkem - 1)]?.zadani || '';
+
+    const el = document.createElement('div');
+    el.className = 'rozpracovana';
+    el.style.setProperty('--tema-barva', TEMA_BARVY[sada.temaId] || 'var(--color-primary)');
+    el.innerHTML = `
+      <button type="button" class="rozpracovana-hlavni" aria-label="Pokračovat: ${escapujHtml(sada.nazev)}, úloha ${cislo} z ${celkem}">
+        <span class="rozpracovana-ikona" aria-hidden="true">${sada.ikona || '📘'}</span>
+        <span class="rozpracovana-telo">
+          <span class="rozpracovana-nazev">${escapujHtml(sada.nazev)}</span>
+          <span class="rozpracovana-zadani">${escapujHtml(zadani)}</span>
+          <span class="rozpracovana-meta">
+            <span class="rozpracovana-bar" aria-hidden="true"><span style="width:${procent}%"></span></span>
+            Úloha ${cislo} z ${celkem} · ${kdyRelativne(sada.upraveno)}
+          </span>
+        </span>
+      </button>
+      <div class="rozpracovana-akce">
+        <button type="button" class="btn-pokracovat">▶ Pokračovat</button>
+        <button type="button" class="btn-kos" title="Smazat tuto sadu" aria-label="Smazat sadu ${escapujHtml(sada.nazev)}">🗑️ Smazat</button>
+      </div>
+      <div class="rozpracovana-potvrzeni hidden" role="alertdialog" aria-label="Potvrzení smazání">
+        <span>Opravdu smazat? Rozdělaná práce se ztratí.</span>
+        <div class="rozpracovana-potvrzeni-akce">
+          <button type="button" class="btn-smazat-ano">Ano, smazat</button>
+          <button type="button" class="btn-smazat-ne">Ne, nechat</button>
+        </div>
+      </div>
+    `;
+    MathRender.renderMath(el.querySelector('.rozpracovana-zadani'));
+
+    const pokracuj = () => pokracujVSade(sada.sadaId);
+    el.querySelector('.rozpracovana-hlavni').addEventListener('click', pokracuj);
+    el.querySelector('.btn-pokracovat').addEventListener('click', pokracuj);
+
+    const akce       = el.querySelector('.rozpracovana-akce');
+    const potvrzeni  = el.querySelector('.rozpracovana-potvrzeni');
+    el.querySelector('.btn-kos').addEventListener('click', () => {
+      akce.classList.add('hidden');
+      potvrzeni.classList.remove('hidden');
+      potvrzeni.querySelector('.btn-smazat-ne').focus();
+    });
+    potvrzeni.querySelector('.btn-smazat-ne').addEventListener('click', () => {
+      potvrzeni.classList.add('hidden');
+      akce.classList.remove('hidden');
+      el.querySelector('.btn-kos').focus();
+    });
+    potvrzeni.querySelector('.btn-smazat-ano').addEventListener('click', () => {
+      el.classList.add('rozpracovana--mizi');
+      setTimeout(() => { smazRozpracovanou(sada.sadaId); renderRozpracovane(); }, 200);
+    });
+    return el;
+  }
+
+  function kdyRelativne(cas) {
+    const min = Math.round((Date.now() - cas) / 60000);
+    if (min < 1)  return 'právě teď';
+    if (min < 60) return `před ${min} min`;
+    const hod = Math.round(min / 60);
+    if (hod < 24) return `před ${hod} h`;
+    const dny = Math.round(hod / 24);
+    return dny === 1 ? 'včera' : `před ${dny} dny`;
   }
 
   // ─── Výběr úloh pro cyklus (bez opakování po dobu 30 dní) ───
@@ -1048,35 +1180,10 @@ const App = (() => {
   }
 
   async function _spustTemaImpl(tema) {
+    // Klik na téma vždy spustí NOVOU sadu — k rozdělaným se žák vrací
+    // z panelu „Rozpracované“ (pokracujVSade).
     const temaId = tema._temaId || tema.id;
-
-    // Pokud máme uložený stav pro toto téma (uživatel kliknul Zpět uprostřed sady),
-    // pokračuj tam, kde přestal — nevolej selectUlohyProCyklus (nezabere nové úlohy).
-    // Pokud se uživatel vrátil ke stejnému tématu (Zpět uprostřed sady nebo na 1. úloze),
-    // obnov přesně stejnou sadu úloh — jinak by se vybraly jiné úlohy a uložená konverzace
-    // by nebyla nalezena pod jiným uloha.id.
-    if (_resumeState && _resumeState.temaId === temaId) {
-      if (SessionProgress.jeZamceno(temaId)) {
-        _resumeState = null;
-        zobrazDomovskou();
-        zobrazModalDnesHotovo();
-        return;
-      }
-      aktualniTema       = _resumeState.tema;
-      aktualniUlohaIndex = _resumeState.index;
-      skore              = { ..._resumeState.skore };
-      dialogLog          = [];
-      _resumeState       = null;
-      zobrazUlohu();
-      document.getElementById('uloha-tema-nazev').textContent = aktualniTema.nazev;
-      nactiUlohu(aktualniUlohaIndex);
-      return;
-    }
-
     const trida  = profil?.trida || 8;
-    const userId = Auth.getSession()?.user?.id;
-
-    _resumeState = null;
 
     // Cycle se počítá při DOKONČENÍ sady (ne při spuštění) — jen zkontroluj zámek
     if (SessionProgress.jeZamceno(temaId)) {
@@ -1095,6 +1202,7 @@ const App = (() => {
       aktualniUlohaIndex = 0;
       skore              = { spravne: 0, celkem: 0 };
 
+      vycistiObrazovkuUlohy();  // ať pod načítáním nezůstane konverzace z minulé sady
       zobrazUlohu();
       document.getElementById('uloha-tema-nazev').textContent = tema.nazev;
       zobrazNacitani('Připravuji nové příklady…');
@@ -1111,7 +1219,8 @@ const App = (() => {
       vybrane = await pripravSadu(temaId, trida);
     }
 
-    aktualniTema       = { ...tema, ulohy: vybrane };
+    uklidNedotceneSady();
+    aktualniTema       = { ...tema, ulohy: vybrane, sadaId: novaSadaId() };
     aktualniUlohaIndex = 0;
     skore              = { spravne: 0, celkem: vybrane.length };
     dialogLog          = [];
@@ -1120,6 +1229,25 @@ const App = (() => {
     zobrazUlohu();
     document.getElementById('uloha-tema-nazev').textContent = tema.nazev;
     nactiUlohu(0);
+  }
+
+  // ─── Pokračování v rozpracované sadě (z panelu na home) ───────
+  async function pokracujVSade(sadaId) {
+    const sada = nactiRozpracovane()[sadaId];
+    if (!sada?.ulohy?.length) { renderRozpracovane(); return; }
+
+    const tema  = najdiTema(sada.temaId) || { id: sada.temaId, nazev: sada.nazev, ikona: sada.ikona };
+    const ulohy = sada.ulohy.map(u => ({ ...u, kontrola: _rekonstruujKontrola(u) }));
+
+    aktualniTema       = { ...tema, ulohy, sadaId };
+    aktualniUlohaIndex = Math.min(sada.index ?? 0, ulohy.length);
+    skore              = { ...(sada.skore || { spravne: 0, celkem: ulohy.length }) };
+    dialogLog          = [];
+    _sadaZapoctena     = false;
+    _posledniDokoncena = false;
+    zobrazUlohu();
+    document.getElementById('uloha-tema-nazev').textContent = aktualniTema.nazev;
+    await nactiUlohu(aktualniUlohaIndex);
   }
 
   // ─── Dokončení celé sady ──────────────────────────────────────
@@ -1135,8 +1263,7 @@ const App = (() => {
   }
 
   async function _dokonceniSadyImpl() {
-    _resumeState = null;
-    smazSessionStav();  // cyklus dokončen — obnova po refreshi by nezměnila stav
+    smazRozpracovanou(aktualniTema.sadaId);  // sada je hotová — z panelu „Rozpracované“ zmizí
     const temaId = aktualniTema._temaId || aktualniTema.id;
     const userId = Auth.getSession()?.user?.id;
 
@@ -1159,11 +1286,12 @@ const App = (() => {
     _sadaZapoctena     = false;
     _posledniDokoncena = false;
 
+    vycistiObrazovkuUlohy();
     if (Api.jeAiDostupne()) zobrazNacitani('Připravuji další příklady…');
     const vybrane = await pripravSadu(temaId, trida);
     zobrazNacitani(null);
 
-    aktualniTema = { ...aktualniTema, ulohy: vybrane };
+    aktualniTema = { ...aktualniTema, ulohy: vybrane, sadaId: novaSadaId() };
     skore        = { spravne: 0, celkem: vybrane.length };
     dialogLog    = [];
 
@@ -1192,7 +1320,7 @@ const App = (() => {
       return;
     }
     aktualniUlohaIndex = index;
-    ulozSessionStav();  // přežije hard refresh (Ctrl+Shift+R) ve stejném tabu
+    ulozRozpracovanou();  // přežije hard refresh i zavření prohlížeče
     const uloha = aktualniTema.ulohy[index];
     dialogLog = [];
 
@@ -1215,7 +1343,7 @@ const App = (() => {
 
     // Zkus obnovit uloženou konverzaci pro tuto úlohu
     const temaId  = aktualniTema._temaId || aktualniTema.id;
-    const ulozena = obnovKonverzaci(temaId, uloha.id);
+    const ulozena = obnovKonverzaci(aktualniTema.sadaId, uloha.id);
 
     if (ulozena?.engineStav && (ulozena.dialogLog?.length > 0 || ulozena.engineStav.faze === 'zacatek')) {
       // ── Obnova uložené konverzace ─────────────────────────────
@@ -1261,6 +1389,18 @@ const App = (() => {
       povolVstup();
     }
     ulozKonverzaci();
+  }
+
+  // Vyprázdní zadání, dialog, plán i postup (před načtením nové sady)
+  function vycistiObrazovkuUlohy() {
+    dialogLog = [];
+    document.getElementById('dialog-log').innerHTML = '';
+    document.getElementById('zadani-text').innerHTML = '';
+    document.getElementById('plan-list').innerHTML = '';
+    document.getElementById('btn-dalsi').classList.add('hidden');
+    document.getElementById('vstup-pole').value = '';
+    setVstupDisabled(true);
+    zobrazPlaceholderPostupu();
   }
 
   function povolVstup() {
@@ -1646,9 +1786,9 @@ const App = (() => {
   function dokoncUlohu() {
     setVstupDisabled(true);
 
-    const temaId = aktualniTema._temaId || aktualniTema.id;
-    const uloha  = aktualniTema.ulohy[aktualniUlohaIndex];
-    if (uloha) smazKonverzaci(temaId, uloha.id);
+    const uloha = aktualniTema.ulohy[aktualniUlohaIndex];
+    if (uloha) smazKonverzaci(aktualniTema.sadaId, uloha.id);
+    ulozRozpracovanou({ pokrok: true });  // pozice se posune na další úlohu
 
     // Zvýraznění už nedává smysl; plán odškrtni a ukaž vzorový postup
     renderZadani();
@@ -1784,8 +1924,7 @@ const App = (() => {
     });
 
     document.getElementById('btn-zpet-z-ulohy').addEventListener('click', () => {
-      ulozKonverzaci();
-      smazSessionStav();  // hard refresh z home screenu = bez obnovy rozpracované sady
+      ulozKonverzaci();  // rozdělaná sada zůstane v panelu „Rozpracované“
 
       // Pokud uživatel dokončil všechny úlohy ale kliknul Zpět místo "Ukončit sadu",
       // sada se musí započítat — jinak by denní counter zůstal na 0.
@@ -1799,20 +1938,13 @@ const App = (() => {
           _sadaZapoctena = true;
         }
       }
+      // Hotová sada do rozpracovaných nepatří
+      if (_posledniDokoncena) smazRozpracovanou(aktualniTema?.sadaId);
 
-      // Ulož stav jen pokud jsou úlohy skutečně načteny (ne uprostřed generování).
-      // Bez tohoto guardu by Zpět během generování zachytil prázdné aktualniTema.ulohy
-      // a při návratu by nactiUlohu(0) skočilo rovnou na dokonceniSady.
-      _resumeState = (aktualniTema?.ulohy?.length > 0 && !_posledniDokoncena) ? {
-        temaId: aktualniTema._temaId || aktualniTema.id,
-        tema:   aktualniTema,
-        index:  aktualniUlohaIndex,
-        skore:  { ...skore }
-      } : null;
+      sessionStorage.removeItem(SESSION_KEY);  // hard refresh z home screenu = zůstat na home
       zobrazDomovskou();
     });
     document.getElementById('btn-zpet-z-vysledku').addEventListener('click', () => {
-      _resumeState = null;
       zobrazDomovskou();
     });
     document.getElementById('btn-znovu').addEventListener('click', () => {
@@ -1879,6 +2011,19 @@ const App = (() => {
     document.getElementById('btn-statistiky')?.addEventListener('click', zobrazStatistiky);
     document.getElementById('btn-zpet-ze-statistik')?.addEventListener('click', zobrazDomovskou);
     initStatsTcgKarty();
+
+    // Časy „před 5 min“ v panelu Rozpracované drž aktuální
+    setInterval(() => {
+      const homeVisible = !document.getElementById('screen-home').classList.contains('hidden');
+      if (homeVisible) renderRozpracovane();
+    }, 60 * 1000);
+
+    // Rozpracované sady změněné v jiném tabu → aktualizuj panel hned
+    window.addEventListener('storage', e => {
+      if (e.key !== ROZPRACOVANE_KEY) return;
+      const homeVisible = !document.getElementById('screen-home').classList.contains('hidden');
+      if (homeVisible) renderRozpracovane();
+    });
 
     // Záchranný save konverzace při opuštění tabu + obnova home screen %
     document.addEventListener('visibilitychange', () => {

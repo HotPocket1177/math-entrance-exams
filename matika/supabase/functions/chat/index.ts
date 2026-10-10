@@ -3,7 +3,7 @@
 // Deno Edge Function: proxy na Claude (Anthropic Messages API)
 // Auth je ověřena Supabase gateway (invalid: null v request logu)
 //
-// Secrets: ANTHROPIC_API_KEY (povinný), ANTHROPIC_MODEL (volitelný, výchozí claude-opus-5-5)
+// Secrets: ANTHROPIC_API_KEY (povinný), ANTHROPIC_MODEL (volitelný, výchozí claude-haiku-5-5)
 //
 // Klient posílá { messages, max_tokens?, effort? } — messages ve tvaru
 // [{ role: 'system'|'user'|'assistant', content: string }]. Systémové zprávy
@@ -12,7 +12,11 @@
 import Anthropic from "npm:@anthropic-ai/sdk";
 
 const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") ?? "*";
-const MODEL         = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-opus-5-5";
+const MODEL         = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-5-5";
+
+// Záložní model při odmítnutí umí jen Opus 5 / 5.5, Fable 5 / 5.1 a Sonnet 5.5;
+// Haiku 5.5 ho nemá a parametr `fallbacks` se mu posílat nemá.
+const MA_FALLBACK = /^claude-(opus-5|fable-5|sonnet-5-5)/.test(MODEL);
 
 // Strop výstupu (včetně přemýšlení modelu) — chrání proti drahým požadavkům
 const MAX_TOKENS_STROP = 8000;
@@ -91,7 +95,7 @@ Deno.serve(async (req: Request) => {
   const effort    = EFFORT_POVOLENE.has(body.effort ?? "") ? body.effort : "medium";
 
   try {
-    const response = await client.beta.messages.create({
+    const params = {
       model:         MODEL,
       max_tokens:    maxTokens,
       output_config: { effort },
@@ -99,10 +103,16 @@ Deno.serve(async (req: Request) => {
       cache_control: { type: "ephemeral" },
       ...(system ? { system } : {}),
       messages,
-      // Při odmítnutí bezpečnostním klasifikátorem zkusí API jiný model
-      betas:         ["server-side-fallback-2026-07-01"],
-      fallbacks:     "default",
-    });
+    };
+
+    // Při odmítnutí bezpečnostním klasifikátorem zkusí API jiný model (jen kde je podporováno)
+    const response = MA_FALLBACK
+      ? await client.beta.messages.create({
+          ...params,
+          betas:     ["server-side-fallback-2026-07-01"],
+          fallbacks: "default",
+        })
+      : await client.messages.create(params);
 
     if (response.stop_reason === "refusal") {
       return chyba("Model odmítl odpovědět", 422);

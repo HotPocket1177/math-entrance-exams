@@ -41,6 +41,7 @@ Jak reagovat:
 - Do pole "zvyraznit" dej 0–2 PŘESNÉ úryvky ze zadání (každý max 6 slov, zkopírované znak po znaku), na které se má žák teď podívat.
 - Ve zprávě můžeš 1–2 klíčové pojmy zvýraznit **tučně**.
 - Piš česky, tykej, povzbudivě a věcně, max 3 krátké věty. Matematiku piš v LaTeXu s dolary: $\\frac{1}{2}$, $x^2$. Nikdy nepoužívej \\(...\\) ani \\[...\\].
+- Odpověď je JSON, takže každé zpětné lomítko v LaTeXu zdvoj: "$\\\\frac{1}{2}$".
 
 Úrovně nápovědy (když žák klikne na „Nevím, jak dál“):
 1 = návodná otázka k aktuálnímu kroku;
@@ -69,18 +70,11 @@ VÝSLEDEK: ${uloha.odpoved}
 1) "plan": 2–5 krátkých názvů kroků řešení (max 6 slov, BEZ čísel a výsledků), např. "Pojmenuj neznámou", "Sestav rovnici", "Vyřeš rovnici".
 2) "zacatek": tři možnosti, jak úlohu ZAČÍT. Právě jedna je správná, dvě jsou věrohodné, ale špatné (typické chyby žáků — např. špatný základ procent, sečtení místo odečtení). Každá max 12 slov, bez výsledku. Ke každé "proc": jedna věta, proč to je / není dobrý začátek (bez prozrazení výsledku).
 
-Matematiku piš v LaTeXu s dolary ($...$). Vrať VÝHRADNĚ JSON:
+Matematiku piš v LaTeXu s dolary ($...$); je to JSON, takže zpětná lomítka zdvoj ("$\\\\frac{1}{2}$"). Vrať VÝHRADNĚ JSON:
 {"plan": ["..."], "zacatek": [{"text": "...", "spravne": true, "proc": "..."}, {"text": "...", "spravne": false, "proc": "..."}, {"text": "...", "spravne": false, "proc": "..."}]}`;
 }
 
 // ── JSON helpery ──────────────────────────────────────────────
-function parseJsonOdpoved(raw) {
-  const s = (raw || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
-  const m = s.match(/\{[\s\S]*\}/);
-  if (!m) return null;
-  try { return JSON.parse(m[0]); } catch { return null; }
-}
-
 // Ověří a zamíchá možnosti „Jak začneš?“ — vrátí null, pokud nejsou použitelné
 function normalizujZacatek(moznosti) {
   if (!Array.isArray(moznosti) || moznosti.length < 2 || moznosti.length > 4) return null;
@@ -153,7 +147,7 @@ const Engine = (() => {
           [{ role: 'user', content: buildPripravaPrompt(s.uloha) }],
           { maxTokens: 4000, effort: 'low' }
         );
-        const data = parseJsonOdpoved(raw);
+        const data = Api.parseJson(raw);
         if (!s.plan.length) s.plan = normalizujPlan(data?.plan) || [];
         if (!s.zacatek)     s.zacatek = normalizujZacatek(data?.zacatek);
       } catch (e) {
@@ -194,7 +188,7 @@ const Engine = (() => {
     stav.messages.push({ role: 'user', content: obsah });
     const raw  = await Api.chat(stav.messages, { maxTokens: 4000, effort: 'medium' });
     stav.messages.push({ role: 'assistant', content: raw });
-    const data = parseJsonOdpoved(raw);
+    const data = Api.parseJson(raw);
     if (!data || typeof data.zprava !== 'string') {
       return { zprava: raw, pokrok: false };
     }
