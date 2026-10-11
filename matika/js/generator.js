@@ -18,26 +18,33 @@ const Generator = (() => {
     return (vstup) => {
       const type = prob.answerType;
 
+      // cislo() a blizko() jsou z ulohy.js — rozumí zlomkům, „1 7/8“, „69 m2“…
+      // a celé výsledky porovnávají přesně (AI často posílá toleranci 5 %).
       if (type === 'number') {
-        const tol = prob.tolerance ?? 0.05;
-        const v = parseFloat(vstup.trim().replace(',', '.').replace(/[^0-9.\-]/g, ''));
-        if (isNaN(v)) return false;
         const target = Number(prob.answerValue);
-        return Math.abs(v - target) <= Math.abs(target) * tol + 0.001;
+        if (isNaN(target)) return false;
+        return blizko(vstup, target, prob.tolerance ?? 0.005);
       }
 
       if (type === 'keywords') {
-        const n = vstup.trim().replace(',', '.').toLowerCase();
-        return (prob.keywords || []).every(kw =>
-          n.includes(String(kw).replace(',', '.').toLowerCase())
-        );
+        const n = normalizuj(vstup);
+        return (prob.keywords || []).every(kw => obsahujeVyraz(n, normalizuj(String(kw))));
       }
 
-      // Fallback: volná shoda s odpovědí
-      const n = vstup.trim().toLowerCase();
-      const ans = (prob.odpoved || '').toLowerCase();
-      return n.length > 0 && (n.includes(ans.substring(0, 6)) || ans.includes(n.substring(0, 6)));
+      // Fallback: číselná shoda, jinak celá odpověď (ne jen její kousek)
+      const ans = normalizuj(prob.odpoved || '');
+      const hodnota = cislo(ans);
+      if (!isNaN(hodnota)) return blizko(vstup, hodnota);
+      const n = normalizuj(vstup);
+      return n.length >= 3 && (n === ans || ans.includes(n) && n.length >= ans.length / 2);
     };
+  }
+
+  // „24“ nesmí najít „124“ ani „3/4“ v „13/4“ — výraz musí stát samostatně
+  function obsahujeVyraz(text, vyraz) {
+    if (!vyraz) return true;
+    const esc = vyraz.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(^|[^\\d.,/])${esc}(?![\\d/]|[.,]\\d)`).test(text);
   }
 
   // Ukázky čistě početních zadání (bez slovního kontextu) pro témata, kde to jde
@@ -100,7 +107,7 @@ Vrať VÝHRADNĚ validní JSON (žádný text mimo JSON):
   ],
   "answerType": "number",
   "answerValue": 42.5,
-  "tolerance": 0.05
+  "tolerance": 0.005
 }
 
 PRAVIDLA PRO postup[]:
@@ -121,7 +128,9 @@ PRAVIDLA PRO plan[] a zacatek[]:
 - "text" max 12 slov, "proc" jedna věta; nikde neprozrazuj výsledek
 
 Pro slovní úlohy s více hodnotami (soustava) použij "answerType": "keywords", "keywords": ["hodnota1", "hodnota2"].
-Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number".`;
+Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number" (answerValue jako desetinné číslo, např. 0.75 pro tři čtvrtiny).
+Pokud úloha výslovně žádá zápis zlomku v základním tvaru nebo smíšeného čísla, použij "answerType": "keywords" s přesným zápisem, např. "keywords": ["3/4"] nebo ["4 1/7"].
+"tolerance" nech 0.005 — jen na zaokrouhlení; celé výsledky se kontrolují přesně.`;
   }
 
   // Vygeneruje jeden příklad

@@ -13,7 +13,7 @@
 //   RESEND_API_KEY      — API klíč z resend.com (free tier: 3 000 emailů/měsíc)
 //   RESEND_FROM         — odesílací adresa, např. "Matika <noreply@tvoje-domena.cz>"
 //   SUPABASE_URL        — automaticky dostupné v Edge Functions
-//   SUPABASE_SERVICE_ROLE_KEY — potřebné pro přístup k auth.users; nastavit ručně
+//   SERVICE_ROLE_KEY    — service role klíč (přístup k auth.users); nastavit ručně
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin":  "*",
@@ -94,7 +94,7 @@ Deno.serve(async (req: Request) => {
         to:      [email],
         subject,
         text:    emailBody,
-        html:    `<p style="font-family:sans-serif;line-height:1.6">${emailBody.replace(/\n/g, "<br>")}</p><hr><p style="font-size:.8em;color:#888">Odhlásit se z novinek: přihlas se na <a href="https://matika.app">matika.app</a> → nastavení účtu → odškrtni "Novinky e-mailem".</p>`,
+        html:    `<p style="font-family:sans-serif;line-height:1.6">${emailBody.replace(/\n/g, "<br>")}</p><hr><p style="font-size:.8em;color:#888">Odhlásit se z novinek: přihlas se na <a href="https://matika.bischofstein.net">matika.bischofstein.net</a> → nastavení účtu → odškrtni "Novinky e-mailem".</p>`,
       }),
     });
     if (res.ok) { odeslano++; } else { chyby.push(email); }

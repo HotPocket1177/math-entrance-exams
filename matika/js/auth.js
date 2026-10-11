@@ -9,6 +9,7 @@ const Auth = (() => {
   // Vrací Promise s aktuální session (null pokud nepřihlášen).
   // DŮLEŽITÉ: Auth.onSessionChange() volej PŘED Auth.init()
   function init() {
+    obnovDocasnouSession();
     _supabase = supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey);
 
     _supabase.auth.onAuthStateChange((event, session) => {
@@ -20,6 +21,36 @@ const Auth = (() => {
       _session = data.session;
       return _session;
     });
+  }
+
+  // ── „Nezůstat přihlášen“ ─────────────────────────────────────
+  // Supabase drží token v localStorage. Při opuštění stránky ho přesuneme do
+  // sessionStorage: obnovení stránky (F5) ho vrátí zpět, zavření tabu ho zahodí.
+  // (Dřív se token jen mazal — a odhlásilo to i obyčejné F5.)
+  const NEZAPAMATOVAT_KEY = 'matika_nezapamatovat';
+  const DOCASNA_KEY       = 'matika_docasna_session';
+
+  function _prestehujTokenDoSession() {
+    const tokeny = {};
+    Object.keys(localStorage)
+      .filter(k => k.endsWith('-auth-token'))
+      .forEach(k => { tokeny[k] = localStorage.getItem(k); localStorage.removeItem(k); });
+    if (Object.keys(tokeny).length) sessionStorage.setItem(DOCASNA_KEY, JSON.stringify(tokeny));
+  }
+
+  function nezapamatovatPrihlaseni() {
+    sessionStorage.setItem(NEZAPAMATOVAT_KEY, '1');
+    window.addEventListener('pagehide', _prestehujTokenDoSession);
+  }
+
+  function obnovDocasnouSession() {
+    if (sessionStorage.getItem(NEZAPAMATOVAT_KEY) !== '1') return;
+    try {
+      const tokeny = JSON.parse(sessionStorage.getItem(DOCASNA_KEY) || '{}');
+      Object.entries(tokeny).forEach(([k, v]) => localStorage.setItem(k, v));
+    } catch {}
+    sessionStorage.removeItem(DOCASNA_KEY);
+    window.addEventListener('pagehide', _prestehujTokenDoSession);
   }
 
   // Zaregistruj callback volaný při změně auth stavu (SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED…)
@@ -53,6 +84,9 @@ const Auth = (() => {
 
   // ── Odhlášení ─────────────────────────────────────────────────
   async function odhlas() {
+    sessionStorage.removeItem(NEZAPAMATOVAT_KEY);
+    sessionStorage.removeItem(DOCASNA_KEY);
+    window.removeEventListener('pagehide', _prestehujTokenDoSession);
     const { error } = await _supabase.auth.signOut();
     if (error) console.warn('Chyba při odhlašování:', error.message);
     _session = null;
@@ -119,6 +153,7 @@ const Auth = (() => {
     registruj,
     prihlasuj,
     odhlas,
+    nezapamatovatPrihlaseni,
     getProfil,
     ulozVerziZobrazeni,
     ulozEmailPreferenci,

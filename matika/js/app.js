@@ -32,6 +32,27 @@ const App = (() => {
   const SESSION_KEY        = 'matika_session_sada';      // sessionStorage: sadaId pro obnovu po hard refreshi
   const ROZPRACOVANE_KEY   = 'matika_rozpracovane';      // localStorage: rozpracované sady (panel na home)
   const TYP_ULOH_KEY       = 'matika_typ_uloh';          // localStorage: { temaId: 'slovni' | 'priklady' }
+  const VYSLEDKY_KEY       = 'matika_vysledky';          // localStorage: { temaId: { spravne, celkem } }
+  // Tři klíče výše se ukládají pod ID uživatele (klicUzivatele) — po odhlášení zůstanou
+  // svému majiteli, ale jiný uživatel na stejném počítači je neuvidí.
+  const KLICE_UZIVATELE    = [ROZPRACOVANE_KEY, TYP_ULOH_KEY, VYSLEDKY_KEY];
+
+  function klicUzivatele(zaklad) {
+    const uid = Auth.getSession()?.user?.id;
+    return uid ? `${zaklad}__${uid}` : zaklad;
+  }
+
+  // Data uložená před zavedením klíčů s ID uživatele převezme první přihlášený
+  function prevezmiStaraData() {
+    KLICE_UZIVATELE.forEach(zaklad => {
+      const stary = localStorage.getItem(zaklad);
+      if (stary === null) return;
+      if (localStorage.getItem(klicUzivatele(zaklad)) === null) {
+        try { localStorage.setItem(klicUzivatele(zaklad), stary); } catch {}
+      }
+      localStorage.removeItem(zaklad);
+    });
+  }
   const COOLDOWN_PRIMARY   = 30 * 24 * 60 * 60 * 1000;  // 30 dní (ideál)
   const COOLDOWN_SECONDARY =  7 * 24 * 60 * 60 * 1000;  // 7 dní (fallback)
 
@@ -56,7 +77,7 @@ const App = (() => {
   const TEMATA_S_VOLBOU_TYPU = ['zlomky', 'procenta', 'rovnice', 'geometrie'];
 
   function _nactiTypy() {
-    try { return JSON.parse(localStorage.getItem(TYP_ULOH_KEY) || '{}'); } catch { return {}; }
+    try { return JSON.parse(localStorage.getItem(klicUzivatele(TYP_ULOH_KEY)) || '{}'); } catch { return {}; }
   }
 
   // true = slovní úlohy (výchozí), false = jen početní příklady
@@ -68,7 +89,7 @@ const App = (() => {
   function nastavTypUloh(temaId, slovni) {
     const typy = _nactiTypy();
     typy[temaId] = slovni ? 'slovni' : 'priklady';
-    try { localStorage.setItem(TYP_ULOH_KEY, JSON.stringify(typy)); } catch {}
+    try { localStorage.setItem(klicUzivatele(TYP_ULOH_KEY), JSON.stringify(typy)); } catch {}
   }
 
   // Generované úlohy nesou příznak; statické se poznají podle začátku zadání
@@ -96,12 +117,12 @@ const App = (() => {
   const MAX_ROZPRACOVANYCH = 20;
 
   function nactiRozpracovane() {
-    try { return JSON.parse(localStorage.getItem(ROZPRACOVANE_KEY) || '{}'); }
+    try { return JSON.parse(localStorage.getItem(klicUzivatele(ROZPRACOVANE_KEY)) || '{}'); }
     catch { return {}; }
   }
 
   function _zapisRozpracovane(mapa) {
-    try { localStorage.setItem(ROZPRACOVANE_KEY, JSON.stringify(mapa)); }
+    try { localStorage.setItem(klicUzivatele(ROZPRACOVANE_KEY), JSON.stringify(mapa)); }
     catch { /* localStorage plný — tiše ignoruj */ }
   }
 
@@ -202,17 +223,25 @@ const App = (() => {
     localStorage.removeItem(_konvKlic(sadaId, ulohaId));
   }
 
-  function vycistiLocalStorage({ smazatAvatar = false } = {}) {
-    const aktualniAvatarKlic = _avatarKlic();
-    const zachovat = new Set(['matika_darkmode']);
-    // Při normálním odhlášení avatar zachováme — uživatel ho uvidí po přihlášení
-    if (!smazatAvatar && aktualniAvatarKlic) zachovat.add(aktualniAvatarKlic);
+  // Odhlášení: smaže sdílená data, ale data navázaná na ID uživatele (avatar,
+  // rozpracované sady a jejich konverzace, výsledky, volba typu úloh) nechá —
+  // po dalším přihlášení je majitel najde, jiný uživatel je neuvidí.
+  // Smazání účtu (smazatVse): odstraní i osobní data aktuálního uživatele.
+  function vycistiLocalStorage({ smazatVse = false } = {}) {
+    const uid = Auth.getSession()?.user?.id;
+    const jeOsobni = k => /__[0-9a-f-]{36}$/.test(k) || /^matika_avatar_/.test(k) || k.startsWith('matika_konv__sada_');
+
+    if (smazatVse && uid) {
+      Object.keys(nactiRozpracovane()).forEach(sadaId => smazRozpracovanou(sadaId));
+    }
+
     const smazat = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (!key) continue;
-      if (key.startsWith('matika_avatar_') && !smazatAvatar) continue; // cizí avatary vždy nechej
-      if (key.startsWith('matika_') && !zachovat.has(key)) smazat.push(key);
+      if (!key || !key.startsWith('matika_') || key === 'matika_darkmode') continue;
+      const mojeOsobni = uid && (key.endsWith(`__${uid}`) || key === `matika_avatar_${uid}`);
+      if (jeOsobni(key) && !(smazatVse && mojeOsobni)) continue;
+      smazat.push(key);
     }
     smazat.forEach(k => localStorage.removeItem(k));
     sessionStorage.removeItem(SESSION_KEY);
@@ -228,12 +257,8 @@ const App = (() => {
     }
     // AI-generované: _meta obsahuje answerType/answerValue/tolerance/keywords
     if (u._meta) return Generator.makeKontrola(u._meta);
-    // Poslední záchrana — volná shoda s odpovědí
-    return (vstup) => {
-      const n = vstup.trim().toLowerCase();
-      const a = (u.odpoved || '').toLowerCase();
-      return n.length > 0 && (n.includes(a.substring(0, 6)) || a.includes(n.substring(0, 6)));
-    };
+    // Poslední záchrana — porovnání s textem odpovědi (číselně, jinak celá shoda)
+    return Generator.makeKontrola({ odpoved: u.odpoved });
   }
 
   // ─── Správa obrazovek ─────────────────────────────────────────
@@ -557,7 +582,7 @@ const App = (() => {
       if (!res.ok) throw new Error(data.error || 'Neznámá chyba');
 
       // Nejdřív smaž lokální data včetně avataru (GDPR — smazání účtu), pak odhlás
-      vycistiLocalStorage({ smazatAvatar: true });
+      vycistiLocalStorage({ smazatVse: true });
       profil         = null;
       odemcenaTemata = null;
       SessionProgress.resetCache();
@@ -609,61 +634,53 @@ const App = (() => {
   }
 
   function renderStatistiky() {
-    const trida = profil?.trida || 8;
-    const p     = nactiProgress();
-    let celkemSpravne = 0, celkemPokus = 0, celkemUloh = 0;
+    const trida    = profil?.trida || 8;
+    const vysledky = nactiVysledky();
     const temaData = [];
+    let celkemSpravne = 0, celkemVyreseno = 0;
 
     TEMATA.forEach(tema => {
-      const ulohy = Syllabus.getUlohyProTridu(tema.id, trida);
-      if (!ulohy.length) return;
-      const temaProgress = p[tema.id] || {};
-      let spravne = 0, pokus = 0;
-      Object.entries(temaProgress).forEach(([id, v]) => {
-        if (id.startsWith('gen_')) return;
-        if (v === 'spravne') spravne++;
-        else pokus++;
-      });
-      const celkem = ulohy.filter(u => !u.id.startsWith('gen_')).length;
+      if (!Syllabus.getUlohyProTridu(tema.id, trida).length) return;
+      const { spravne = 0, celkem = 0 } = vysledky[tema.id] || {};
       const procent = celkem > 0 ? Math.round((spravne / celkem) * 100) : 0;
-      celkemSpravne += spravne;
-      celkemPokus   += pokus;
-      celkemUloh    += celkem;
-      temaData.push({ tema, spravne, pokus, celkem, procent });
+      celkemSpravne  += spravne;
+      celkemVyreseno += celkem;
+      temaData.push({ tema, spravne, celkem, procent });
     });
 
     // Summary karty
-    const uspesnost = (celkemSpravne + celkemPokus) > 0
-      ? Math.round((celkemSpravne / (celkemSpravne + celkemPokus)) * 100) : 0;
-    const sadyDnes   = TEMATA.reduce((s, t) => s + SessionProgress.getDokonceniCount(t.id), 0);
+    const uspesnost  = celkemVyreseno > 0 ? Math.round((celkemSpravne / celkemVyreseno) * 100) : 0;
+    const sadyDnes   = [...TEMATA, MIX_TEMA].reduce((s, t) => s + SessionProgress.getDokonceniCount(t.id), 0);
     const sadyCelkem = SessionProgress.getCelkoveSady();
     document.getElementById('stats-splneno').textContent   = `${sadyCelkem}`;
     document.getElementById('stats-uspesnost').textContent = `${uspesnost} %`;
     document.getElementById('stats-dnes').textContent      = `${sadyDnes}`;
 
-    // Seznam témat — seřadit od nejhoršího %
-    temaData.sort((a, b) => a.procent - b.procent);
+    // Seznam témat — procvičená od nejhoršího %, neprocvičená na konci
+    temaData.sort((a, b) => (b.celkem > 0) - (a.celkem > 0) || a.procent - b.procent);
     const listEl = document.getElementById('stats-temata-list');
-    listEl.innerHTML = temaData.map(({ tema, spravne, pokus, celkem, procent }) => `
+    listEl.innerHTML = temaData.map(({ tema, spravne, celkem, procent }) => `
       <div class="stats-tema-radek">
         <span class="stats-tema-ikona">${tema.ikona}</span>
         <div class="stats-tema-info">
           <div class="stats-tema-hlavicka">
             <span class="stats-tema-nazev">${tema.nazev}</span>
-            <span class="stats-tema-procent">${procent} %</span>
+            <span class="stats-tema-procent">${celkem > 0 ? procent + ' %' : '—'}</span>
           </div>
           <div class="stats-bar-wrap">
             <div class="stats-bar-fill" style="width:${procent}%"></div>
           </div>
-          <div class="stats-tema-detail">${spravne} správně · ${pokus} rozděláno · ${celkem - spravne - pokus} zbývá</div>
+          <div class="stats-tema-detail">${celkem > 0
+            ? `${spravne} z ${celkem} úloh správně${celkem - spravne > 0 ? ` · ${celkem - spravne} s ukázaným řešením` : ''}`
+            : 'Zatím neprocvičeno'}</div>
         </div>
       </div>
     `).join('');
 
-    // Highlights
-    const sPokusem = temaData.filter(d => d.spravne + d.pokus > 0);
-    const nejlepsi = [...temaData].sort((a, b) => b.procent - a.procent)[0];
-    const nejhorsi = sPokusem.sort((a, b) => a.procent - b.procent)[0];
+    // Highlights — jen z procvičených témat
+    const procvicena = temaData.filter(d => d.celkem > 0);
+    const nejlepsi = [...procvicena].sort((a, b) => b.procent - a.procent)[0];
+    const nejhorsi = [...procvicena].sort((a, b) => a.procent - b.procent)[0];
     const hlEl = document.getElementById('stats-highlights');
     if (nejlepsi && nejhorsi && nejlepsi.tema.id !== nejhorsi.tema.id) {
       hlEl.innerHTML = `
@@ -705,6 +722,7 @@ const App = (() => {
 
   // ─── Po úspěšném přihlášení ───────────────────────────────────
   async function pokracujPoLoginu(session) {
+    prevezmiStaraData();
     profil = await Auth.getProfil();
 
     // Pokud profil neexistuje (nový účet nebo selhala tvorba při registraci),
@@ -747,8 +765,8 @@ const App = (() => {
     }
 
     zobrazDomovskou();
-    zkontrolujOnboarding();
-    zkontrolujNovinky();
+    // Nový uživatel dostane tutorial — „Co je nového“ by se mu otevřelo přes něj
+    if (!zkontrolujOnboarding()) zkontrolujNovinky();
   }
 
   // ─── Dropdown: výběr třídy ────────────────────────────────────
@@ -787,13 +805,15 @@ const App = (() => {
   let _obKrok       = 1;
   let _obTrida      = null;
 
+  // Vrací true, pokud se tutorial zobrazil
   function zkontrolujOnboarding() {
-    if (profil?.onboarding_done === true) return;
+    if (profil?.onboarding_done === true) return false;
     _obKrok  = 1;
     _obTrida = profil?.trida || 8;
     _obRenderTridy();
     _obAktualizuj();
     document.getElementById('modal-onboarding').classList.remove('hidden');
+    return true;
   }
 
   function _obAktualizuj() {
@@ -860,7 +880,9 @@ const App = (() => {
       await zmenTridu(_obTrida);
     }
     await Auth.ulozOnboardingDone();
-    profil = { ...profil, onboarding_done: true };
+    // Tutorial popisuje aktuální verzi — „Co je nového“ už nový uživatel nepotřebuje
+    await Auth.ulozVerziZobrazeni(CONFIG.appVersion);
+    profil = { ...profil, onboarding_done: true, last_seen_version: CONFIG.appVersion };
   }
 
   async function zkontrolujNovinky() {
@@ -891,9 +913,26 @@ const App = (() => {
     } catch { return {}; }
   }
 
+  // Souhrnné výsledky po tématech — počítají i AI úlohy (ty jsou při přihlášení
+  // skoro všechny). Statistiky z nich berou úspěšnost.
+  function nactiVysledky() {
+    try { return JSON.parse(localStorage.getItem(klicUzivatele(VYSLEDKY_KEY)) || '{}'); } catch { return {}; }
+  }
+
+  function zapisVysledek(temaId, uspech) {
+    const v = nactiVysledky();
+    const t = v[temaId] || { spravne: 0, celkem: 0 };
+    t.celkem++;
+    if (uspech) t.spravne++;
+    v[temaId] = t;
+    try { localStorage.setItem(klicUzivatele(VYSLEDKY_KEY), JSON.stringify(v)); } catch {}
+  }
+
   function ulozProgress(temaId, ulohaId, uspech) {
+    zapisVysledek(temaId, uspech);
+
     // AI-generované příklady mají unikátní ID při každém generování —
-    // nemá smysl je sledovat (zkreslují % dokončení statického poolu).
+    // do přehledu statických úloh je nezapisujeme.
     if (ulohaId.startsWith('gen_')) return;
 
     // Lokální cache
@@ -912,22 +951,13 @@ const App = (() => {
           uloha_id:   ulohaId,
           uspech:     uspech,
           updated_at: new Date().toISOString()
-        })
+        }, { onConflict: 'user_id,tema_id,uloha_id' })  // bez toho 2. řešení stejné úlohy narazí na UNIQUE
         .then(({ error }) => {
           if (error) console.warn('Progress sync selhal:', error.message);
         });
     }
   }
 
-  function pocetDokoncenychUloh(temaId) {
-    const p = nactiProgress();
-    if (!p[temaId]) return 0;
-    // Filtruj AI-generované záznamy (ID začínají "gen_") — mohly se nakupit
-    // z dřívějška před zavedením tohoto filtru.
-    return Object.entries(p[temaId])
-      .filter(([id, v]) => !id.startsWith('gen_') && v === 'spravne')
-      .length;
-  }
 
   // ─── Domovská obrazovka ───────────────────────────────────────
   function renderTemata() {
@@ -1333,6 +1363,7 @@ const App = (() => {
   async function _dokonceniSadyImpl() {
     smazRozpracovanou(aktualniTema.sadaId);  // sada je hotová — z panelu „Rozpracované“ zmizí
     const temaId = aktualniTema._temaId || aktualniTema.id;
+    const vysledekSady = `Sada hotová: ${skore.spravne} z ${skore.celkem} správně.`;
     const userId = Auth.getSession()?.user?.id;
 
     // Zaregistruj dokončení tohoto cyklu — count++ se děje TEĎ (ne při startu)
@@ -1343,7 +1374,7 @@ const App = (() => {
       // Třetí cyklus dokončen → uzamkni do půlnoci
       await SessionProgress.uzamkniSadu(temaId, userId);
       zobrazDomovskou();
-      zobrazModalDnesHotovo();
+      zobrazModalDnesHotovo(vysledekSady);
       return;
     }
 
@@ -1365,14 +1396,17 @@ const App = (() => {
 
     zobrazUlohu();
     document.getElementById('uloha-tema-nazev').textContent = aktualniTema.nazev;
-    const introText = zbyvaPocet === 0
-      ? 'Sada dokončena! Tohle je tvůj poslední cyklus na dnes.'
-      : `Sada dokončena! Ještě ${zbyvaPocet}× a máš dnešní limit.`;
+    const introText = `🎉 ${vysledekSady}` + (zbyvaPocet === 0
+      ? ' Tohle je tvoje poslední sada na dnes.'
+      : ` Můžeš dát ještě ${zbyvaPocet}× — tady je další sada.`);
     nactiUlohu(0, introText);
   }
 
   // ─── Modal "Skvělá práce na dnes!" ────────────────────────────
-  function zobrazModalDnesHotovo() {
+  function zobrazModalDnesHotovo(vysledekSady = '') {
+    const el = document.getElementById('modal-hotovo-vysledek');
+    el.textContent = vysledekSady;
+    el.classList.toggle('hidden', !vysledekSady);
     document.getElementById('modal-dnes-hotovo').classList.remove('hidden');
   }
 
@@ -1913,14 +1947,8 @@ const App = (() => {
       try {
         const zapamatovat = document.getElementById('auth-zapamatovat').checked;
         await Auth.prihlasuj(email, password);
-        // Pro "nezůstat přihlášen": smažeme token při zavření tabu
-        if (!zapamatovat) {
-          window.addEventListener('beforeunload', () => {
-            Object.keys(localStorage)
-              .filter(k => k.endsWith('-auth-token'))
-              .forEach(k => localStorage.removeItem(k));
-          }, { once: true });
-        }
+        // „Nezůstat přihlášen“: token přežije F5, ale ne zavření tabu
+        if (!zapamatovat) Auth.nezapamatovatPrihlaseni();
         // onAuthStateChange SIGNED_IN → pokracujPoLoginu() volá se přes callback
       } catch (e) {
         chybaEl.textContent = e.message;
@@ -2088,7 +2116,7 @@ const App = (() => {
 
     // Rozpracované sady změněné v jiném tabu → aktualizuj panel hned
     window.addEventListener('storage', e => {
-      if (e.key !== ROZPRACOVANE_KEY) return;
+      if (e.key !== klicUzivatele(ROZPRACOVANE_KEY)) return;
       const homeVisible = !document.getElementById('screen-home').classList.contains('hidden');
       if (homeVisible) renderRozpracovane();
     });

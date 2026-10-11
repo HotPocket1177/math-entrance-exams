@@ -7,18 +7,49 @@
 // min. 1 úloha v reálném kontextu, min. 1 vícekroková úloha.
 
 function normalizuj(vstup) {
-  return vstup.trim().replace(/\s+/g, ' ').replace(',', '.').toLowerCase();
+  return vstup.trim().replace(/\s+/g, ' ').replace(/,/g, '.').toLowerCase();
 }
 
+// Přečte číselnou odpověď žáka. Rozumí desetinné čárce, mezerám v tisících
+// („162 500“), zlomkům („3/4“), smíšeným číslům („1 7/8“), zápisu „x = 24“
+// i jednotkám s exponentem („69 m2“, „cm³“) — ty dřív slepily číslice dohromady.
+// Používá ji i Generator.makeKontrola pro AI úlohy.
 function cislo(vstup) {
-  return parseFloat(normalizuj(vstup).replace(/[^0-9.\-]/g, ''));
+  let s = String(vstup ?? '').toLowerCase().replace(/[−–]/g, '-').trim();
+  if (s.includes('=')) s = s.slice(s.lastIndexOf('=') + 1);   // „x = 24“ → „24“
+  s = s
+    .replace(/([a-zá-ž]+)\s*[23²³]/g, '$1')                     // m2, cm³ → jednotka bez exponentu
+    .replace(/(\d)\s+(?=\d{3}(?!\d)(?!\s*\/))/g, '$1')          // 162 500 → 162500 (ne „1 7/8“)
+    .replace(/,/g, '.');
+
+  const smisene = /(-?)(\d+)\s+(\d+)\s*\/\s*(\d+)/.exec(s);     // 1 7/8
+  if (smisene && +smisene[4] !== 0) {
+    const hodnota = +smisene[2] + smisene[3] / smisene[4];
+    return smisene[1] ? -hodnota : hodnota;
+  }
+  const zlomek = /(-?\d+(?:\.\d+)?)\s*\/\s*(-?\d+(?:\.\d+)?)/.exec(s);  // 3/4, 15/8
+  if (zlomek && +zlomek[2] !== 0) return zlomek[1] / zlomek[2];
+
+  const desetinne = /-?\d+(?:\.\d+)?/.exec(s);
+  return desetinne ? parseFloat(desetinne[0]) : NaN;
 }
 
+// Porovná odpověď se správnou hodnotou.
+// Celé výsledky musí sedět přesně (jinak by místo 24 prošlo i 23 nebo 25).
+// U desetinných se toleruje jen zaokrouhlení: max 0,5 % nebo ±0,006 (setiny).
+// `tolerance` (relativní) může toleranci jen zpřísnit, ne povolit víc než 0,5 %.
 function blizko(vstup, spravne, tolerance) {
-  const tol = tolerance !== undefined ? tolerance : 0.05;
   const v = cislo(vstup);
   if (isNaN(v)) return false;
-  return Math.abs(v - spravne) <= Math.abs(spravne) * tol + 0.001;
+  if (Number.isInteger(spravne) && Number.isInteger(v)) return v === spravne;
+  const rel = Math.min(tolerance ?? 0.005, 0.005);
+  return Math.abs(v - spravne) <= Math.max(Math.abs(spravne) * rel, 0.006);
+}
+
+// Zlomek v základním tvaru, přesně a/b (pro úlohy „Zkrať zlomek“ — 36/48 nestačí)
+function jeZlomek(vstup, citatel, jmenovatel) {
+  const m = /(^|[^\d])(\d+)\s*\/\s*(\d+)(?!\d)/.exec(normalizuj(vstup));
+  return !!m && +m[2] === citatel && +m[3] === jmenovatel;
 }
 
 const TEMATA = [
@@ -423,7 +454,7 @@ const TEMATA = [
         ],
         odpoved: '600 g',
         jednotka: 'g',
-        kontrola: (vstup) => blizko(vstup, 600, 5) || blizko(vstup, 0.6, 0.01),
+        kontrola: (vstup) => blizko(vstup, 600, 0.01) || blizko(vstup, 0.6, 0.01),
         postup: [
           { latex: '200x + 350(1-x) = 260', stav: 'krok' },
           { latex: '-150x = -90 \\Rightarrow x = 0{,}6 \\text{ kg} = 600 \\text{ g}', stav: 'vysledek' }
@@ -627,7 +658,7 @@ const TEMATA = [
         ],
         odpoved: '0 % (cena se vrátila na původní hodnotu)',
         jednotka: '%',
-        kontrola: (vstup) => blizko(vstup, 0, 0.1) || normalizuj(vstup).includes('0'),
+        kontrola: (vstup) => blizko(vstup, 0) || /beze? změn|nezměn/.test(normalizuj(vstup)),
         postup: [
           { latex: '100 \\cdot 1{,}25 = 125 \\text{ Kč}', stav: 'krok' },
           { latex: '125 \\cdot 0{,}8 = 100 \\text{ Kč}', stav: 'krok' },
@@ -931,8 +962,7 @@ const TEMATA = [
         odpoved: '$\\frac{3}{4}$',
         jednotka: '',
         kontrola: (vstup) => {
-          const n = normalizuj(vstup);
-          return n.includes('3/4') || n.includes('3 / 4') || blizko(vstup, 0.75);
+          return jeZlomek(vstup, 3, 4);  // úloha chce základní tvar — 36/48 ani 0,75 nestačí
         },
         postup: [
           { latex: '\\text{NSD}(36, 48) = 12', stav: 'krok' },
@@ -1119,7 +1149,8 @@ const TEMATA = [
         jednotka: '',
         kontrola: (vstup) => {
           const n = normalizuj(vstup);
-          return n.includes('4') && (n.includes('1/7') || n.includes('1 / 7')) || blizko(vstup, 29/7);
+          // Musí být smíšené číslo — opsaný zlomek 29/7 ze zadání nestačí
+          return /(^|[^\d])4\D+1\s*\/\s*7/.test(n);
         },
         postup: [
           { latex: '29 = 4 \\cdot 7 + 1', stav: 'krok' },
@@ -1321,8 +1352,7 @@ const TEMATA = [
         odpoved: '$\\dfrac{3}{5}$',
         jednotka: '',
         kontrola: (vstup) => {
-          const n = normalizuj(vstup);
-          return n.includes('3/5') || n.includes('3 / 5') || blizko(vstup, 3/5);
+          return jeZlomek(vstup, 3, 5);  // úloha chce základní tvar — 45/75 ani 0,6 nestačí
         },
         postup: [
           { latex: '\\text{NSD}(45, 75) = 15', stav: 'krok' },

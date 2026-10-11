@@ -12,6 +12,6 @@ const CONFIG = {
 
   // ── Verze aplikace (novinky) ──────────────────────────────────
   // Při vydání nové verze změň appVersion — uživatelům se zobrazí modal "Co je nového".
-  appVersion:   'v1.6',
-  appChangelog: 'Nový vzhled! Před každou úlohou si vybereš, jak ji začneš. Kouč teď pozná správné mezikroky, zvýrazní důležitá místa v zadání a vpravo vidíš plán řešení. Tlačítko „Nevím, jak dál“ napoví, aniž bys přišel o pokus. A nová sada Mix — úlohy z různých témat jako u přijímaček.'
+  appVersion:   'v1.7',
+  appChangelog: 'Opravy: kontrola odpovědí teď rozumí zlomkům (3/4, 1 7/8) i jednotkám (69 m2) a výsledek o jedna vedle už neprojde jako správný. Statistiky počítají všechny tvoje úlohy, po každé sadě uvidíš skóre a rozpracované sady zůstanou i po odhlášení.'
 };

@@ -102,7 +102,10 @@ const SessionProgress = (() => {
 
   // ── Počet dokončení dnes ──────────────────────────────────────
   function getDokonceniCount(temaId) {
-    return _cache[temaId]?.dokonceni_count || 0;
+    const d = _cache[temaId];
+    // Záznam ze včerejška (appka otevřená přes půlnoc) se nepočítá
+    if (d?.datum && d.datum < getPragueDate()) return 0;
+    return d?.dokonceni_count || 0;
   }
 
   // ── Spuštění sady — zaregistruj cycle na začátku (ne na konci) ──
