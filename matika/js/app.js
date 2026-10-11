@@ -536,10 +536,12 @@ const App = (() => {
     const userId = Auth.getSession()?.user?.id;
     const email  = Auth.getSession()?.user?.email;
 
-    const [profilRes, progressRes, sessionRes] = await Promise.all([
+    const [profilRes, progressRes, sessionRes, aiRes, hlaseniRes] = await Promise.all([
       sb.from('profiles').select('*').eq('id', userId).single(),
       sb.from('progress').select('*').eq('user_id', userId),
       sb.from('session_progress').select('*').eq('user_id', userId),
+      sb.from('ai_pouziti').select('*').eq('user_id', userId),
+      sb.from('nahlasene_chyby').select('*').eq('user_id', userId),
     ]);
 
     const exportData = {
@@ -548,6 +550,8 @@ const App = (() => {
       profil:      profilRes.data,
       progress:    progressRes.data,
       sessionProgress: sessionRes.data,
+      aiPouziti:       aiRes.data,
+      nahlaseneChyby:  hlaseniRes.data,
     };
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -1967,6 +1971,46 @@ const App = (() => {
     if (dark) document.documentElement.setAttribute('data-theme', 'dark');
   }
 
+  // Chybové hlášky Supabase jsou anglicky — přeložíme ty, na které žák narazí
+  function prelozChybuAuth(e, vychozi = 'Něco se nepovedlo, zkus to prosím znovu.') {
+    const m = String(e?.message || '');
+    if (/invalid login credentials/i.test(m))              return 'Špatný e-mail nebo heslo. Pokud heslo nevíš, klikni na „Zapomněl/a jsi heslo?“.';
+    if (/email not confirmed/i.test(m))                    return 'Nejdřív potvrď e-mail — klikni na odkaz, který ti přišel po registraci.';
+    if (/already registered|already been registered/i.test(m)) return 'Účet s tímhle e-mailem už existuje. Přihlas se, nebo si nech poslat nové heslo.';
+    if (/rate limit|after \d+ seconds|security purposes/i.test(m)) return 'Teď jsme ti už jeden e-mail poslali. Další jde poslat zhruba za minutu.';
+    if (/different from the old/i.test(m))                 return 'Nové heslo musí být jiné než to původní.';
+    if (/password should|weak password|at least \d+ char/i.test(m)) return 'Heslo je moc slabé — použij aspoň 8 znaků, ideálně písmena i čísla.';
+    if (/invalid email|unable to validate email/i.test(m)) return 'Tenhle e-mail nevypadá správně.';
+    if (/session missing|not logged in|jwt expired/i.test(m)) return 'Odkaz už vypršel. Požádej o nový přes „Zapomněl/a jsi heslo?“.';
+    return vychozi;
+  }
+
+  function zobrazModalNoveHeslo() {
+    document.getElementById('nove-heslo').value = '';
+    document.getElementById('nove-heslo-znovu').value = '';
+    document.getElementById('nove-heslo-chyba').classList.add('hidden');
+    document.getElementById('nove-heslo-formular').classList.remove('hidden');
+    document.getElementById('nove-heslo-hotovo').classList.add('hidden');
+    document.getElementById('modal-nove-heslo').classList.remove('hidden');
+    setTimeout(() => document.getElementById('nove-heslo').focus(), 50);
+  }
+
+  // Odkaz z e-mailu (obnova hesla, potvrzení registrace) — co v něm přišlo.
+  // Čteme ho před Auth.init(), protože Supabase adresu po zpracování vyčistí.
+  function prectiOdkazZEmailu() {
+    const hash  = new URLSearchParams(location.hash.slice(1));
+    const query = new URLSearchParams(location.search);
+    const chyba = hash.get('error_code') || hash.get('error') || query.get('error_code') || query.get('error');
+    return { obnova: hash.get('type') === 'recovery', chyba };
+  }
+
+  function uklidOdkazZEmailu() {
+    const query = new URLSearchParams(location.search);
+    ['error', 'error_code', 'error_description'].forEach(k => query.delete(k));
+    const q = query.toString();
+    history.replaceState(null, '', location.pathname + (q ? '?' + q : ''));
+  }
+
   // ─── Auth event listenery ─────────────────────────────────────
   function initAuthEventy() {
     // Přepínání tabs login/registrace
@@ -1976,8 +2020,76 @@ const App = (() => {
         tab.classList.add('auth-tab-active');
         document.getElementById('auth-login').classList.toggle('hidden',    tab.dataset.tab !== 'login');
         document.getElementById('auth-register').classList.toggle('hidden', tab.dataset.tab !== 'register');
+        document.getElementById('auth-reset').classList.add('hidden');
       });
     });
+
+    // Zapomenuté heslo
+    const zobrazReset = (zobrazit) => {
+      document.getElementById('auth-login').classList.toggle('hidden', zobrazit);
+      document.getElementById('auth-reset').classList.toggle('hidden', !zobrazit);
+      if (zobrazit) {
+        const email = document.getElementById('auth-email').value.trim();
+        if (email) document.getElementById('reset-email').value = email;
+        document.getElementById('reset-zprava').classList.add('hidden');
+        document.getElementById('reset-email').focus();
+      }
+    };
+    document.getElementById('btn-zapomenute-heslo').addEventListener('click', () => zobrazReset(true));
+    document.getElementById('btn-reset-zpet').addEventListener('click', () => zobrazReset(false));
+
+    document.getElementById('btn-poslat-reset').addEventListener('click', async () => {
+      const email  = document.getElementById('reset-email').value.trim();
+      const btn    = document.getElementById('btn-poslat-reset');
+      const zprava = document.getElementById('reset-zprava');
+      const ukaz = (text, ok) => {
+        zprava.textContent = text;
+        zprava.classList.toggle('zprava-ok', ok);
+        zprava.classList.remove('hidden');
+      };
+      if (!/^\S+@\S+\.\S+$/.test(email)) { ukaz('Napiš celý e-mail, např. jmeno@seznam.cz.', false); return; }
+      btn.disabled = true;
+      try {
+        await Auth.posliObnovuHesla(email);
+        // Neprozrazujeme, jestli účet existuje
+        ukaz('Hotovo! Pokud k tomuhle e-mailu máme účet, za chvíli ti přijde odkaz pro nastavení nového hesla. Když ho nevidíš, mrkni i do spamu.', true);
+      } catch (e) {
+        ukaz(prelozChybuAuth(e), false);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    document.getElementById('reset-email').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('btn-poslat-reset').click();
+    });
+
+    // Nové heslo (po kliknutí na odkaz z e-mailu)
+    document.getElementById('btn-ulozit-heslo').addEventListener('click', async () => {
+      const heslo  = document.getElementById('nove-heslo').value;
+      const znovu  = document.getElementById('nove-heslo-znovu').value;
+      const chybaEl = document.getElementById('nove-heslo-chyba');
+      const ukazChybu = text => { chybaEl.textContent = text; chybaEl.classList.remove('hidden'); };
+      chybaEl.classList.add('hidden');
+      if (heslo.length < 8)  { ukazChybu('Heslo musí mít aspoň 8 znaků.'); return; }
+      if (heslo !== znovu)   { ukazChybu('Hesla se neshodují — napiš obě stejně.'); return; }
+      const btn = document.getElementById('btn-ulozit-heslo');
+      btn.disabled = true;
+      try {
+        await Auth.zmenHeslo(heslo);
+        document.getElementById('nove-heslo-formular').classList.add('hidden');
+        document.getElementById('nove-heslo-hotovo').classList.remove('hidden');
+      } catch (e) {
+        ukazChybu(prelozChybuAuth(e));
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    document.getElementById('nove-heslo-znovu').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('btn-ulozit-heslo').click();
+    });
+    const zavriNoveHeslo = () => document.getElementById('modal-nove-heslo').classList.add('hidden');
+    document.getElementById('btn-heslo-pozdeji').addEventListener('click', zavriNoveHeslo);
+    document.getElementById('btn-heslo-hotovo').addEventListener('click', zavriNoveHeslo);
 
     // Přihlášení
     document.getElementById('btn-prihlasit').addEventListener('click', async () => {
@@ -1992,7 +2104,7 @@ const App = (() => {
         if (!zapamatovat) Auth.nezapamatovatPrihlaseni();
         // onAuthStateChange SIGNED_IN → pokracujPoLoginu() volá se přes callback
       } catch (e) {
-        chybaEl.textContent = e.message;
+        chybaEl.textContent = prelozChybuAuth(e, e.message);
         chybaEl.classList.remove('hidden');
       }
     });
@@ -2022,7 +2134,7 @@ const App = (() => {
         chybaEl.classList.remove('hidden');
       } catch (e) {
         chybaEl.style.color = '';
-        chybaEl.textContent = e.message;
+        chybaEl.textContent = prelozChybuAuth(e, e.message);
         chybaEl.classList.remove('hidden');
       }
     });
@@ -2038,6 +2150,71 @@ const App = (() => {
       document.getElementById('user-dropdown-wrap').classList.add('hidden');
       // onAuthStateChange SIGNED_OUT → zobrazAuthScreen()
     });
+  }
+
+  // ─── Nahlášení chyby v úloze ──────────────────────────────────
+  function initNahlaseniChyby() {
+    const modal   = document.getElementById('modal-nahlasit');
+    const btnOdes = document.getElementById('btn-nahlasit-odeslat');
+    const chybaEl = document.getElementById('nahlasit-chyba');
+    const zavri   = () => modal.classList.add('hidden');
+
+    document.getElementById('btn-nahlasit-chybu')?.addEventListener('click', () => {
+      if (!aktualniTema?.ulohy?.[aktualniUlohaIndex]) return;
+      modal.querySelectorAll('input[name="nahlasit-duvod"]').forEach(r => { r.checked = false; });
+      document.getElementById('nahlasit-popis').value = '';
+      chybaEl.classList.add('hidden');
+      btnOdes.disabled = true;
+      document.getElementById('nahlasit-formular').classList.remove('hidden');
+      document.getElementById('nahlasit-hotovo').classList.add('hidden');
+      modal.classList.remove('hidden');
+    });
+
+    modal.addEventListener('change', e => {
+      if (e.target.name === 'nahlasit-duvod') btnOdes.disabled = false;
+    });
+
+    btnOdes.addEventListener('click', async () => {
+      const duvod = modal.querySelector('input[name="nahlasit-duvod"]:checked')?.value;
+      const uloha = aktualniTema?.ulohy?.[aktualniUlohaIndex];
+      if (!duvod || !uloha) return;
+      const temaId = uloha.temaId || aktualniTema._temaId || aktualniTema.id;
+      btnOdes.disabled = true;
+      chybaEl.classList.add('hidden');
+      try {
+        await Auth.nahlasChybu({
+          duvod,
+          popis:    document.getElementById('nahlasit-popis').value.trim().slice(0, 1000) || null,
+          tema_id:  temaId,
+          uloha_id: uloha.id,
+          uloha: {
+            zadani:   uloha.zadani,
+            odpoved:  uloha.odpoved,
+            jednotka: uloha.jednotka || '',
+            postup:   uloha.postup || [],
+            plan:     Engine.getStav().plan || [],
+            kontrola: uloha._meta || null,
+            slovni:   uloha.slovni ?? null,
+            trida:    profil?.trida ?? null
+          },
+          konverzace: dialogLog.slice(-12).map(m => ({ typ: m.typ, text: String(m.text ?? '').slice(0, 1500) })),
+          verze: CONFIG.appVersion
+        });
+        document.getElementById('nahlasit-formular').classList.add('hidden');
+        document.getElementById('nahlasit-hotovo').classList.remove('hidden');
+      } catch (e) {
+        console.warn('Nahlášení chyby selhalo:', e.message);
+        chybaEl.textContent = /zítra/.test(e.message)
+          ? e.message
+          : 'Hlášení se nepodařilo odeslat. Zkontroluj připojení a zkus to znovu.';
+        chybaEl.classList.remove('hidden');
+        btnOdes.disabled = false;
+      }
+    });
+
+    document.getElementById('btn-nahlasit-zrusit').addEventListener('click', zavri);
+    document.getElementById('btn-nahlasit-zavrit').addEventListener('click', zavri);
+    modal.addEventListener('click', e => { if (e.target === modal) zavri(); });
   }
 
   // ─── Ostatní event listenery ──────────────────────────────────
@@ -2103,14 +2280,8 @@ const App = (() => {
     });
     document.getElementById('user-dropdown').addEventListener('click', e => e.stopPropagation());
 
-    // Tlačítko "Nahlásit chybu" — zobrazí ID úlohy pro report
-    document.getElementById('btn-nahlasit-chybu')?.addEventListener('click', () => {
-      if (!aktualniTema) return;
-      const uloha  = aktualniTema.ulohy[aktualniUlohaIndex];
-      const temaId = aktualniTema._temaId || aktualniTema.id;
-      const info   = `Téma: ${temaId} | Úloha ID: ${uloha?.id || '?'}\nZadání: ${uloha?.zadani || '?'}`;
-      alert(`Díky za zpětnou vazbu! Pošli tuto informaci autorovi:\n\n${info}`);
-    });
+    // Tlačítko "Chyba?" — hlášení se uloží do Supabase i se snímkem úlohy a konverzace
+    initNahlaseniChyby();
 
     // Modal "Skvělá práce na dnes!" — zavřít
     document.getElementById('btn-modal-zpet')?.addEventListener('click', zavriModalDnesHotovo);
@@ -2181,6 +2352,7 @@ const App = (() => {
 
     // Zaregistruj callback PŘED Auth.init() (race condition prevence)
     Auth.onSessionChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') zobrazModalNoveHeslo();
       if (event === 'SIGNED_OUT') {
         // Debounce — Supabase může krátce vyvolat SIGNED_OUT při automatické
         // obnově tokenu (např. po alt-tabu). Počkáme 700 ms; pokud mezitím
@@ -2212,6 +2384,7 @@ const App = (() => {
       }
     });
 
+    const odkaz   = prectiOdkazZEmailu();
     const session = await Auth.init();
 
     initAuthEventy();
@@ -2219,9 +2392,16 @@ const App = (() => {
 
     if (session) {
       await pokracujPoLoginu(session);
+      if (odkaz.obnova) zobrazModalNoveHeslo();
     } else {
       zobrazAuthScreen();
+      if (odkaz.chyba) {
+        const chybaEl = document.getElementById('auth-chyba');
+        chybaEl.textContent = 'Odkaz z e-mailu už vypršel nebo byl použitý. Pokud jsi chtěl/a změnit heslo, nech si poslat nový přes „Zapomněl/a jsi heslo?“.';
+        chybaEl.classList.remove('hidden');
+      }
     }
+    if (odkaz.chyba || odkaz.obnova) uklidOdkazZEmailu();
   }
 
   return { init };

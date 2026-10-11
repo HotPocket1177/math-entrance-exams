@@ -2627,3 +2627,51 @@ mark.zvyrazneni { background-repeat: no-repeat; background-size: 100% 100%; }
   color: var(--tema-barva);
   box-shadow: var(--shadow-sm);
 }
+
+/* ── Formulář v modalu (nové heslo, nahlášení chyby) ── */
+.modal-karta--formular { text-align: left; }
+.modal-karta--formular .modal-nadpis,
+.modal-karta--formular .modal-ikona,
+.modal-karta--formular .modal-text { text-align: center; }
+.modal-karta--formular .apikey-input { margin-bottom: .9rem; }
+.modal-zrusit {
+  display: block;
+  margin: .85rem auto 0;
+}
+.modal-zrusit:hover { color: var(--color-text); }
+
+.auth-reset-text {
+  font-size: .88rem;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+  margin-bottom: 1rem;
+}
+.apikey-chyba.zprava-ok { color: var(--color-success); }
+#btn-zapomenute-heslo:hover { color: var(--color-primary); }
+
+.nahlasit-duvody {
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+  margin-bottom: 1.1rem;
+}
+.nahlasit-duvod {
+  display: flex;
+  align-items: flex-start;
+  gap: .6rem;
+  padding: .65rem .8rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: .9rem;
+  line-height: 1.4;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+.nahlasit-duvod:hover { border-color: var(--color-primary); }
+.nahlasit-duvod:has(input:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-surface2);
+}
+.nahlasit-duvod input { margin-top: .15rem; accent-color: var(--color-primary); flex-shrink: 0; }
+.nahlasit-popis { resize: vertical; min-height: 4.5rem; line-height: 1.45; }

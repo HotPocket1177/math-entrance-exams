@@ -73,6 +73,25 @@
             <div class="apikey-akce">
               <button id="btn-prihlasit" class="btn-primary">Přihlásit se</button>
             </div>
+            <div class="apikey-footer">
+              <button id="btn-zapomenute-heslo" class="btn-link" type="button">Zapomněl/a jsi heslo?</button>
+            </div>
+          </div>
+
+          <!-- Zapomenuté heslo -->
+          <div id="auth-reset" class="auth-form hidden">
+            <p class="auth-reset-text">Napiš e-mail, se kterým ses registroval/a. Pošleme ti odkaz, přes který si nastavíš nové heslo.</p>
+            <label class="apikey-label" for="reset-email">E-mail</label>
+            <input id="reset-email" type="email" class="apikey-input" placeholder="vas@email.cz" autocomplete="email">
+
+            <p id="reset-zprava" class="apikey-chyba hidden" role="alert"></p>
+
+            <div class="apikey-akce">
+              <button id="btn-poslat-reset" class="btn-primary">Poslat odkaz</button>
+            </div>
+            <div class="apikey-footer">
+              <button id="btn-reset-zpet" class="btn-link" type="button">← Zpět na přihlášení</button>
+            </div>
           </div>
 
           <!-- Registrační formulář -->
@@ -449,6 +468,57 @@
         <h2 id="modal-novinky-title" class="modal-nadpis">Co je nového</h2>
         <p id="modal-novinky-text" class="modal-text"></p>
         <button id="btn-modal-novinky-ok" class="btn-primary">Rozumím</button>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         MODAL — Nové heslo (po kliknutí na odkaz z e-mailu)
+    ═══════════════════════════════════════════════════════ -->
+    <div id="modal-nove-heslo" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-nove-heslo-title">
+      <div class="modal-karta modal-karta--formular">
+        <div class="modal-ikona">🔑</div>
+        <h2 id="modal-nove-heslo-title" class="modal-nadpis">Nastav si nové heslo</h2>
+        <div id="nove-heslo-formular">
+          <label class="apikey-label" for="nove-heslo">Nové heslo</label>
+          <input id="nove-heslo" type="password" class="apikey-input" placeholder="Min. 8 znaků" autocomplete="new-password">
+          <label class="apikey-label" for="nove-heslo-znovu">Heslo znovu</label>
+          <input id="nove-heslo-znovu" type="password" class="apikey-input" placeholder="Pro kontrolu" autocomplete="new-password">
+          <p id="nove-heslo-chyba" class="apikey-chyba hidden" role="alert"></p>
+          <button id="btn-ulozit-heslo" class="btn-primary">Uložit heslo</button>
+          <button id="btn-heslo-pozdeji" class="btn-link modal-zrusit" type="button">Teď ne</button>
+        </div>
+        <div id="nove-heslo-hotovo" class="hidden">
+          <p class="modal-text modal-text--accent">Heslo je změněné. Příště se přihlas tím novým.</p>
+          <button id="btn-heslo-hotovo" class="btn-primary">Pokračovat</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         MODAL — Nahlásit chybu v úloze
+    ═══════════════════════════════════════════════════════ -->
+    <div id="modal-nahlasit" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-nahlasit-title">
+      <div class="modal-karta modal-karta--formular">
+        <div id="nahlasit-formular">
+          <h2 id="modal-nahlasit-title" class="modal-nadpis">Co je na úloze špatně?</h2>
+          <div class="nahlasit-duvody" role="radiogroup" aria-labelledby="modal-nahlasit-title">
+            <label class="nahlasit-duvod"><input type="radio" name="nahlasit-duvod" value="vysledek"> <span>Výsledek je špatně nebo aplikace nebere správnou odpověď</span></label>
+            <label class="nahlasit-duvod"><input type="radio" name="nahlasit-duvod" value="zadani"> <span>Zadání nedává smysl nebo v něm něco chybí</span></label>
+            <label class="nahlasit-duvod"><input type="radio" name="nahlasit-duvod" value="kouc"> <span>Kouč radí špatně nebo nesrozumitelně</span></label>
+            <label class="nahlasit-duvod"><input type="radio" name="nahlasit-duvod" value="jine"> <span>Něco jiného</span></label>
+          </div>
+          <label class="apikey-label" for="nahlasit-popis">Popiš to vlastními slovy (nepovinné)</label>
+          <textarea id="nahlasit-popis" class="apikey-input nahlasit-popis" rows="3" maxlength="1000" placeholder="Např. podle mě má vyjít 24, ale aplikace to nebere."></textarea>
+          <p id="nahlasit-chyba" class="apikey-chyba hidden" role="alert"></p>
+          <button id="btn-nahlasit-odeslat" class="btn-primary" disabled>Odeslat</button>
+          <button id="btn-nahlasit-zrusit" class="btn-link modal-zrusit" type="button">Zrušit</button>
+        </div>
+        <div id="nahlasit-hotovo" class="hidden">
+          <div class="modal-ikona">🙏</div>
+          <h2 class="modal-nadpis">Díky, že to hlásíš!</h2>
+          <p class="modal-text">Úlohu i tvou konverzaci s koučem jsme uložili a podíváme se na ni. Můžeš pokračovat dál.</p>
+          <button id="btn-nahlasit-zavrit" class="btn-primary">Zpět k úloze</button>
+        </div>
       </div>
     </div>
 

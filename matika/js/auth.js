@@ -82,6 +82,30 @@ const Auth = (() => {
     return data;
   }
 
+  // ── Zapomenuté heslo ──────────────────────────────────────────
+  // Pošle e-mail s odkazem zpět do aplikace; po kliknutí přijde událost
+  // PASSWORD_RECOVERY a app.js nabídne nastavení nového hesla.
+  async function posliObnovuHesla(email) {
+    const { error } = await _supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: location.origin + location.pathname
+    });
+    if (error) throw error;
+  }
+
+  async function zmenHeslo(heslo) {
+    const { error } = await _supabase.auth.updateUser({ password: heslo });
+    if (error) throw error;
+  }
+
+  // ── Nahlášení chyby v úloze ───────────────────────────────────
+  async function nahlasChybu(zaznam) {
+    if (!_session) throw new Error('Pro nahlášení se musíš přihlásit.');
+    const { error } = await _supabase
+      .from('nahlasene_chyby')
+      .insert({ ...zaznam, user_id: _session.user.id });
+    if (error) throw error;
+  }
+
   // ── Odhlášení ─────────────────────────────────────────────────
   async function odhlas() {
     sessionStorage.removeItem(NEZAPAMATOVAT_KEY);
@@ -154,6 +178,9 @@ const Auth = (() => {
     prihlasuj,
     odhlas,
     nezapamatovatPrihlaseni,
+    posliObnovuHesla,
+    zmenHeslo,
+    nahlasChybu,
     getProfil,
     ulozVerziZobrazeni,
     ulozEmailPreferenci,
