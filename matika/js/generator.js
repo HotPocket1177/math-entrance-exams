@@ -1,6 +1,8 @@
 // generator.js — dynamické generování úloh pomocí AI
 // Každá sada 5 příkladů je vygenerována na míru danému tématu a třídě.
-// Pokud AI selže, app.js přejde na statický fallback (ulohy.js).
+// Každá úloha se ověřuje: lokálně se přepočítá výraz „vypocet“ a pak celou sadu
+// nezávisle vyřeší druhé volání AI (bez znalosti výsledku). Co nesedí, se jednou
+// přegeneruje; když nesedí ani pak, app.js místo ní dá úlohu ze sbírky (ulohy.js).
 
 const Generator = (() => {
 
@@ -107,6 +109,7 @@ Vrať VÝHRADNĚ validní JSON (žádný text mimo JSON):
   ],
   "answerType": "number",
   "answerValue": 42.5,
+  "vypocet": "(100 - 15) / 2",
   "tolerance": 0.005
 }
 
@@ -130,7 +133,8 @@ PRAVIDLA PRO plan[] a zacatek[]:
 Pro slovní úlohy s více hodnotami (soustava) použij "answerType": "keywords", "keywords": ["hodnota1", "hodnota2"].
 Pro geometrii/výpočty s jedním výsledkem vždy "answerType": "number" (answerValue jako desetinné číslo, např. 0.75 pro tři čtvrtiny).
 Pokud úloha výslovně žádá zápis zlomku v základním tvaru nebo smíšeného čísla, použij "answerType": "keywords" s přesným zápisem, např. "keywords": ["3/4"] nebo ["4 1/7"].
-"tolerance" nech 0.005 — jen na zaokrouhlení; celé výsledky se kontrolují přesně.`;
+"tolerance" nech 0.005 — jen na zaokrouhlení; celé výsledky se kontrolují přesně.
+"vypocet" (jen u answerType "number") = JEDEN aritmetický výraz, jehož hodnota je přesně answerValue — slouží ke kontrole. Smí obsahovat jen čísla s desetinnou tečkou, + - * / ( ), ^ (mocnina), sqrt(…) a pi. Žádné proměnné, jednotky ani rovnítko.`;
   }
 
   // Vygeneruje jeden příklad
@@ -153,6 +157,8 @@ Pokud úloha výslovně žádá zápis zlomku v základním tvaru nebo smíšen�
 
     // Validace povinných polí
     if (!prob.zadani || !prob.odpoved) throw new Error('Neúplný JSON od AI');
+    const chybaVypoctu = zkontrolujVypocet(prob);
+    if (chybaVypoctu) throw new Error(`Úloha ${index + 1} neprošla kontrolou: ${chybaVypoctu}`);
 
     // Odstraň {,} z textových polí — tam patří jen normální čárka
     prob.odpoved = prob.odpoved.replace(/\{,\}/g, ',');
@@ -209,32 +215,138 @@ Pokud úloha výslovně žádá zápis zlomku v základním tvaru nebo smíšen�
     };
   }
 
-  // Vygeneruje sadu count příkladů paralelně, s retry při selhání.
+  // ── Ověření úloh ──────────────────────────────────────────────
+
+  // Spočítá výraz z pole "vypocet" (jen čísla a + - * / ( ) ^ sqrt pi).
+  // Vrací NaN, když výraz chybí nebo mu nerozumíme — to úlohu neshodí.
+  function spocitejVyraz(vyraz) {
+    const s = String(vyraz ?? '')
+      .replace(/[·×⋅]/g, '*').replace(/[÷:]/g, '/').replace(/[−–]/g, '-')
+      .replace(/,/g, '.').replace(/\s+/g, '');
+    if (!s || !/^(?:[\d.+\-*/()^]|sqrt|pi)+$/.test(s)) return NaN;
+    try {
+      const js = s.replace(/\^/g, '**').replace(/sqrt/g, 'Math.sqrt').replace(/pi/g, 'Math.PI');
+      const v = Function(`"use strict"; return (${js});`)();
+      return typeof v === 'number' && isFinite(v) ? v : NaN;
+    } catch {
+      return NaN;
+    }
+  }
+
+  // Lokální kontrola bez dalšího volání AI. Vrací popis chyby, nebo null.
+  function zkontrolujVypocet(prob) {
+    if (prob.answerType === 'number') {
+      const cil = Number(prob.answerValue);
+      if (prob.answerValue == null || prob.answerValue === '' || !isFinite(cil)) return 'chybí číselný výsledek';
+      const v = spocitejVyraz(prob.vypocet);
+      if (!isNaN(v) && Math.abs(v - cil) > Math.max(Math.abs(cil) * 0.005, 0.01)) {
+        return `výpočet ${prob.vypocet} = ${v}, ale výsledek je ${cil}`;
+      }
+    } else if (prob.answerType === 'keywords') {
+      if (!Array.isArray(prob.keywords) || !prob.keywords.some(k => String(k).trim())) return 'chybí klíčová slova odpovědi';
+    }
+    return null;
+  }
+
+  function buildResitelPrompt(ulohy) {
+    const seznam = ulohy.map((u, i) => `${i + 1}) ${u.zadani}`).join('\n\n');
+    return `Jsi pečlivý řešitel úloh z přijímacích zkoušek z matematiky. Každou úlohu vyřeš sám a nezávisle — postupuj krok za krokem a výsledek si ověř dosazením do zadání.
+
+Úlohy:
+${seznam}
+
+Vrať VÝHRADNĚ validní JSON (žádný text mimo JSON):
+{"vysledky": [{"uloha": 1, "odpoved": "výsledek", "hodnota": 42.5}]}
+
+- "odpoved" = výsledek tak, jak by ho žák napsal do odpovědi: bez jednotek a bez vysvětlování. Více hodnot odděl středníkem („12; 51“). Zlomek v základním tvaru piš jako „3/4“, smíšené číslo jako „4 1/7“.
+- "hodnota" = výsledek jako číslo (desetinná tečka), pokud je jediný; jinak null.
+- Pořadí a počet výsledků musí odpovídat úlohám.`;
+  }
+
+  // Sedí odpověď nezávislého řešitele na úlohu? Používá stejnou kontrolu jako u žáka.
+  function shodaSResitelem(uloha, r) {
+    if (!r) return false;
+    const odpoved = String(r.odpoved ?? '').replace(/;/g, ' ; ');
+    if (odpoved.trim() && uloha.kontrola(odpoved)) return true;
+    const h = Number(r.hodnota);
+    if (r.hodnota == null || r.hodnota === '' || !isFinite(h)) return false;
+    const m = uloha._meta;
+    if (m.answerType === 'number') return blizko(String(h), Number(m.answerValue));
+    // Jediné klíčové slovo jako zlomek („3/4“) vs. řešitelova hodnota 0.75
+    if (m.answerType === 'keywords' && m.keywords.length === 1) {
+      const kw = cislo(String(m.keywords[0]));
+      return !isNaN(kw) && Math.abs(kw - h) <= Math.max(Math.abs(kw) * 0.005, 0.006);
+    }
+    return false;
+  }
+
+  // Vrátí indexy úloh, které nezávislý řešitel nepotvrdil.
+  // Když ověření technicky selže, úlohy ponecháme — prošly už lokální kontrolou.
+  async function najdiNeoverene(ulohy, indexy) {
+    if (!indexy.length) return [];
+    try {
+      const raw = await Api.chat(
+        [{ role: 'user', content: buildResitelPrompt(indexy.map(i => ulohy[i])) }],
+        { maxTokens: 8000, effort: 'medium' }
+      );
+      const vysledky = Api.parseJson(raw)?.vysledky;
+      if (!Array.isArray(vysledky)) throw new Error('řešitel nevrátil výsledky');
+      return indexy.filter((i, k) => {
+        const r = vysledky.find(v => Number(v?.uloha) === k + 1) ?? vysledky[k];
+        const ok = shodaSResitelem(ulohy[i], r);
+        if (!ok) console.warn(`Generator: úloha ${i + 1} neprošla ověřením (generátor: ${ulohy[i].odpoved}, řešitel: ${r?.odpoved})`);
+        return !ok;
+      });
+    } catch (err) {
+      console.warn('Generator: ověření se nepodařilo, úlohy ponechány:', err.message);
+      return [];
+    }
+  }
+
+  // Vygeneruje a ověří sadu count příkladů.
   // temaId může být i pole (Mix) — i-tý příklad pak bude z tématu temaId[i].
   // slovni: true/false pro celou sadu, nebo pole (Mix) — typ i-tého příkladu.
+  // onProgress(n, celkem, faze) — faze 'generovani' | 'overeni'.
+  // Vrací pole délky count; null = úlohu se nepodařilo vytvořit ani ověřit
+  // (app.js ji doplní ze sbírky). Když se nepovede žádná, vyhodí chybu.
   async function generujSadu(temaId, trida, count = 5, onProgress, slovni = true) {
-    const promises = Array.from({ length: count }, async (_, i) => {
+    const tema = i => Array.isArray(temaId) ? temaId[i % temaId.length] : temaId;
+    const typ  = i => Array.isArray(slovni) ? slovni[i % slovni.length] : slovni;
+    const vytvor = async i => {
       try {
-        const tema  = Array.isArray(temaId) ? temaId[i % temaId.length] : temaId;
-        const typ   = Array.isArray(slovni) ? slovni[i % slovni.length] : slovni;
-        const uloha = await generujUlohu(tema, trida, i, typ);
-        if (onProgress) onProgress(i + 1, count);
-        return uloha;
+        return await generujUlohu(tema(i), trida, i, typ(i));
       } catch (err) {
         console.warn(`Generator: příklad ${i} selhal:`, err.message);
         return null;
       }
-    });
+    };
 
-    const vysledky = await Promise.all(promises);
-    const uspesne  = vysledky.filter(Boolean);
+    let hotovo = 0;
+    const ulohy = await Promise.all(Array.from({ length: count }, async (_, i) => {
+      const u = await vytvor(i);
+      if (onProgress) onProgress(++hotovo, count, 'generovani');
+      return u;
+    }));
+    if (!ulohy.some(Boolean)) throw new Error('Nepodařilo se vygenerovat žádný příklad');
 
-    if (uspesne.length < count) {
-      throw new Error(`Vygenerováno pouze ${uspesne.length}/${count} příkladů`);
-    }
+    // 1. kolo ověření; neověřené a nevygenerované zkusíme jednou znovu
+    if (onProgress) onProgress(count, count, 'overeni');
+    const vytvorene = ulohy.map((u, i) => u ? i : -1).filter(i => i >= 0);
+    const spatne = await najdiNeoverene(ulohy, vytvorene);
+    const znovu = [...spatne, ...ulohy.map((u, i) => u ? -1 : i).filter(i => i >= 0)];
+    if (!znovu.length) return ulohy;
 
-    return uspesne;
+    const nove = await Promise.all(znovu.map(vytvor));
+    znovu.forEach((i, k) => { ulohy[i] = nove[k]; });
+
+    // 2. kolo jen pro nové úlohy; co neprojde ani teď, nahradí sbírka
+    const noveIndexy = znovu.filter(i => ulohy[i]);
+    const stale = await najdiNeoverene(ulohy, noveIndexy);
+    stale.forEach(i => { ulohy[i] = null; });
+
+    if (!ulohy.some(Boolean)) throw new Error('Žádný příklad neprošel ověřením');
+    return ulohy;
   }
 
-  return { generujSadu, makeKontrola };
+  return { generujSadu, makeKontrola, spocitejVyraz, zkontrolujVypocet, shodaSResitelem };
 })();

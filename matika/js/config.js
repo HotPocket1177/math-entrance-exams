@@ -12,6 +12,6 @@ const CONFIG = {
 
   // ── Verze aplikace (novinky) ──────────────────────────────────
   // Při vydání nové verze změň appVersion — uživatelům se zobrazí modal "Co je nového".
-  appVersion:   'v1.7',
-  appChangelog: 'Opravy: kontrola odpovědí teď rozumí zlomkům (3/4, 1 7/8) i jednotkám (69 m2) a výsledek o jedna vedle už neprojde jako správný. Statistiky počítají všechny tvoje úlohy, po každé sadě uvidíš skóre a rozpracované sady zůstanou i po odhlášení.'
+  appVersion:   'v1.8',
+  appChangelog: 'Každý nový příklad teď před zobrazením nezávisle přepočítáme — když výsledek nesedí, vytvoříme jiný, nebo ho nahradíme ověřeným příkladem ze sbírky. Generování sady proto trvá o pár sekund déle.'
 };

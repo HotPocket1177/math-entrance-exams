@@ -1234,7 +1234,26 @@ const App = (() => {
     }).filter(Boolean);
   }
 
-  // Připraví úlohy pro jeden cyklus: AI generování, při selhání statický pool.
+  // Místa, kde generátor nevytvořil ověřenou úlohu (null), doplní úlohami ze sbírky
+  // stejného tématu a typu.
+  function doplnZeSbirky(ulohy, temaProIndex, typProIndex, trida) {
+    const chybi = {};
+    ulohy.forEach((u, i) => {
+      if (u) return;
+      const klic = `${temaProIndex(i)}|${typProIndex(i)}`;
+      (chybi[klic] ??= []).push(i);
+    });
+    Object.values(chybi).forEach(indexy => {
+      const temaId = temaProIndex(indexy[0]);
+      const pool   = statickyPool(temaId, trida, typProIndex(indexy[0]), indexy.length);
+      const nahrada = selectUlohyProCyklus(temaId, pool, indexy.length);
+      indexy.forEach((i, k) => { ulohy[i] = nahrada[k] ? { ...nahrada[k], temaId } : null; });
+    });
+    return ulohy.filter(Boolean);
+  }
+
+  // Připraví úlohy pro jeden cyklus: AI generování s ověřením, co neprojde,
+  // doplní sbírka; při úplném selhání celý statický pool.
   async function pripravSadu(temaId, trida, onProgress) {
     const mix = temaId === MIX_TEMA.id;
     const temataMixu = mix ? vyberTemataProMix(trida) : null;
@@ -1245,7 +1264,13 @@ const App = (() => {
 
     if (Api.jeAiDostupne()) {
       try {
-        return await Generator.generujSadu(mix ? temataMixu : temaId, trida, TASKS_PER_CYCLE, onProgress, slovni);
+        const ulohy = await Generator.generujSadu(mix ? temataMixu : temaId, trida, TASKS_PER_CYCLE, onProgress, slovni);
+        return doplnZeSbirky(
+          ulohy,
+          i => mix ? temataMixu[i] : temaId,
+          i => mix ? slovni[i] : slovni,
+          trida
+        );
       } catch (err) {
         console.warn('Generator selhal, používám statický pool:', err.message);
       }
@@ -1305,8 +1330,10 @@ const App = (() => {
       document.getElementById('uloha-tema-nazev').textContent = tema.nazev;
       zobrazNacitani('Připravuji nové příklady…');
 
-      vybrane = await pripravSadu(temaId, trida, (n, z) => {
-        zobrazNacitani(`Připravuji příklady… ${n}/${z}`);
+      vybrane = await pripravSadu(temaId, trida, (n, z, faze) => {
+        zobrazNacitani(faze === 'overeni'
+          ? 'Kontroluji, že jsou výsledky správně…'
+          : `Připravuji příklady… ${n}/${z}`);
       });
 
       zobrazNacitani(null);
