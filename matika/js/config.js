@@ -12,6 +12,6 @@ const CONFIG = {
 
   // ── Verze aplikace (novinky) ──────────────────────────────────
   // Při vydání nové verze změň appVersion — uživatelům se zobrazí modal "Co je nového".
-  appVersion:   'v1.8',
-  appChangelog: 'Každý nový příklad teď před zobrazením nezávisle přepočítáme — když výsledek nesedí, vytvoříme jiný, nebo ho nahradíme ověřeným příkladem ze sbírky. Generování sady proto trvá o pár sekund déle.'
+  appVersion:   'v1.9',
+  appChangelog: 'Rozdělané sady, statistiky i volba „Slovní úlohy / Jen příklady“ se teď ukládají k tvému účtu — začni na počítači a pokračuj na mobilu. Nově taky obnova zapomenutého hesla a tlačítko „Chyba?“, kterým nám nahlásíš chybnou úlohu. A každý nový příklad před zobrazením nezávisle přepočítáme.'
 };

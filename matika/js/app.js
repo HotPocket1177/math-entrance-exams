@@ -89,6 +89,11 @@ const App = (() => {
   function nastavTypUloh(temaId, slovni) {
     const typy = _nactiTypy();
     typy[temaId] = slovni ? 'slovni' : 'priklady';
+    _zapisTypy(typy);
+    Sync.ulozTypy(typy);
+  }
+
+  function _zapisTypy(typy) {
     try { localStorage.setItem(klicUzivatele(TYP_ULOH_KEY), JSON.stringify(typy)); } catch {}
   }
 
@@ -155,16 +160,18 @@ const App = (() => {
       index:    hotova ? aktualniUlohaIndex + 1 : aktualniUlohaIndex,
       skore:    { ...skore },
       pokrok:   pokrok || mapa[sadaId]?.pokrok || aktualniUlohaIndex > 0,
-      upraveno: Date.now()
+      upraveno: Date.now(),
+      synchronizovano: mapa[sadaId]?.synchronizovano || false
     };
 
     // Nejstarší sady nad limit zahoď (i s jejich konverzacemi)
     Object.values(mapa)
       .sort((a, b) => b.upraveno - a.upraveno)
       .slice(MAX_ROZPRACOVANYCH)
-      .forEach(s => _smazSaduZMapy(mapa, s.sadaId));
+      .forEach(s => { _smazSaduZMapy(mapa, s.sadaId); Sync.smazSadu(s.sadaId); });
 
     _zapisRozpracovane(mapa);
+    Sync.naplanujSadu(sadaId);
     sessionStorage.setItem(SESSION_KEY, sadaId);  // obnova po hard refreshi ve stejném tabu
   }
 
@@ -178,6 +185,7 @@ const App = (() => {
     const mapa = nactiRozpracovane();
     _smazSaduZMapy(mapa, sadaId);
     _zapisRozpracovane(mapa);
+    Sync.smazSadu(sadaId);
     if (sessionStorage.getItem(SESSION_KEY) === sadaId) sessionStorage.removeItem(SESSION_KEY);
   }
 
@@ -536,12 +544,13 @@ const App = (() => {
     const userId = Auth.getSession()?.user?.id;
     const email  = Auth.getSession()?.user?.email;
 
-    const [profilRes, progressRes, sessionRes, aiRes, hlaseniRes] = await Promise.all([
+    const [profilRes, progressRes, sessionRes, aiRes, hlaseniRes, sadyRes] = await Promise.all([
       sb.from('profiles').select('*').eq('id', userId).single(),
       sb.from('progress').select('*').eq('user_id', userId),
       sb.from('session_progress').select('*').eq('user_id', userId),
       sb.from('ai_pouziti').select('*').eq('user_id', userId),
       sb.from('nahlasene_chyby').select('*').eq('user_id', userId),
+      sb.from('rozpracovane_sady').select('*').eq('user_id', userId),
     ]);
 
     const exportData = {
@@ -552,6 +561,7 @@ const App = (() => {
       sessionProgress: sessionRes.data,
       aiPouziti:       aiRes.data,
       nahlaseneChyby:  hlaseniRes.data,
+      rozpracovaneSady: sadyRes.data,
     };
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -761,6 +771,15 @@ const App = (() => {
     renderProfilAvatar(email);
     renderDropdownTridy();
 
+    // Data z jiných zařízení (rozpracované sady, statistiky, volba typu úloh).
+    // Na pomalou síť nečekáme déle než 4 s — synchronizace pak doběhne na pozadí.
+    const synchronizace = Sync.stahniVse();
+    const vcas = await Promise.race([
+      synchronizace.then(() => true),
+      new Promise(r => setTimeout(() => r(false), 4000))
+    ]);
+    if (!vcas) synchronizace.then(zmena => { if (zmena) obnovDomovskouPoSynchronizaci(); });
+
     // Obnova po hard refresh — pokud byl uživatel uprostřed sady, vrátíme ho tam
     const sadaPoRefreshi = sessionStorage.getItem(SESSION_KEY);
     if (sadaPoRefreshi && nactiRozpracovane()[sadaPoRefreshi]) {
@@ -771,6 +790,11 @@ const App = (() => {
     zobrazDomovskou();
     // Nový uživatel dostane tutorial — „Co je nového“ by se mu otevřelo přes něj
     if (!zkontrolujOnboarding()) zkontrolujNovinky();
+  }
+
+  // Po synchronizaci překresli domovskou obrazovku (panel Rozpracované, procenta témat)
+  function obnovDomovskouPoSynchronizaci() {
+    if (!document.getElementById('screen-home').classList.contains('hidden')) renderTemata();
   }
 
   // ─── Dropdown: výběr třídy ────────────────────────────────────
@@ -929,6 +953,11 @@ const App = (() => {
     t.celkem++;
     if (uspech) t.spravne++;
     v[temaId] = t;
+    _zapisVysledky(v);
+    Sync.zapisVysledek(temaId, uspech);
+  }
+
+  function _zapisVysledky(v) {
     try { localStorage.setItem(klicUzivatele(VYSLEDKY_KEY), JSON.stringify(v)); } catch {}
   }
 
@@ -2337,15 +2366,31 @@ const App = (() => {
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         ulozKonverzaci();  // tab se skryl — ulož pro případ nehody
+        Sync.odesliHned();
       } else if (Auth.jeAuthenticated()) {
         const homeVisible = !document.getElementById('screen-home').classList.contains('hidden');
-        if (homeVisible) renderTemata();
+        if (homeVisible) {
+          renderTemata();
+          // Žák mohl mezitím pokračovat na jiném zařízení
+          Sync.stahniVse().then(zmena => { if (zmena) obnovDomovskouPoSynchronizaci(); });
+        }
       }
     });
   }
 
   // ─── Inicializace ─────────────────────────────────────────────
   async function init() {
+    Sync.init({
+      klicUzivatele,
+      konvKlic:          _konvKlic,
+      nactiRozpracovane,
+      zapisRozpracovane: _zapisRozpracovane,
+      smazSaduZMapy:     _smazSaduZMapy,
+      nactiVysledky,
+      zapisVysledky:     _zapisVysledky,
+      nactiTypy:         _nactiTypy,
+      zapisTypy:         _zapisTypy
+    });
     initDarkMode();
     initAvatarUpload();
     initCropModalEventy();
