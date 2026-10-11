@@ -1326,7 +1326,12 @@ const App = (() => {
     _posledniDokoncena = false;
     zobrazUlohu();
     document.getElementById('uloha-tema-nazev').textContent = tema.nazev;
-    nactiUlohu(0);
+    if (Api.jeLimitVycerpan() && Auth.jeAuthenticated()) {
+      aktualniTema._limitOznamen = true;
+      nactiUlohu(0, TEXT_LIMIT);
+    } else {
+      nactiUlohu(0);
+    }
   }
 
   // ─── Pokračování v rozpracované sadě (z panelu na home) ───────
@@ -1733,8 +1738,17 @@ const App = (() => {
   }
 
   function zobrazApiChybu(chyba) {
+    if (Api.jeLimitVycerpan()) { zobrazInfoOLimitu(); return; }
     pridejZpravu('apierror', `Nepodařilo se připojit k AI (${chyba}). Pokračuji se statickými nápovědami.`);
   }
+
+  // Hláška o vyčerpaném denním limitu — v jedné sadě jen jednou
+  function zobrazInfoOLimitu() {
+    if (aktualniTema?._limitOznamen) return;
+    if (aktualniTema) aktualniTema._limitOznamen = true;
+    pridejZpravu('info', TEXT_LIMIT);
+  }
+  const TEXT_LIMIT = 'Na dnešek je AI kouč vyčerpaný. Dál ti pomůžu připravenými nápovědami a úlohami ze sbírky, zítra je kouč zase k dispozici.';
 
   function escapujHtml(text) {
     return String(text ?? '')

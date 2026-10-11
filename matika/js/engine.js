@@ -308,8 +308,17 @@ const Engine = (() => {
         error: errorMsg
       };
     }
-    if (!stav.zobrazenaOdpoved) return _ukazReseni();
-    return { typ: 'info', text: 'Tato úloha je vyřešena. Přejdi na další.', hotovo: true };
+    if (stav.dokonceno) return { typ: 'info', text: 'Tato úloha je vyřešena. Přejdi na další.', hotovo: true };
+    // Kroky došly — řešení ukáže až _vycerpanePokusy(), ne hned první chyba
+    const krokPlanu = stav.plan[stav.aktivniKrok - 1];
+    return {
+      typ: 'napoveda',
+      text: krokPlanu
+        ? `Zatím to nesedí. Vrať se ke kroku ${stav.aktivniKrok}: **${krokPlanu}** — a zkus to znovu.`
+        : 'Zatím to nesedí. Projdi si postup znovu a zkus to ještě jednou.',
+      fallback: true,
+      error: errorMsg
+    };
   }
 
   function getStav()      { return { ...stav }; }

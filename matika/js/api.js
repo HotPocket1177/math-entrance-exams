@@ -2,6 +2,11 @@
 
 const Api = (() => {
 
+  // Den (YYYY-MM-DD), kdy server ohlásil vyčerpaný denní limit — do konce
+  // toho dne už AI nevoláme a aplikace jede na statických úlohách a nápovědách
+  let _limitDen = null;
+  const dnes = () => new Date().toLocaleDateString('sv-SE');
+
   // Hlavní vstupní bod: pošle messages na AI a vrátí textovou odpověď
   // opts.maxTokens — strop výstupu včetně přemýšlení modelu (výchozí 4000)
   // opts.effort    — 'low' | 'medium' | 'high' (výchozí 'medium')
@@ -25,6 +30,7 @@ const Api = (() => {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+      if (err.error?.code === 'denni_limit') _limitDen = dnes();
       throw new Error(err.error?.message || `HTTP ${res.status}`);
     }
 
@@ -58,10 +64,14 @@ const Api = (() => {
     });
   }
 
-  // Vrací true pokud je dostupný nějaký způsob komunikace s AI
-  function jeAiDostupne() {
-    return Auth.jeAuthenticated();
+  function jeLimitVycerpan() {
+    return _limitDen === dnes();
   }
 
-  return { chat, parseJson, jeAiDostupne };
+  // Vrací true pokud je dostupný nějaký způsob komunikace s AI
+  function jeAiDostupne() {
+    return Auth.jeAuthenticated() && !jeLimitVycerpan();
+  }
+
+  return { chat, parseJson, jeAiDostupne, jeLimitVycerpan };
 })();
