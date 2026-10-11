@@ -88,7 +88,7 @@
     <a href="../index.html" class="privacy-zpet">← Zpět do aplikace</a>
 
     <h1 class="privacy-nadpis">Ochrana osobních údajů</h1>
-    <p class="privacy-datum">Platnost od: 1. 5. 2026 &nbsp;·&nbsp; Verze 1.0</p>
+    <p class="privacy-datum">Platnost od: 11. 10. 2026 &nbsp;·&nbsp; Verze 1.1 &nbsp;·&nbsp; Viz také <a href="podminky.html" class="gdpr-link">Podmínky použití</a></p>
 
     <div class="privacy-sekce">
       <h2>1. Správce osobních údajů</h2>
@@ -130,8 +130,9 @@
       <ul>
         <li><strong>Supabase (Irsko / EU)</strong> — e-mail, hashované heslo, ročník, výsledky úloh, rozpracované sady s konverzacemi, preference, denní počet dotazů na AI a nahlášené chyby.
           Supabase je GDPR-compliantní poskytovatel se serverovými farmami v EU.</li>
-        <li><strong>Tvůj prohlížeč (localStorage)</strong> — profilovka, preference tmavého režimu, cache výsledků.
-          Tato data neopouštějí tvůj počítač.</li>
+        <li><strong>Tvůj prohlížeč (localStorage)</strong> — profilovka, preference tmavého režimu a kopie
+          rozpracovaných sad a statistik, aby aplikace fungovala rychle i bez připojení. Profilovka a tmavý režim
+          prohlížeč neopouštějí.</li>
       </ul>
     </div>
 
@@ -149,13 +150,15 @@
           </tr>
           <tr>
             <td><strong>Anthropic PBC</strong></td>
-            <td>AI kouč — obsah konverzace (text otázek a odpovědí). <em>Neobsahuje osobní údaje.</em></td>
-            <td>USA (Standard Contractual Clauses)</td>
+            <td>AI kouč a tvorba úloh — text úlohy a to, co žák napíše koučovi. Neposíláme jméno, e-mail ani
+              ID účtu. Anthropic tato data nepoužívá k trénování svých modelů a po krátké době je maže.
+              Do chatu proto prosím nepiš osobní údaje.</td>
+            <td>USA (standardní smluvní doložky EU)</td>
           </tr>
           <tr>
             <td><strong>Resend Inc.</strong></td>
             <td>Rozesílání novinek — e-mailová adresa (pouze opt-in uživatelé)</td>
-            <td>USA (Standard Contractual Clauses)</td>
+            <td>USA (standardní smluvní doložky EU)</td>
           </tr>
         </tbody>
       </table>
@@ -168,7 +171,7 @@
         <li><strong>Účet a osobní údaje</strong> — po dobu existence účtu. Po smazání účtu jsou všechna data okamžitě odstraněna.</li>
         <li><strong>Výsledky úloh, počty dotazů na AI a nahlášené chyby</strong> — po dobu existence účtu.</li>
         <li><strong>Rozpracované sady</strong> — do dokončení nebo smazání sady, nejvýš 30 posledních.</li>
-        <li><strong>Lokální data (localStorage)</strong> — do odhlášení nebo do smazání dat v prohlížeči.</li>
+        <li><strong>Lokální data (localStorage)</strong> — do smazání účtu nebo vymazání dat v prohlížeči (přihlašovací token do odhlášení).</li>
         <li><strong>Zálohy Supabase</strong> — automaticky mazány do 30 dnů.</li>
       </ul>
     </div>
@@ -176,10 +179,11 @@
     <div class="privacy-sekce">
       <h2>6. Věkové omezení</h2>
       <p>
-        Aplikace je přístupná osobám <strong>od 16 let</strong>. Mladší uživatelé se mohou registrovat
-        pouze se souhlasem zákonného zástupce. Souhlasem při registraci stvrzuješ, že splňuješ tuto podmínku.
-        Pokud zjistíme, že registraci provedla osoba mladší 16 let bez souhlasu zákonného zástupce, účet
-        bezodkladně smažeme.
+        Sám/sama se můžeš zaregistrovat <strong>od 15 let</strong> (hranice podle § 7 zákona č. 110/2019 Sb.).
+        Mladší žák se může registrovat jen se souhlasem rodiče nebo jiného zákonného zástupce — ideálně tak,
+        že účet založí spolu s ním. Zaškrtnutím souhlasu při registraci stvrzuješ, že tuto podmínku splňuješ.
+        Pokud zjistíme, že účet založil žák mladší 15 let bez souhlasu zákonného zástupce, účet smažeme.
+        Rodič může kdykoli požádat o export nebo smazání dat svého dítěte na e-mailu níže.
       </p>
     </div>
 
@@ -204,10 +208,14 @@
       <ul>
         <li>Session token (přihlášení) — technická nutnost</li>
         <li>Preference tmavého režimu — uživatelské nastavení</li>
-        <li>Cache výsledků — zrychlení načítání</li>
+        <li>Rozpracované sady, konverzace s koučem a statistiky — aby šlo pokračovat i bez připojení</li>
         <li>Profilovka — personalizace rozhraní</li>
       </ul>
-      <p>Tato data jsou uložena pouze ve tvém prohlížeči a při odhlášení jsou smazána.</p>
+      <p>
+        Přihlašovací token se při odhlášení smaže. Rozpracované sady a statistiky v prohlížeči zůstanou
+        uložené pod tvým účtem (jiný uživatel na stejném počítači je neuvidí) a smažou se se smazáním účtu
+        nebo vymazáním dat prohlížeče.
+      </p>
     </div>
 
     <div class="privacy-sekce">

@@ -1786,6 +1786,10 @@ select.apikey-input {
 
 /* ── Footer ── */
 .app-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .4rem 1.4rem;
   text-align: center;
   padding: 1.5rem 1rem 2rem;
   border-top: 1px solid var(--color-border);
