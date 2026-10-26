@@ -2679,3 +2679,87 @@ mark.zvyrazneni { background-repeat: no-repeat; background-size: 100% 100%; }
 }
 .nahlasit-duvod input { margin-top: .15rem; accent-color: var(--color-primary); flex-shrink: 0; }
 .nahlasit-popis { resize: vertical; min-height: 4.5rem; line-height: 1.45; }
+
+/* ── Pomůcky: Moje výpočty + Tahák (pravý panel úlohy) ── */
+.pomucka {
+  margin-top: .9rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.pomucka-hlavicka {
+  list-style: none;
+  cursor: pointer;
+  padding: .65rem .85rem;
+  font-size: .74rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  user-select: none;
+}
+.pomucka-hlavicka::-webkit-details-marker { display: none; }
+.pomucka-hlavicka::after {
+  content: '▾';
+  margin-left: auto;
+  font-size: .9rem;
+  transition: transform var(--transition);
+}
+.pomucka:not([open]) .pomucka-hlavicka::after { transform: rotate(-90deg); }
+.pomucka-hlavicka:hover { color: var(--color-text); }
+.tahak-nazev { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.pomucka-telo { padding: 0 .85rem .85rem; }
+
+.symbol-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem;
+  margin-bottom: .5rem;
+}
+.symbol-btn {
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 .4rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: .95rem;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+.symbol-btn:hover { border-color: var(--color-primary); background: var(--color-primary-soft); }
+
+.pomucka-pole {
+  width: 100%;
+  resize: vertical;
+  min-height: 6rem;
+  padding: .6rem .7rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: .95rem;
+  line-height: 1.55;
+}
+.pomucka-pole:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-soft); }
+
+.pomucka-akce { display: flex; justify-content: flex-end; margin-top: .5rem; }
+.btn-pomucka {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: .45rem .8rem;
+  font-family: var(--font-ui);
+  font-size: .84rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-pomucka:hover { filter: brightness(.97); }
+.pomucka-zprava { font-size: .8rem; color: var(--color-hint); margin-top: .4rem; }
+.pomucka-tip { font-size: .75rem; color: var(--color-text-muted); margin-top: .45rem; }

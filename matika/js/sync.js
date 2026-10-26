@@ -7,6 +7,7 @@
 //     (novější verze vyhrává; sada smazaná jinde zmizí i tady)
 //   • souhrnné statistiky → profiles.vysledky (přičítá se atomicky v DB)
 //   • volba „Slovní úlohy / Jen příklady“ → profiles.typ_uloh
+//   • nastavení pomůcek a taháky k tématům → profiles.nastaveni, profiles.tahaky (migrace 011)
 //
 // S app.js se propojí přes Sync.init(adaptéry) — klíče a formát dat zná app.js.
 
@@ -163,6 +164,34 @@ const Sync = (() => {
       .then(({ error }) => { if (error) console.warn('Synchronizace volby typu úloh selhala:', error.message); });
   }
 
+  // Obecné uložení objektu do sloupce profilu (nastaveni, tahaky)
+  function ulozDoProfilu(sloupec, hodnota) {
+    const uid = _uid();
+    if (!uid) return;
+    _sb().from('profiles').update({ [sloupec]: hodnota }).eq('id', uid)
+      .then(({ error }) => { if (error) console.warn(`Synchronizace ${sloupec} selhala:`, error.message); });
+  }
+
+  // Objekty v profilu, které zná app.js přes adaptér profilObjekty: { sloupec: { nacti, zapis } }.
+  // Server má přednost po klíčích, co na serveru chybí, doplní zařízení.
+  // Samostatný dotaz — když migrace 011 ještě neproběhla, ostatní synchronizace jede dál.
+  async function stahniProfiloveObjekty(uid) {
+    const objekty = _a.profilObjekty || {};
+    const sloupce = Object.keys(objekty);
+    if (!sloupce.length) return false;
+    const { data, error } = await _sb().from('profiles').select(sloupce.join(', ')).eq('id', uid).maybeSingle();
+    if (error) { console.warn('Načtení nastavení a taháků selhalo:', error.message); return false; }
+    let zmena = false;
+    for (const sloupec of sloupce) {
+      const lokalni = objekty[sloupec].nacti();
+      const server  = data?.[sloupec] || {};
+      const spojene = { ...lokalni, ...server };
+      if (JSON.stringify(spojene) !== JSON.stringify(lokalni)) { objekty[sloupec].zapis(spojene); zmena = true; }
+      if (JSON.stringify(spojene) !== JSON.stringify(server)) ulozDoProfilu(sloupec, spojene);
+    }
+    return zmena;
+  }
+
   // Statistiky: u každého tématu platí vyšší čísla (server × zařízení).
   // Volba typu úloh: server má přednost, co na serveru chybí, doplní zařízení.
   async function stahniProfil() {
@@ -177,6 +206,8 @@ const Sync = (() => {
       _a.zapisVysledky(vysledky);
       zmena = true;
     }
+
+    if (await stahniProfiloveObjekty(uid)) zmena = true;
 
     const { data: profil, error: e2 } = await _sb().from('profiles').select('typ_uloh').eq('id', uid).maybeSingle();
     if (e2) { console.warn('Načtení volby typu úloh selhalo:', e2.message); return zmena; }
@@ -198,5 +229,5 @@ const Sync = (() => {
     }
   }
 
-  return { init, naplanujSadu, odesliHned, ulozSadu, smazSadu, stahniSady, stahniProfil, stahniVse, zapisVysledek, ulozTypy };
+  return { init, naplanujSadu, odesliHned, ulozSadu, smazSadu, stahniSady, stahniProfil, stahniVse, zapisVysledek, ulozTypy, ulozDoProfilu };
 })();

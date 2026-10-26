@@ -139,7 +139,8 @@ const App = (() => {
   function _maPokrokVUloze() {
     const e = Engine.getStav();
     return dialogLog.some(m => m.typ === 'student' || m.typ === 'volba')
-      || e.zacatekChyby?.length > 0 || e.pocetNapoved > 0;
+      || e.zacatekChyby?.length > 0 || e.pocetNapoved > 0
+      || Pomucky.getPoznamky().trim() !== '';
   }
 
   // Uloží aktuální sadu. Hotová úloha posune pozici na další, aby se po návratu neopakovala.
@@ -214,6 +215,7 @@ const App = (() => {
       const data = {
         dialogLog:  dialogLog.slice(),
         engineStav: Engine.ulozStav(),
+        poznamky:   Pomucky.getPoznamky(),
       };
       localStorage.setItem(_konvKlic(aktualniTema.sadaId, uloha.id), JSON.stringify(data));
     } catch { /* localStorage plný — tiše ignoruj */ }
@@ -286,6 +288,9 @@ const App = (() => {
     renderProfilTridy();
     document.getElementById('profil-chk-email').checked = profil?.email_updates === true;
     document.getElementById('profil-chk-dark').checked  = document.documentElement.getAttribute('data-theme') === 'dark';
+    const pomucky = Pomucky.nactiNastaveni();
+    document.getElementById('profil-chk-poznamky').checked = pomucky.poznamky;
+    document.getElementById('profil-chk-tahak').checked    = pomucky.tahak;
     document.getElementById('profil-zprava').classList.add('hidden');
     zavriDropdown();
     zobrazScreen('screen-profil');
@@ -508,6 +513,12 @@ const App = (() => {
     const emailOpt   = document.getElementById('profil-chk-email').checked;
     const darkMode   = document.getElementById('profil-chk-dark').checked;
     const sb         = Auth.getSupabase();
+
+    // Pomůcky: uloží se do prohlížeče hned a do účtu přes Sync
+    Pomucky.ulozNastaveni({
+      poznamky: document.getElementById('profil-chk-poznamky').checked,
+      tahak:    document.getElementById('profil-chk-tahak').checked
+    });
     const userId     = Auth.getSession()?.user?.id;
 
     const { error } = await sb.from('profiles')
@@ -1511,6 +1522,8 @@ const App = (() => {
     // Zkus obnovit uloženou konverzaci pro tuto úlohu
     const temaId  = aktualniTema._temaId || aktualniTema.id;
     const ulozena = obnovKonverzaci(aktualniTema.sadaId, uloha.id);
+    const temaUlohy = uloha.temaId || temaId;
+    Pomucky.zobrazProUlohu(temaUlohy, najdiTema(temaUlohy)?.nazev || '', ulozena?.poznamky);
 
     if (ulozena?.engineStav && (ulozena.dialogLog?.length > 0 || ulozena.engineStav.faze === 'zacatek')) {
       // ── Obnova uložené konverzace ─────────────────────────────
@@ -1566,6 +1579,7 @@ const App = (() => {
     document.getElementById('plan-list').innerHTML = '';
     document.getElementById('btn-dalsi').classList.add('hidden');
     document.getElementById('vstup-pole').value = '';
+    Pomucky.vycisti();
     setVstupDisabled(true);
     zobrazPlaceholderPostupu();
   }
@@ -2389,7 +2403,19 @@ const App = (() => {
       nactiVysledky,
       zapisVysledky:     _zapisVysledky,
       nactiTypy:         _nactiTypy,
-      zapisTypy:         _zapisTypy
+      zapisTypy:         _zapisTypy,
+      profilObjekty:     Pomucky.profilObjekty
+    });
+    Pomucky.init({
+      klicUzivatele,
+      poznamkyZmeneny: ulozKonverzaci,
+      vlozDoOdpovedi:  radek => {
+        const pole = document.getElementById('vstup-pole');
+        if (pole.disabled) return;
+        pole.value = pole.value.trim() ? `${pole.value.trim()} ${radek}` : radek;
+        pole.focus();
+        pole.selectionStart = pole.selectionEnd = pole.value.length;
+      }
     });
     initDarkMode();
     initAvatarUpload();

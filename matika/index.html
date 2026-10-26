@@ -232,6 +232,34 @@
               <span class="vypocet-nadpis">🧭 Plán řešení</span>
             </div>
             <ol id="plan-list" class="plan-list" aria-live="polite"></ol>
+
+            <!-- Pomůcky (jdou vypnout v profilu) -->
+            <details id="pomucka-poznamky" class="pomucka">
+              <summary class="pomucka-hlavicka">📝 Moje výpočty</summary>
+              <div class="pomucka-telo">
+                <div id="poznamky-symboly" class="symbol-lista" aria-label="Vložit symbol"></div>
+                <textarea id="poznamky-pole" class="pomucka-pole" rows="6"
+                  placeholder="Tady si počítej — třeba&#10;100 % − 25 % = 75 %&#10;0,75 · x = 900"
+                  aria-label="Moje výpočty k této úloze"></textarea>
+                <div class="pomucka-akce">
+                  <button id="btn-poznamky-vlozit" class="btn-pomucka" type="button" title="Řádek, ve kterém je kurzor, se vloží do odpovědi koučovi">↳ Vložit řádek do odpovědi</button>
+                </div>
+                <p id="poznamky-zprava" class="pomucka-zprava hidden"></p>
+                <p class="pomucka-tip">Poznámky se ukládají k téhle úloze.</p>
+              </div>
+            </details>
+
+            <details id="pomucka-tahak" class="pomucka">
+              <summary class="pomucka-hlavicka">📌 Tahák <span id="tahak-nazev" class="tahak-nazev"></span></summary>
+              <div class="pomucka-telo">
+                <div id="tahak-symboly" class="symbol-lista" aria-label="Vložit symbol"></div>
+                <textarea id="tahak-pole" class="pomucka-pole" rows="8" aria-label="Tahák k tématu"></textarea>
+                <div class="pomucka-akce">
+                  <button id="btn-tahak-vychozi" class="btn-link" type="button">Obnovit původní tahák</button>
+                </div>
+                <p class="pomucka-tip">Tahák je stejný u všech úloh z tohoto tématu — klidně si ho uprav.</p>
+              </div>
+            </details>
             <div class="vypocet-header vypocet-header--postup">
               <span class="vypocet-nadpis">🧮 Vzorový postup</span>
             </div>
@@ -328,6 +356,25 @@
               <div class="profil-checkbox-text">
                 <span class="profil-checkbox-nazev">Tmavý režim</span>
                 <span class="profil-checkbox-popis">Přepne aplikaci do tmavého barevného schématu.</span>
+              </div>
+            </label>
+          </div>
+
+          <!-- Pomůcky při řešení -->
+          <div class="profil-sekce">
+            <h2 class="profil-sekce-nadpis">Pomůcky při řešení</h2>
+            <label class="profil-checkbox-label">
+              <input type="checkbox" id="profil-chk-poznamky" autocomplete="off">
+              <div class="profil-checkbox-text">
+                <span class="profil-checkbox-nazev">Poznámkový blok u úloh</span>
+                <span class="profil-checkbox-popis">Pole „Moje výpočty“ vedle zadání, kam si můžeš počítat. Poznámky se ukládají ke každé úloze.</span>
+              </div>
+            </label>
+            <label class="profil-checkbox-label">
+              <input type="checkbox" id="profil-chk-tahak" autocomplete="off">
+              <div class="profil-checkbox-text">
+                <span class="profil-checkbox-nazev">Tahák k tématům</span>
+                <span class="profil-checkbox-popis">Vzorce a poznámky ke každému tématu, které si můžeš upravit po svém.</span>
               </div>
             </label>
           </div>
@@ -619,6 +666,7 @@
   <script src="js/generator.js"></script>
   <script src="js/daily.js"></script>
   <script src="js/sync.js"></script>
+  <script src="js/pomucky.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/app.js"></script>
 </body>
