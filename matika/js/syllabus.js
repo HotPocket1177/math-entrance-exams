@@ -1,5 +1,22 @@
 // syllabus.js — ŠVP mapa: třída → odemčená témata + filtrace úloh
 
+// ── Aktualizace požadavků CERMAT (26. 10. 2026, čtyřleté obory) ──
+// Učivo vypuštěné z požadavků k přijímací zkoušce. Používá ho generátor
+// (do promptu + kontrola vygenerovaného zadání) i kouč.
+const CERMAT_POZADAVKY = {
+  datum: '26. 10. 2026',
+  // Text do promptů AI
+  prompt: `AKTUÁLNÍ POŽADAVKY CERMAT (aktualizace 26. 10. 2026, čtyřleté obory) — úloha NESMÍ vyžadovat:
+- určení nejmenšího společného násobku nebo největšího společného dělitele TŘÍ a více čísel (jen dvou čísel); žákům 6.–8. třídy nestav úlohu přímo na určení NSN/NSD
+- pravidla pro odmocňování zlomku nebo součinu (např. $\\sqrt{\\frac{a}{b}}$, $\\sqrt{a \\cdot b}$)
+- rozklad výrazu na součin pomocí vzorců $(a+b)^2$, $(a-b)^2$, $a^2-b^2$
+- konstrukci tečny ke kružnici, kružnice opsané trojúhelníku ani Thaletovu kružnici
+- objem nebo povrch válce ani úlohy s koulí (poloměr, průměr)
+Soustavu dvou rovnic se dvěma neznámými zadávat smíš, ale NEPŘEDEPISUJ metodu řešení (dosazovací ani sčítací) — žák si zvolí sám.`,
+  // Zadání, které na vypuštěné učivo nejspíš míří (pojistka po vygenerování)
+  vyloucene: /válc|válec|koul[eií]|thalet|tečn\p{L}* ke kružnic|kružnic\p{L}* opsan|opsan\p{L}* kružnic|rozlož\p{L}* na součin|rozklad\p{L}* na součin|dosazovací metod|sčítací metod/iu
+};
+
 const Syllabus = (() => {
 
   // Která témata a podtypy jsou dostupné pro danou třídu
@@ -119,7 +136,7 @@ const Syllabus = (() => {
     const podtypy = info.podtypy || [];
     const jeVse   = podtypy.includes('vse');
     return tema.ulohy.filter(u =>
-      u.tridy?.includes(trida) && (jeVse || podtypy.includes(u.podtyp))
+      !u.vyrazeno && u.tridy?.includes(trida) && (jeVse || podtypy.includes(u.podtyp))
     );
   }
 

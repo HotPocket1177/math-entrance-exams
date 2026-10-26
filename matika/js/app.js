@@ -1253,7 +1253,7 @@ const App = (() => {
   // (když daného typu není dost, vezme se celý pool — lepší než prázdná sada)
   function statickyPool(temaId, trida, slovni, pocet = TASKS_PER_CYCLE) {
     const pool  = Syllabus.getUlohyProTridu(temaId, trida);
-    const zdroj = pool.length > 0 ? pool : (najdiTema(temaId)?.ulohy || []);
+    const zdroj = pool.length > 0 ? pool : (najdiTema(temaId)?.ulohy || []).filter(u => !u.vyrazeno);
     if (!TEMATA_S_VOLBOU_TYPU.includes(temaId)) return zdroj;
     const zuzeny = zdroj.filter(u => jeSlovniUloha(u) === slovni);
     return zuzeny.length >= pocet ? zuzeny : zdroj;

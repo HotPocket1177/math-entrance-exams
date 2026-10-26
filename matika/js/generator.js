@@ -11,7 +11,7 @@ const Generator = (() => {
     procenta:  'Procenta — zpětný výpočet, složené změny, DPH, procentní nárůst/pokles',
     zlomky:    'Zlomky — operace (sčítání, odčítání, násobení, dělení), zjednodušení, smíšená čísla, reálný kontext',
     rovnice:   'Rovnice a nerovnice — lineární rovnice, soustavy dvou neznámých, zlomkové rovnice, absolutní hodnota',
-    geometrie: 'Geometrie — obsah a obvod rovinných útvarů, Pythagorova věta, tělesa (objem/povrch), souřadnice',
+    geometrie: 'Geometrie — obsah a obvod rovinných útvarů, Pythagorova věta, tělesa (objem/povrch krychle, kvádru a hranolu — NE válec ani koule), souřadnice',
     grafy:     'Grafy a tabulky — průměr, medián, modus, čtení dat z tabulky, procentní změny, lineární funkce',
   };
 
@@ -82,6 +82,8 @@ POSTUP TVORBY (dodržuj pořadí):
 3. Zapište výpočetní kroky (postup) — každý krok musí numericky navazovat na předchozí a vést k výsledku z bodu 2.
 4. Ověř: dosad výsledek zpět do zadání a zkontroluj, že sedí.
 5. Teprve pak vytvoř JSON.
+
+${CERMAT_POZADAVKY.prompt}
 
 Požadavky:
 ${kontext}
@@ -157,6 +159,9 @@ Pokud úloha výslovně žádá zápis zlomku v základním tvaru nebo smíšen�
 
     // Validace povinných polí
     if (!prob.zadani || !prob.odpoved) throw new Error('Neúplný JSON od AI');
+    if (CERMAT_POZADAVKY.vyloucene.test(`${prob.zadani} ${prob.odpoved}`)) {
+      throw new Error(`Úloha ${index + 1} je z učiva vypuštěného z požadavků CERMAT`);
+    }
     const chybaVypoctu = zkontrolujVypocet(prob);
     if (chybaVypoctu) throw new Error(`Úloha ${index + 1} neprošla kontrolou: ${chybaVypoctu}`);
 

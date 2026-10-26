@@ -12,6 +12,6 @@ const CONFIG = {
 
   // ── Verze aplikace (novinky) ──────────────────────────────────
   // Při vydání nové verze změň appVersion — uživatelům se zobrazí modal "Co je nového".
-  appVersion:   'v1.9',
-  appChangelog: 'Rozdělané sady, statistiky i volba „Slovní úlohy / Jen příklady“ se teď ukládají k tvému účtu — začni na počítači a pokračuj na mobilu. Nově taky obnova zapomenutého hesla a tlačítko „Chyba?“, kterým nám nahlásíš chybnou úlohu. A každý nový příklad před zobrazením nezávisle přepočítáme.'
+  appVersion:   'v1.10',
+  appChangelog: 'Aktualizace podle CERMAT (26. 10. 2026): z požadavků k přijímačkám na čtyřleté obory vypadl objem a povrch válce, úlohy s koulí, konstrukce tečny, kružnice opsané a Thaletovy kružnice, rozklad podle vzorců (a ± b)² a a² − b² a pravidla pro odmocňování zlomku a součinu. NSN a NSD se zkoušejí jen pro dvě čísla a u soustav rovnic si metodu řešení vybereš sám. Úlohy v Matice jsme podle toho upravili.'
 };

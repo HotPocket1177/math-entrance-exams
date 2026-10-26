@@ -1105,8 +1105,8 @@ const TEMATA = [
         id: 'z10', tridy: [6,7,8,9], podtyp: 'zakladni',
         zadani: 'Který ze zlomků $\\dfrac{3}{4}$, $\\dfrac{5}{6}$, $\\dfrac{2}{3}$ je největší? Seřaď je od nejmenšího po největší.',
         kroky: [
-          'Najdi NSN jmenovatelů 4, 6 a 3. NSN = ?',
-          'NSN = 12. Převeď: $\\frac{3}{4} = \\frac{?}{12}$, $\\frac{5}{6} = \\frac{?}{12}$, $\\frac{2}{3} = \\frac{?}{12}$.',
+          'Převeď všechny tři zlomky na stejného jmenovatele — hodí se 12, protože se dá vydělit 4, 6 i 3.',
+          'Převeď: $\\frac{3}{4} = \\frac{?}{12}$, $\\frac{5}{6} = \\frac{?}{12}$, $\\frac{2}{3} = \\frac{?}{12}$.',
           'Srovnej čitatele: $\\frac{9}{12}$, $\\frac{10}{12}$, $\\frac{8}{12}$. Seřaď od nejmenšího.'
         ],
         odpoved: '$\\dfrac{2}{3} < \\dfrac{3}{4} < \\dfrac{5}{6}$',
@@ -1198,7 +1198,7 @@ const TEMATA = [
         id: 'z15', tridy: [6,7,8,9], podtyp: 'zakladni',
         zadani: 'Vypočítej: $\\dfrac{1}{2} + \\dfrac{1}{3} + \\dfrac{1}{6}$',
         kroky: [
-          'NSN(2, 3, 6) = 6. Převeď: $\\frac{1}{2} = \\frac{?}{6}$, $\\frac{1}{3} = \\frac{?}{6}$.',
+          'Převeď všechno na šestiny: $\\frac{1}{2} = \\frac{?}{6}$, $\\frac{1}{3} = \\frac{?}{6}$.',
           '$\\frac{3}{6} + \\frac{2}{6} + \\frac{1}{6} = ?$'
         ],
         odpoved: '$1$',
@@ -1541,11 +1541,11 @@ const TEMATA = [
         ]
       },
       {
-        // Zlomková rovnice — NSN, výsledek celé číslo
+        // Zlomková rovnice — společný jmenovatel, výsledek celé číslo
         id: 'r9', tridy: [8,9], podtyp: 'linearni',
         zadani: 'Vyřeš rovnici: $\\dfrac{2x}{3} = \\dfrac{x}{4} + \\dfrac{5}{6}$',
         kroky: [
-          'NSN(3, 4, 6) = 12. Vynásob celou rovnici 12.',
+          'Zbav se zlomků: vynásob celou rovnici číslem 12 (dá se vydělit 3, 4 i 6).',
           '$12 \\cdot \\frac{2x}{3} = 12 \\cdot \\frac{x}{4} + 12 \\cdot \\frac{5}{6} \\Rightarrow 8x = 3x + 10$.',
           '$8x - 3x = 10 \\Rightarrow 5x = 10 \\Rightarrow x = ?$'
         ],
@@ -1988,8 +1988,25 @@ const TEMATA = [
         ]
       },
       {
-        // Objem válce — π × r² × h, desetinné číslo
-        id: 'g9', tridy: [8,9], podtyp: 'obsah_zakladni',
+        // Objem krychle — desetinná hrana (náhrada za válec, viz níže)
+        id: 'g9b', tridy: [8,9], podtyp: 'obsah_zakladni',
+        zadani: 'Krychle má hranu 4,5 cm. Jaký je její objem?',
+        kroky: [
+          'Objem krychle: $V = a \\cdot a \\cdot a = a^3$. Dosaď $a = 4{,}5$.',
+          '$V = 4{,}5 \\cdot 4{,}5 \\cdot 4{,}5 = 20{,}25 \\cdot 4{,}5 = ?$'
+        ],
+        odpoved: '$91{,}125\\text{ cm}^3$',
+        jednotka: 'cm³',
+        kontrola: (vstup) => blizko(vstup, 91.125, 0.0005),  // zaokrouhlení na setiny ano, „91“ ne
+        postup: [
+          { latex: 'V = a^3 = 4{,}5 \\cdot 4{,}5 \\cdot 4{,}5', stav: 'krok' },
+          { latex: 'V = 20{,}25 \\cdot 4{,}5 = 91{,}125 \\text{ cm}^3', stav: 'vysledek' }
+        ]
+      },
+      {
+        // Objem válce — VYŘAZENO: válec není od 26. 10. 2026 v požadavcích CERMAT
+        // (úloha zůstává kvůli rozpracovaným sadám, které ji už obsahují)
+        id: 'g9', tridy: [8,9], podtyp: 'obsah_zakladni', vyrazeno: true,
         zadani: 'Válec má poloměr základny 3 cm a výšku 10 cm. Jaký je jeho objem? (použij $\\pi \\approx 3{,}14$)',
         kroky: [
           'Vzorec: $V = \\pi \\cdot r^2 \\cdot h$. Dosaď $r = 3$, $h = 10$, $\\pi = 3{,}14$.',
